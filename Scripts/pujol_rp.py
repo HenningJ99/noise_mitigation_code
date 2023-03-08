@@ -57,12 +57,6 @@ import scipy
 import datetime
 
 # ---------------------------- INITIALIZATION --------------------------------------------------------------------------
-
-
-# Define local paths
-# path = "/vol/aibn1069/data1/hjansen/simulations/"  # AIFA
-# path = "/vol/euclid5/euclid5_raid3/hjansen/"  # Euclid5
-# path = "/mnt/e/GitHub/Masterarbeit/Masterarbeit/"  # home
 path = sys.argv[5] + "/"
 
 # Create temporary folder for FITS files
@@ -100,19 +94,6 @@ def bootstrap(array, weights, n):
 
     return np.std(np.average(bootstrap, axis=1, weights=weights))
 
-
-# def bootstrap(array, weights, n):
-#     indices = np.random.choice(np.arange(stop=len(array), step=2), size=(int(n/2), len(array)))
-#     indices = np.append(indices, indices + 1, axis=0)
-#     bootstrap = np.take(array, indices, axis=0).reshape(n, -1)
-#     weights = np.take(weights, indices, axis=0).reshape(n, -1)
-#
-#     filter = (np.sum(weights, axis=1) != 0)
-#
-#     bootstrap = bootstrap[filter]
-#     weights = weights[filter]
-#
-#     return np.std(np.average(bootstrap, axis=1, weights=weights))
 
 # ----------------------------- READ INPUT CATALOG----------------------------------------------------------------------
 
@@ -227,7 +208,7 @@ else:
 
 input_positions = []
 input_magnitudes = []
-# input_catalog = QTable(names=('scene_index', 'position_x', 'position_y', 'mag', 'e', 'beta', 'n', 'hlr', 's/n'))
+
 columns = []
 # ------- DETERMINATION OF SKY BACKGROUND FOR THEORETICAL S/N ------------------------------------------------------#
 rng = galsim.UniformDeviate()
@@ -299,21 +280,17 @@ for total_scene_count in range(total_scenes_per_shear):
                                (read_noise ** 2 + (gain / 2) ** 2) * math.pi * (
                                        3 * 0.3 * galaxies["ST_RE_GALFIT"][index]) ** 2))
 
-            # theo_sn = exp_time * 10 ** (-0.4 * (galaxies["ST_MAG_GALFIT"][index] - zp)) / \
-            #           np.sqrt(exp_time * 10 ** (-0.4 * (galaxies["ST_MAG_GALFIT"][index] - zp)) +
-            #                   math.pi * (3 * 0.3 * galaxies["ST_RE_GALFIT"][index]) ** 2 * (gain * sigma_sky) ** 2)
 
             columns.append(
                 [total_scene_count, positions[i][0], positions[i][1], galaxies["ST_MAG_GALFIT"][index], ellips,
                  betas / galsim.radians,
                  galaxies["ST_N_GALFIT"][index], galaxies["ST_RE_GALFIT"][index], theo_sn])
-            # input_catalog.add_row(column)
 
             columns.append(
                 [total_scene_count + 1, positions[i][0], positions[i][1], galaxies["ST_MAG_GALFIT"][index], ellips,
                  (betas + math.pi / 2 * galsim.radians) / galsim.radians,
                  galaxies["ST_N_GALFIT"][index], galaxies["ST_RE_GALFIT"][index], theo_sn])
-            # input_catalog.add_row(column)
+
 
         print(gal_below24_5)
         print(np.average(input_shears))
@@ -323,12 +300,9 @@ for total_scene_count in range(total_scenes_per_shear):
         for i in range(galaxy_number):
             columns[-1 - 2 * (galaxy_number -1 -i)][1] = positions[i][0]
             columns[-1 - 2 * (galaxy_number -1 -i)][2] = positions[i][1]
-            # input_catalog["position_x"][-1-2*i] = positions[i][0]
-            # input_catalog["position_y"][-1-2*i] = positions[i][1]
+
 
     input_magnitudes.append(magnitudes)
-
-    # input_averages.append(np.average(input_shears))
 
     # ------------------------------ DISTRIBUTE WORK TO RAY -----------------------------------------------------------
     # Calculate how many images shall be calculated within one worker
@@ -374,21 +348,6 @@ for total_scene_count in range(total_scenes_per_shear):
         if not futures:
             break
 
-    # # Returns closest neighbours index for the matching of input and output catalog
-    # for m in range(num_shears):
-    #     data = np.genfromtxt(path + "output/source_extractor/" + f"none_pujol_{total_scene_count}_{m}.cat")
-    #
-    #     x_cen = data[:, 7][np.where((data[:, 7] > 16) & (data[:, 7] < complete_image_size - 16) & (data[:, 8] > 16) & (
-    #             data[:, 8] < complete_image_size - 16))]
-    #     y_cen = data[:, 8][np.where((data[:, 7] > 16) & (data[:, 7] < complete_image_size - 16) & (data[:, 8] > 16) & (
-    #             data[:, 8] < complete_image_size - 16))]
-    #
-    #     output_catalog = np.dstack((x_cen, y_cen))[0]
-    #
-    #     results2 = do_kdtree(positions, output_catalog)
-    #
-    #     matched_indices.append(results2)
-
 # --------------------------------- MEASURE CATALOGS ------------------------------------------------------------------
 ids = []
 for scene in range(total_scenes_per_shear):
@@ -400,8 +359,6 @@ scene_count = []
 matching = []
 magnitudes = []
 
-# shear_results = QTable(names=('scene_index', 'shear_index', 'meas_g1', 'position_x','position_y', 'mag_auto',
-#                               'mag_gems', 'mag_gems_optimized', 'S/N', 'matching_index', 'matching_index_optimized'))
 
 columns = np.array(columns, dtype=float)
 input_catalog = Table([columns[:, i] for i in range(9)],
@@ -425,13 +382,11 @@ while ids:
     # If just no further neighbours are found within MAX_DIST, replace their entries with the nearest neighbour
     nearest_positional_neighbors = np.where(nearest_positional_neighbors == -1, np.repeat(nearest_positional_neighbors[:, 0], MAX_NEIGHBORS).reshape(nearest_positional_neighbors.shape), nearest_positional_neighbors)
 
-
     # Catch the case where no neighbour is found within the given distance (noise peaks?)
     if len(nearest_positional_neighbors) != len(results[0][0]):
         print(f"No neighbour within {MAX_DIST} px found for {len(results[0][0]) - len(nearest_positional_neighbors)} galaxies in scene {results[0][3]} at shear {results[0][2]}!")
 
     magnitudes_npn = np.array(input_magnitudes[results[0][3]])[nearest_positional_neighbors]
-
 
     for m in range(len(np.array(results[0][0])[filter])):
         min_deviation = np.argmin(np.abs(np.subtract(magnitudes_npn[m], np.array(results[0][4])[filter][m])))
@@ -442,7 +397,7 @@ while ids:
                         nearest_positional_neighbors[m][0], matching_index, 0 if len(np.unique(nearest_positional_neighbors[m])) == 1
                         else 1 if (np.abs(magnitudes_npn[m][0]-magnitudes_npn[m][1]) > 2) and (len(np.unique(nearest_positional_neighbors[m])) == 2)
                         else 2])
-        # shear_results.add_row(column)
+
 
     ids = not_ready
 
@@ -468,13 +423,8 @@ ascii.write(input_catalog,
 ray.shutdown()
 
 # DELETE ALL CATALOG AND FITS FILES TO SAVE MEMORY
-#os.chdir(path + "output/source_extractor")
-#os.system("rm *.cat")
 os.chdir(path + "output")
 os.system(f"rm -r FITS{index_fits}")
 os.system(f"rm -r source_extractor/{index_fits}")
-#os.system('mkdir ' + path + 'output/rp_simulations/' + f'run_pujol_{date_object}_{current_time}/FITS_org')
-#os.system(
-#    'mv ' + path + 'output/FITS/*.fits' + ' ' + path + 'output/rp_simulations/' + f'run_pujol_{date_object}_{current_time}/FITS_org/')
 
 print(f"{timeit.default_timer() - start} seconds")

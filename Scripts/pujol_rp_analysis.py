@@ -1,32 +1,18 @@
-import random
-
 from astropy.table import Table
-from astropy.io import fits
-from astropy.table import QTable
 from astropy.io import ascii
 import numpy as np
 import sys
-import logging
 import os
-import galsim
 import timeit
 import configparser
 import functions as fct
-import math
-import ray
-import psutil
 from scipy.optimize import curve_fit
-import scipy
-import datetime
 import matplotlib.pyplot as plt
 
 # ---------------------------- INITIALIZATION --------------------------------------------------------------------------
 
-bootstrap_fit = True
-# Define local paths
-# path = "/vol/aibn1069/data1/hjansen/simulations/"  # AIFA
-# path = "/vol/euclid5/euclid5_raid3/hjansen/"  # Euclid5
-# path = "/mnt/e/GitHub/Masterarbeit/Masterarbeit/"  # home
+bootstrap_fit = True # Takes ages
+
 path = sys.argv[5] + "/"
 subfolder = sys.argv[6]
 if not os.path.isdir(subfolder + "/plots"):
@@ -99,14 +85,10 @@ start1 = timeit.default_timer()
 
 data_complete = ascii.read(subfolder + "shear_catalog.dat")
 input_catalogs = ascii.read(subfolder + "input_catalog.dat")
-#print(f"Blending fractions: {round(100 * len(data_complete[data_complete['blending_flag'] == 2]) / len(data_complete), 2)} "
-#      f"% strong blends and {round(100 * len(data_complete[data_complete['blending_flag'] == 1]) / len(data_complete), 2)} % weak blends")
+
 # S/N Cut
 data_complete = data_complete[data_complete["S/N"] > float(simulation["sn_cut"])]
 
-#print(f"Blending fractions after S/N cut: {round(100 * len(data_complete[data_complete['blending_flag'] == 2]) / len(data_complete), 2)} "
- #     f"% strong blends and {round(100 * len(data_complete[data_complete['blending_flag'] == 1]) / len(data_complete), 2)} % weak blends")
-#S/N Cut
 print(100 * len(data_complete["meas_g1"][(data_complete["meas_g1"] >= 5) | (data_complete["meas_g1"] <= -5)]) / len(data_complete["meas_g1"]))
 # Outliers
 data_complete = data_complete[(data_complete["meas_g1"] < 5) & (data_complete["meas_g1"] > -5)]
@@ -141,39 +123,6 @@ for j in range(num_shears):
 
 input_shears = np.array(input_shears)
 input_weights = np.array(input_weights)
-
-
-
-
-
-# ------------------------ OUTLIER REJECTION -------------------------------------------------------------------------#
-# std_outlier = 3.0
-# total_failure = 0
-#
-# data_complete.sort(['scene_index', 'shear_index', 'mag_auto'])
-# test = timeit.default_timer()
-# total_index = 0
-# print(len(data_complete))
-# data_complete = data_complete[(data_complete["mag_auto"] > min_mag) & (data_complete["mag_auto"] < max_mag)]
-# print(len(data_complete))
-# counting_index = 0
-# for i in range(total_scenes_per_shear):
-#     print(i)
-#     for j in range(num_shears):
-#         for mag in range(mag_bins):
-#             filter = ~fct.is_outlier(data_complete["meas_g1"][(data_complete["scene_index"] == i) & (data_complete["shear_index"] == j) & (data_complete["mag_auto"] > magnitudes_list[mag]) & (data_complete["mag_auto"] < magnitudes_list[mag+1])], thresh=std_outlier)
-#             for k in range(len(filter)):
-#                 if filter[k] == False:
-#                     data_complete.remove_row(counting_index)
-#                     total_failure += 1
-#                 else:
-#                     counting_index += 1
-#
-# print(timeit.default_timer() - test)
-# print(len(data_complete))
-# print(f"Outlier fraction: {100 * total_failure / len(data_complete)} %")
-
-
 
 masks = []
 # For uncertainty behaviour analyse after every run
@@ -417,23 +366,7 @@ meas_weights = np.squeeze(np.array(meas_weights))
 
 
 sorting_time = timeit.default_timer() - start_sorting
-# ------- OUTLIER DETECTION -------------- #
-# std_outlier = 3.5
-# for i in range(len(magnitudes_list)):
-#     print(100 * len(meas1_weights_small[i][fct.is_outlier(np.subtract(meas1_averages_small[i], meas0_averages_small[i]), thresh=std_outlier)]) / (total_scenes_per_shear/2))
-#     meas1_weights_small[i][fct.is_outlier(np.subtract(meas1_averages_small[i], meas0_averages_small[i]), thresh=std_outlier)] = 0
-#     meas0_weights_small[i][fct.is_outlier(np.subtract(meas1_averages_small[i], meas0_averages_small[i]), thresh=std_outlier)] = 0
-#
-#     print(100 * len(meas1_weights[i][fct.is_outlier(np.subtract(meas1_averages[i], meas0_averages[i]), thresh=std_outlier)]) / (total_scenes_per_shear/2))
-#     meas1_weights[i][fct.is_outlier(np.subtract(meas1_averages[i], meas0_averages[i]), thresh=std_outlier)] = 0
-#     meas0_weights[i][fct.is_outlier(np.subtract(meas1_averages[i], meas0_averages[i]), thresh=std_outlier)] = 0
-#
-#     print(100 * len(meas_weights[i][fct.is_outlier(meas_averages[i], thresh=std_outlier)]) / (total_scenes_per_shear/2))
-#     meas_weights[i][fct.is_outlier(meas_averages[i], thresh=std_outlier)] = 0
-#
-#     print(100 * len(meas_weights_small[i][fct.is_outlier(meas_averages_small[i], thresh=std_outlier)]) / (total_scenes_per_shear/2))
-#     meas_weights_small[i][fct.is_outlier(meas_averages_small[i], thresh=std_outlier)] = 0
-#     print("\n")
+
 start_rest = timeit.default_timer()
 output_shears = [[] for _ in range(len(magnitudes_list))]
 output_errors = [[] for _ in range(len(magnitudes_list))]
@@ -542,16 +475,6 @@ for scene in range(analyse_every-1, total_scenes_per_shear, analyse_every):
 
                         popt_s_all.append(popt_s)
 
-            # if scene == 119 and mag == 6:
-            #     mm = 1 / 25.4
-            #     fig, axs = plt.subplots(1, 2, figsize=(176*mm, 88*mm))
-            #
-            #     for i in range(len(popt_all)):
-            #
-            #         axs[0].plot(np.array(shears), linear_function(np.array(shears), popt_all[i][0], popt_all[i][1]), linewidth=0.5)
-            #
-            #     axs[1].hist(x=np.array(popt_all)[:, 0])
-            #     fig.savefig(subfolder + 'test.png', dpi=200, bbox_inches="tight")
             time_fit += timeit.default_timer() - start_fit
             error_fit_m_large = np.std(np.array(popt_all)[:,0])
             error_fit_c_large = np.std(np.array(popt_all)[:,1])
@@ -591,12 +514,7 @@ for scene in range(analyse_every-1, total_scenes_per_shear, analyse_every):
             else:
                 output_shear.append(-1)
                 output_err.append(-1)
-        # print(np.mean(data_complete["meas_g1"][(data_complete["scene_index"] <= scene) & (data_complete["shear_index"] < 10) & (
-        #                                                                         data_complete[
-        #                                                                             bin_type] > lower_limit) & (
-        #                                                                         data_complete[
-        #                                                                             bin_type] < upper_limit)]))
-        #print(np.average(meas0_averages[mag][:int((scene + 1) / division)], weights=meas0_weights[mag][:int((scene +1) / division)]))
+
         filter = np.where(np.array(output_shear) != -1)[0]
         popt, pcov = curve_fit(linear_function, np.array(shears),
                                np.average(input_shears[:, :, :scene], weights=input_weights[:, :, :scene], axis=2)[:,
@@ -622,7 +540,7 @@ for scene in range(analyse_every-1, total_scenes_per_shear, analyse_every):
         ax.plot(np.linspace(-0.1, 0.1, 10), linear_function(np.linspace(-0.1, 0.1, 10), *popt), alpha=0.7)
         ax.plot(np.array(shears), r, "+")
         ax.hlines(0.0, -0.1, 0.1, linestyle="dashed", alpha=0.8)
-        #ax.plot(np.array(shears), np.average(input_shears[:, :, :scene], weights=input_weights[:, :, :scene], axis=2)[:, mag], "+--")
+
         ax.set_xlabel("$g_1^t$")
         ax.set_ylabel("$<g_1^{obs}>-g_1^t$")
         fig.savefig(subfolder + f"/plots/{scene}_{mag}.png", dpi=200, bbox_inches="tight")
@@ -649,7 +567,7 @@ for scene in range(analyse_every-1, total_scenes_per_shear, analyse_every):
 
         c_bias = np.average(output_shear)
         c_bias_err = np.sqrt(np.sum(np.square(output_err))) / len(output_shear)
-        # print(f"C-bias as average of output averages: {c_bias} pm {c_bias_err}")
+
 
         if num_shears == 11:
             individual_biases = []
@@ -686,23 +604,6 @@ for scene in range(analyse_every-1, total_scenes_per_shear, analyse_every):
                 individual_biases.append(bias_small)
                 individual_biases_err.append(bias_small_err)
                 individual_biases_err_err.append(bias_small_err_err)
-        # #--- OUTLIER DETECTION
-        # if scene == (total_scenes_per_shear-1):
-        #     std_outlier = 3.5
-        #     masks.append([~fct.is_outlier(x, thresh=std_outlier) for x in [meas0_averages, meas1_averages, meas_averages, meas_averages_small]])
-        # else:
-        #     masks[mag] = [x[:-1] for x in masks[mag]]
-        #
-        #
-        # meas_averages = meas_averages[masks[mag][2]]
-        # meas_weights = meas_weights[masks[mag][2]]
-        # meas0_averages = meas0_averages[masks[mag][0]]
-        # meas0_weights = meas0_weights[masks[mag][0]]
-        # meas1_averages = meas1_averages[masks[mag][1]]
-        #
-        # meas1_weights = meas1_weights[masks[mag][1]]
-        # meas_averages_small = meas_averages_small[masks[mag][3]]
-        # meas_weights_small = meas_weights_small[masks[mag][3]]
 
         # -------------------- C-BIAS TREATMENTS -----------------------------#
         if np.sum(meas_weights[mag][:int((scene + 1) / division)]) != 0:
@@ -740,7 +641,7 @@ for scene in range(analyse_every-1, total_scenes_per_shear, analyse_every):
                 individual_c_biases.append(c_bias_s)
                 individual_c_biases_err.append(c_bias_err_s)
                 individual_c_biases_err_err.append(c_bias_err_err_s)
-        #print(individual_biases, individual_c_biases)
+
         if np.sum(meas1_weights[mag][:int((scene + 1) / division)]) != 0 and np.sum(
                 meas0_weights[mag][:int((scene + 1) / division)]) != 0:
 
@@ -752,7 +653,6 @@ for scene in range(analyse_every-1, total_scenes_per_shear, analyse_every):
             bias = (np.average(meas1_averages[mag][:int((scene + 1) / division)], weights=meas1_weights[mag][:int((scene + 1) / division)])-
                     np.average(meas0_averages[mag][:int((scene + 1) / division)], weights=meas0_weights[mag][:int((scene + 1) / division)])) / (shears[1] - shears[0]) -1
 
-            # err = np.sqrt(meas1_stats[1]**2 + meas0_stats[1]**2)/(shears[1] - shears[0])
 
             err = bias_data[1]
 
@@ -765,7 +665,6 @@ for scene in range(analyse_every-1, total_scenes_per_shear, analyse_every):
                               range(10)])
             # BIAS FROM RESPONSE MEAN (WEIGHTED)
 
-            # responses_update = [np.average(responses[i*(num_shears-1):(i+1)*(num_shears-1)]) for i in rangeint((scene+1)/division)]
             responses_update = [(meas1_averages[mag][:int((scene + 1) / division)][i] -
                                  meas0_averages[mag][:int((scene + 1) / division)][i]) / (shears[1] - shears[0]) - 1 for
                                 i in
@@ -820,9 +719,6 @@ for scene in range(analyse_every-1, total_scenes_per_shear, analyse_every):
 
 
         if num_shears == 11:
-            #individual_biases = [(individual_biases[z] + individual_biases[-z-1]) / 2 for z in range(5)]
-            #individual_biases_err = [np.sqrt(individual_biases_err[z] ** 2 + individual_biases_err[-z] ** 2) / 2 for z
-            #                         in range(5)]
             with open(path + "output/rp_simulations/pujol_individual_biases.txt", "a") as file:
                 file.write("%d\t %d\t %d\t %.7f\t %.7f\t %.7f\t %.7f\t %.7f\t %.7f\t %.7f\t %.7f\t %.7f\t %.7f\t %.7f\t %.7f\t %.7f\t %.7f\t %.7f\t %.7f\t %.7f\t %.7f\t %.7f\t %.7f\n" %
                            (complete_image_size, galaxy_number, scene+1, individual_biases[0], individual_biases_err[0],

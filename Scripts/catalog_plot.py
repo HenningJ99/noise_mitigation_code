@@ -369,7 +369,7 @@ for run in range(file_number):
                     error_minus = (-1, -1)
 
                 if i == 0:
-                    with open(path + "output/catalog_outputs/fits.txt", "a") as file:
+                    with open(path + "output/rp_simulations/fits.txt", "a") as file:
                         file.write("%s\t %d\t %d\t %d\t %.7f\t %.7f\t %.7f\t %.7f\t %d\t %.1f\t %.7f\t %.7f\n" %
                                    ("none", sim_size, galaxy_num, run,
                                     popt[0], error[0], popt[1], error[1],
@@ -386,7 +386,7 @@ for run in range(file_number):
 
             else:
                 if i == 0:
-                    with open(path + "output/catalog_outputs/fits.txt", "a") as file:
+                    with open(path + "output/rp_simulations/fits.txt", "a") as file:
                         file.write("%s\t %d\t %d\t %d\t %.7f\t %.7f\t %.7f\t %.7f\t %d\t %.1f\t %.7f\t %.7f\n" %
                                    ("none", sim_size, galaxy_num, run,
                                     1, 1, 1, 1,
@@ -436,7 +436,7 @@ for run in range(file_number):
                                   np.where((shape_noise_err == -1) | (shape_noise_err == 0))), fmt="+", capsize=2,
                         label="shape", color="green", alpha=0.5)
 
-            with open(path + "output/catalog_outputs/fits.txt", "a") as file:
+            with open(path + "output/rp_simulations/fits.txt", "a") as file:
                 file.write("%s\t %d\t %d\t %d\t %.7f\t %.7f\t %.7f\t %.7f\t %d\t %.1f\t %.7f\t %.7f\n" %
                            ("shape", sim_size, galaxy_num, run,
                             popt[0], error[0], popt[1], error[1],
@@ -444,7 +444,7 @@ for run in range(file_number):
                             + (run + 1) * shear_bins * 2 * scene_creation, magnitudes_list[m],
                             (error_plus[0] - error_minus[0]) / 2, (error_plus[1] - error_minus[1]) / 2))
         else:
-            with open(path + "output/catalog_outputs/fits.txt", "a") as file:
+            with open(path + "output/rp_simulations/fits.txt", "a") as file:
                 file.write("%s\t %d\t %d\t %d\t %.7f\t %.7f\t %.7f\t %.7f\t %d\t %.1f\t %.7f\t %.7f\n" %
                            ("shape", sim_size, galaxy_num, run,
                             1, 1, 1, 1,
@@ -494,7 +494,7 @@ for run in range(file_number):
                                   np.where((both_noise_err == -1) | (both_noise_err == 0))), fmt="+", capsize=2,
                         label="both", color="black", alpha=0.5)
 
-            with open(path + "output/catalog_outputs/fits.txt", "a") as file:
+            with open(path + "output/rp_simulations/fits.txt", "a") as file:
                 file.write("%s\t %d\t %d\t %d\t %.7f\t %.7f\t %.7f\t %.7f\t %d\t %.1f\t %.7f\t %.7f\n" %
                            ("both", sim_size, galaxy_num, run,
                             popt[0], error[0], popt[1], error[1],
@@ -502,7 +502,7 @@ for run in range(file_number):
                             + (run + 1) * shear_bins * scene_creation * 4, magnitudes_list[m],
                             (error_plus[0] - error_minus[0]) / 2, (error_plus[1] - error_minus[1]) / 2))
         else:
-            with open(path + "output/catalog_outputs/fits.txt", "a") as file:
+            with open(path + "output/rp_simulations/fits.txt", "a") as file:
                 file.write("%s\t %d\t %d\t %d\t %.7f\t %.7f\t %.7f\t %.7f\t %d\t %.1f\t %.7f\t %.7f\n" %
                            ("both", sim_size, galaxy_num, run,
                             1, 1, 1, 1, shear_bins * galaxy_num * (run + 1) * (2 + 4 * noise_plus_meas)
@@ -514,7 +514,7 @@ for run in range(file_number):
         ax.set_xlabel("$g_1^\mathrm{true}$")
         ax.set_ylabel("$g_1^\mathrm{meas}-g_1^\mathrm{true}$")
         if m == 6:
-            fig.savefig(path + "output/catalog_outputs/" + f"catalog_results_{run}_{m}.pdf", dpi=300,
+            fig.savefig(path + "output/rp_simulations/" + f"catalog_results_{run}_{m}.pdf", dpi=300,
                         bbox_inches='tight')
         plt.close()
 

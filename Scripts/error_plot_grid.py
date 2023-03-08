@@ -26,18 +26,19 @@ simulation = config['SIMULATION']
 mag_bins = int(simulation["bins_mag"])
 time_bins = int(simulation["time_bins"])
 
+# Read in the relevant parameters from the temporary fit file
 if sys.argv[2] == "M":
-    data_complete = np.genfromtxt(path+"output/plots/error_with_real/tmp.txt", skip_footer=(mag_bins+1) * time_bins, usecols=(0,4,5, 11, 10, 12)) # 4,5, for m-bias | 6,7 for c-
-    data_puyol_compl = np.genfromtxt(path+"output/plots/error_with_real/tmp.txt", skip_header=3 * (mag_bins+1) * time_bins, usecols=(0, 7, 8, 12, 11, 18)) # 7,8 for m-bias | 13,14 for c-bias
+    data_complete = np.genfromtxt(path+"output/grid_simulations/tmp.txt", skip_footer=(mag_bins+1) * time_bins, usecols=(0,4,5, 11, 10, 12)) # 4,5, for m-bias | 6,7 for c-
+    data_puyol_compl = np.genfromtxt(path+"output/grid_simulations/tmp.txt", skip_header=3 * (mag_bins+1) * time_bins, usecols=(0, 7, 8, 12, 11, 18)) # 7,8 for m-bias | 13,14 for c-bias
 elif sys.argv[2] == "C":
-    data_complete = np.genfromtxt(path + "output/plots/error_with_real/tmp.txt", skip_footer=(mag_bins+1) * time_bins,
+    data_complete = np.genfromtxt(path + "output/grid_simulations/tmp.txt", skip_footer=(mag_bins+1) * time_bins,
                                   usecols=(0, 6, 7, 11, 10, 13))  # 4,5, for m-bias | 6,7 for c-
-    data_puyol_compl = np.genfromtxt(path + "output/plots/error_with_real/tmp.txt", skip_header=3 * (mag_bins+1) * time_bins,
+    data_puyol_compl = np.genfromtxt(path + "output/grid_simulations/tmp.txt", skip_header=3 * (mag_bins+1) * time_bins,
                                      usecols=(0, 13, 14, 12, 11, 19))  # 7,8 for m-bias | 13,14 for c-bias
-test1 = np.genfromtxt(path+"output/plots/error_with_real/tmp.txt", skip_footer=(mag_bins+1) * time_bins, usecols=(0,1,2,3))
+test1 = np.genfromtxt(path+"output/grid_simulations/tmp.txt", skip_footer=(mag_bins+1) * time_bins, usecols=(0,1,2,3))
 num_meas = test1[:,0] * test1[:,2] * test1[:,3]
 
-test2 = np.genfromtxt(path+"output/plots/error_with_real/tmp.txt", skip_header=3 * (mag_bins+1) * time_bins, usecols=(0, 1))
+test2 = np.genfromtxt(path+"output/grid_simulations/tmp.txt", skip_header=3 * (mag_bins+1) * time_bins, usecols=(0, 1))
 num_meas_pujol = test2[:,0] * 11
 
 
@@ -202,7 +203,7 @@ for mag in range(mag_bins+1):
     #axs[0].set_title("Test")
 
     if sys.argv[2] == "M":
-        fig.savefig(path+f'output/plots/error_with_real_run10_{magnitude_list[mag]}.pdf', dpi=300, bbox_inches='tight')
+        fig.savefig(path+f'output/plots/grid_{magnitude_list[mag]}.pdf', dpi=300, bbox_inches='tight')
     elif sys.argv[2] == "C":
-        fig.savefig(path + f'output/plots/error_with_real_run10_{magnitude_list[mag]}_c_bias.pdf', dpi=300,
+        fig.savefig(path + f'output/plots/grid_{magnitude_list[mag]}_c_bias.pdf', dpi=300,
                     bbox_inches='tight')

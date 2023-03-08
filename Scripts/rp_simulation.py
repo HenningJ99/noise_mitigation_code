@@ -200,12 +200,9 @@ input_positions = []
 input_positions_2 = []
 
 input_magnitudes = []
-# convolution_times = [[[], []] for _ in range (20)]
-time = 0
-# input_distribution = [[],[]]
 
-# input_catalog = QTable(
-# names=('scene_index', 'shear_index', 'cancel_index', 'position_x', 'position_y', 'mag', 'e', 'beta', 'n', 'hlr', 's/n'))
+time = 0
+
 
 # ------- DETERMINATION OF SKY BACKGROUND FOR THEORETICAL S/N ------------------------------------------------------#
 rng = galsim.UniformDeviate()
@@ -254,24 +251,9 @@ for scene in range(total_scenes_per_shear):
         input_positions.append(positions)
         input_positions_2.append(positions_2)
         for i in range(galaxy_number):
-
-            #if i % 2 == 0:
             ellips = fct.generate_ellipticity(ellip_rms, ellip_max)
             betas = random.random() * 2 * math.pi * galsim.radians
-            #else:
-             #   betas += math.pi / 2 * galsim.radians
 
-            #            count = 0
-            #            mytree = scipy.spatial.cKDTree(input_positions[scene*20+m])
-            #            # print(x[i][9])
-            #            dd, ii = mytree.query(input_positions[scene*20+m][i], k=[count+1])
-            #
-            #            while dd < 5 * 0.3 * galaxies["ST_RE_GALFIT"][index]:
-            #                count += 1
-            #                dd, ii = mytree.query(input_positions[scene*20+m][i], k=[count+1])
-            #                # print(dd)
-            #            input_distribution[0].append(count-1)
-            #            input_distribution[1].append(galaxies["ST_MAG_GALFIT"][index])
             index = random.randint(0, len(galaxies["GEMS_FLAG"]) - 1)
             magnitudes.append(galaxies["ST_MAG_GALFIT"][index])
 
@@ -332,7 +314,7 @@ for scene in range(total_scenes_per_shear):
                                     galaxies["ST_MAG_GALFIT"][index], ellips, betas / galsim.radians,
                                     galaxies["ST_N_GALFIT"][index], galaxies["ST_RE_GALFIT"][index], theo_sn])
 
-                # input_catalog.add_row(column)
+
         if sys.argv[6] != "RANDOM_GAL":
             gal_list2 = gal_list
 
@@ -379,9 +361,6 @@ for scene in range(total_scenes_per_shear):
                     stamp_shape_pixel.append(x[3])
                 else:
                     failure_counter += 1
-
-                    # convolution_times[m][0].append(x[4][0])
-                    # convolution_times[m][1].append(x[4][1])
 
             futures = not_ready
             if not futures:
@@ -432,10 +411,6 @@ magnitudes = [[] for _ in range(4)]
 magnitudes_list = [min_mag + k * (max_mag - min_mag) / (mag_bins) for k in range(mag_bins + 1)]
 measure_arrays = [none_measures, shape_measures, none_pixel_measures, shape_pixel_measures]
 neighbour_dist = [[], []]
-
-# shear_results = QTable(
-#     names=('scene_index', 'shear_index', 'cancel_index', 'input_g1', 'position_x', 'position_y', 'meas_g1', 'mag_auto',
-#            'mag_gems', 'mag_gems_optimized', 'S/N', 'matching_index', 'matching_index_optimized'))
 
 columns = []
 while ids:
@@ -490,7 +465,7 @@ while ids:
                      nearest_positional_neighbors[gal][0], matching_index, 0 if len(np.unique(nearest_positional_neighbors[gal])) == 1
                      else 1 if (np.abs(magnitudes_npn[gal][0]-magnitudes_npn[gal][1]) > 2) and (len(np.unique(nearest_positional_neighbors[gal])) == 2)
                     else 2])
-                # shear_results.add_row(column)
+
 
     ids = not_ready
 
@@ -511,17 +486,11 @@ ascii.write(input_catalog, path + 'output/rp_simulations/' + f'run_lf_{date_obje
 ascii.write(shear_results, path + 'output/rp_simulations/' + f'run_lf_{date_object}_{current_time}_{sys.argv[6]}/shear_catalog.dat',
             overwrite=True)
 
-# shear_results.write(path + 'output/rp_simulations/' + f'run_lf_{date_object}_{current_time}/shear_catalog.fits',
-#                     format='fits')
 
 # DELETE CATALOGUES AND FITS FILES TO SAVE MEMORY
-#os.chdir(path + "output/source_extractor")
-#os.system("rm *.cat")
 os.chdir(path + "output")
 os.system(f"rm -r FITS{index_fits}")
 os.system(f"rm -r source_extractor/{index_fits}")
-#os.system('mkdir ' + path + 'output/rp_simulations/' + f'run_lf_{date_object}_{current_time}_{sys.argv[6]}/FITS_org')
-#os.system(
-#   'mv ' + path + 'output/FITS/*.fits' + ' ' + path + 'output/rp_simulations/' + f'run_lf_{date_object}_{current_time}_{sys.argv[6]}/FITS_org/')
+
 
 ray.shutdown()

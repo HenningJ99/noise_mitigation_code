@@ -19,10 +19,6 @@ label = simulation["bin_type"]
 
 data = np.genfromtxt(filename, delimiter="\t")
 
-# print(no_cancel)
-# magnitudes = [20.9, 21.8, 22.6, 23.4, 24.1]
-# magnitudes = [21, 22, 23, 24, 25]
-
 
 mag_max = float(simulation["max_mag"])
 mag_min = float(simulation["min_mag"])
@@ -63,30 +59,18 @@ if type == "RP":
 
         axs[0].set_yscale('log')
         axs[1].set_yscale('log')
-        # axs[0].set_ylim(0.6, 90)
-        # f = ScalarFormatter()
-        # f.set_scientific(False)
-        # axs.yaxis.set_minor_formatter(f)
 
         axs[0].legend(prop={'size': 6})
         axs[1].legend(prop={'size': 6})
 
         axs[0].set_xlabel(r'$m_\mathrm{AUTO}$')
         axs[1].set_xlabel(r'$m_\mathrm{GEMS}$')
-        # if label == "GEMS":
-        #     axs.set_xlabel(r'$m_{\mathrm{GEMS}}$')
-        # elif label == "MAG_AUTO":
-        #     axs.set_xlabel(r'$m_{\mathrm{AUTO}}$')
-        # elif label == "MAG_ADAMOM":
-        #     axs.set_xlabel(r'$m_{\mathrm{ADAMOM}}$')
-        # elif label == "MEAS":
-        #     axs.set_xlabel(r'$m_\mathrm{MEAS}$')
+
 
         axs[0].set_ylabel('Runtime improvement')
         fig.savefig(filename.split('.')[0] + '.pdf', dpi=300, bbox_inches='tight')
 elif type == "GRID":
     fig, axs = plt.subplots(constrained_layout=True, figsize=(88 * mm, 88 * mm))
-    # magnitudes = magnitudes[:-1]
 
     no_cancel = data[0::4]
     shape_noise = data[1::4]
@@ -116,14 +100,7 @@ elif type == "GRID":
 
     axs.legend(prop={'size': 6})
     axs.set_xlabel(r'$m_\mathrm{GEMS}$')
-    # if label == "GEMS":
-    #     axs.set_xlabel(r'$m_{\mathrm{GEMS}}$')
-    # elif label == "MAG_AUTO":
-    #     axs.set_xlabel(r'$m_{\mathrm{AUTO}}$')
-    # elif label == "MAG_ADAMOM":
-    #     axs.set_xlabel(r'$m_{\mathrm{ADAMOM}}$')
-    # elif label == "MEAS":
-    #     axs.set_xlabel(r'$m_\mathrm{MEAS}$')
+
 
     axs.set_ylabel('Runtime improvement')
     fig.savefig(filename.split('.')[0] + '.pdf', dpi=300, bbox_inches='tight')

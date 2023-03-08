@@ -17,9 +17,6 @@ os.system('mkdir ' + folder1.split("run")[-2] + 'merged_catalogs/mergers')
 with open(folder1.split("run")[-2] + 'merged_catalogs/info.txt', 'w') as file:
     file.write(f'{folder1} merged with {folder2}')
 
-# if type != "gr":
-#     # Copy fits files from first folder
-#     shutil.copytree(folder1 + "/FITS_org", folder1.split("run")[-2] + "merged_catalogs/FITS_org")
 
 # Add the two shear catalogs
 obs1 = ascii.read(folder1 + "/shear_catalog.dat", fast_reader={'chunk_size': 100 * 1000000})
@@ -68,23 +65,4 @@ else:
 
 ascii.write(output, folder1.split("run")[-2] + 'merged_catalogs/input_catalog.dat',
             overwrite=True)
-
-
-# if type != "gr":
-#     # Copy and rename the FITS files from the second folder
-#     for file in os.listdir(folder2 + '/FITS_org'):
-#         if type == "lf":
-#             split = file.split("_")
-#             scene_index = int(split[1])
-#             scene_index += (np.max(obs1["scene_index"]) +1)
-#             shutil.copy(os.path.join(folder2 + '/FITS_org', file), folder1.split("run")[-2] + "merged_catalogs/FITS_org/" + f'catalog_{int(scene_index)}_{split[2]}_{split[3]}')
-#         elif type == "puj":
-#             scene_index = int(file.split("_")[-2])
-#             scene_index += (np.max(obs1["scene_index"]) + 1)
-#             shutil.copy(os.path.join(folder2 + '/FITS_org', file),
-#                         folder1.split("run")[-2] + "merged_catalogs/FITS_org/" + f'catalog_none_pujol_{int(scene_index)}_' + file.split("_")[-1])
-#
-#     #Remove duplicates in the individual folders
-#     os.system('rm -r ' + folder2 + '/FITS_org')
-#     os.system('rm -r ' + folder1 + '/FITS_org')
 
