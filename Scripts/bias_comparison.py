@@ -143,7 +143,7 @@ for biases in ["M", "C"]:
             axs.set_xlabel("$m_{\mathrm{AUTO}}$")
             axs.set_ylabel("$\mu$-bias")
             # axs.grid(True)
-            axs.set_xlim(20.5, magnitudes[-2])
+            axs.set_xlim(20.5, magnitudes[-1])
 
         # For the grid
         elif type == "GR":
@@ -205,7 +205,7 @@ for biases in ["M", "C"]:
                 lines[3].set(visible=True)
             axs.set_xlabel("$m_{\mathrm{GEMS}}$")
             axs.set_ylabel("$\mu$-bias")
-            axs.set_xlim(20.5, magnitudes[-2])
+            axs.set_xlim(20.5, magnitudes[-1])
             # axs.grid(True)
 
     # Additive biases
@@ -239,7 +239,7 @@ for biases in ["M", "C"]:
             axs.errorbar(magnitudes + 0.8, data_pu[:, 18], yerr=data_pu[:, 19], fmt="+", capsize=2, label="RM")
             axs.set_xlabel("$m_{\mathrm{AUTO}}$")
             axs.set_ylabel("$c$-bias")
-            axs.set_xlim(20.5, magnitudes[-2])
+            axs.set_xlim(20.5, magnitudes[-1])
 
         elif type == "GR":
             axs.set_title("Grid")
@@ -267,7 +267,7 @@ for biases in ["M", "C"]:
             # axs.grid(True)
             #
 
-            axs.set_xlim(20.5, magnitudes[-2])
+            axs.set_xlim(20.5, magnitudes[-1])
 
     axs.legend(prop={'size': 6})
 

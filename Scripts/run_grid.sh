@@ -71,42 +71,42 @@ then
 
   if [[ $compare -eq 1 ]]
   then
-    python3 pujol_grid_analysis.py $pujol_num 1 2 $puj_folder
+    python3 pujol_grid_analysis.py $pujol_num 1 2 $puj_folder $path
   else
-    python3 pujol_grid_analysis.py $pujol_num 1 11 $puj_folder
+    python3 pujol_grid_analysis.py $pujol_num 1 11 $puj_folder $path
   fi
 
   # --------------------- EXTRACTION FROM OUTPUT FILES -----------------------------------------------------------#
-  tail ${path}/output/grid_simulations/fits.txt -n $((3 * time_bins * (mag_bins+1))) >> $path/output/grid_simulations/tmp.txt
-  tail $puj_folder/puyol_results.txt -n $((time_bins * (mag_bins+1))) >> $path/output/grid_simulations/tmp.txt
+  tail ${path}/output/grid_simulations/fits.txt -n $((4 * time_bins * (mag_bins+1))) >> $path/output/grid_simulations/tmp.txt
+  #tail $puj_folder/puyol_results.txt -n $((time_bins * (mag_bins+1))) >> $path/output/grid_simulations/tmp.txt
 
   # --------------------- UNCERTAINTY BEHAVIOUR PLOTS --------------------------------------------------------------#
   python3 error_plot_grid.py $path M
 
-  tail ${path}/output/grid_simulations/error_scaling.txt -n $((4 * (mag_bins+1))) >> $path/output/plots/tmp_binned_improvement.txt
+  tail ${path}/output/grid_simulations/error_scaling.txt -n $((4 * (mag_bins+1))) >> $path/output/plots/binned_improvement_m.txt
 
-  python3 plot_binned_data.py $path/output/plots/tmp_binned_improvement.txt config_grid.ini $shear_interval GRID
+  python3 plot_binned_data.py $path/output/plots/binned_improvement_m.txt config_grid.ini $shear_interval GRID
 
   python3 error_plot_grid.py $path C
 
-  tail ${path}/output/grid_simulations/error_scaling.txt -n $((4 * (mag_bins+1))) >> $path/output/plots/tmp_binned_improvement_c.txt
+  tail ${path}/output/grid_simulations/error_scaling.txt -n $((4 * (mag_bins+1))) >> $path/output/plots/binned_improvement_c.txt
 
-  python3 plot_binned_data.py $path/output/plots/tmp_binned_improvement_c.txt config_grid.ini $shear_interval GRID
+  python3 plot_binned_data.py $path/output/plots/binned_improvement_c.txt config_grid.ini $shear_interval GRID
 
   # ---------------------- DIRECT OUTPUT FOR BETTER BIAS COMPARISON -------------------------------------------------#
-  head $path/output/grid_simulations/tmp.txt -n $((mag_bins+1)) >> $path/output/grid_simulations/tmp_gr_bias.txt
-  head $path/output/grid_simulations/tmp.txt -n $(((mag_bins+1) * time_bins + (mag_bins+1))) | tail -n $((mag_bins+1)) >> $path/output/grid_simulations/tmp_gr_bias.txt
-  head $path/output/grid_simulations/tmp.txt -n $((2*(mag_bins+1) * time_bins + (mag_bins+1))) | tail -n $((mag_bins+1)) >> $path/output/grid_simulations/tmp_gr_bias.txt
-  tail $path/output/grid_simulations/tmp.txt -n $((time_bins * (mag_bins+1))) | head -n $((mag_bins+1)) >> $path/output/grid_simulations/tmp_gr_bias.txt
+  head $path/output/grid_simulations/tmp.txt -n $((mag_bins+1)) >> $path/output/plots/grid_bias.txt
+  head $path/output/grid_simulations/tmp.txt -n $(((mag_bins+1) * time_bins + (mag_bins+1))) | tail -n $((mag_bins+1)) >> $path/output/plots/grid_bias.txt
+  head $path/output/grid_simulations/tmp.txt -n $((2*(mag_bins+1) * time_bins + (mag_bins+1))) | tail -n $((mag_bins+1)) >> $path/output/plots/grid_bias.txt
+  tail $path/output/grid_simulations/tmp.txt -n $((time_bins * (mag_bins+1))) | head -n $((mag_bins+1)) >> $path/output/plots/grid_bias.txt
 
   # ------------------------------- PLOT THE BINNED COMPARISON -----------------------------------------------#
-  python3 bias_comparison.py $path/output/grid_simulations/tmp_gr_bias.txt GR
+  python3 bias_comparison.py $path/output/plots/grid_bias.txt GR
 
   # ---------------------- REMOVE TEMPORARY FILES -------------------------------------------------------------------#
   rm $path/output/grid_simulations/tmp.txt
-  rm $path/output/plots/tmp_binned_improvement.txt
-  rm $path/output/plots/tmp_binned_improvement_c.txt
-  rm $path/output/grid_simulations/tmp_gr_bias.txt
+  rm $path/output/plots/binned_improvement_m.txt
+  rm $path/output/plots/binned_improvement_c.txt
+  rm $path/output/plots/grid_bias.txt
 
   #object_num=$((galaxy_num * 40))
   #

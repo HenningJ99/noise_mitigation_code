@@ -11,6 +11,7 @@ from scipy.optimize import curve_fit
 import configparser
 from astropy.io import ascii
 import timeit
+import os
 
 config = configparser.ConfigParser()
 config.read('config_rp.ini')
@@ -513,8 +514,11 @@ for run in range(file_number):
 
         ax.set_xlabel("$g_1^\mathrm{true}$")
         ax.set_ylabel("$g_1^\mathrm{meas}-g_1^\mathrm{true}$")
-        if m == 6:
-            fig.savefig(path + "output/rp_simulations/" + f"catalog_results_{run}_{m}.pdf", dpi=300,
+        if not os.path.isdir(path + "output/plots/fits"):
+            os.mkdir(path + "output/plots/fits")
+
+        if simulation.getboolean("save_fits"):
+            fig.savefig(path + "output/plots/fits/" + f"rp_fit_{run}_{m}.pdf", dpi=300,
                         bbox_inches='tight')
         plt.close()
 
