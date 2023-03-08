@@ -249,7 +249,7 @@ for k in range(object_number):
         theo_sn = exp_time * 10 ** (-0.4 * (galaxies["ST_MAG_GALFIT"][indices[k % average_num]] - zp)) / \
                   np.sqrt((exp_time * 10 ** (-0.4 * (galaxies["ST_MAG_GALFIT"][indices[k % average_num]] - zp)) +
                            sky_level * gain * math.pi * (
-                                       3 * 0.3 * galaxies["ST_RE_GALFIT"][indices[k % average_num]]) ** 2 +
+                                   3 * 0.3 * galaxies["ST_RE_GALFIT"][indices[k % average_num]]) ** 2 +
                            (read_noise ** 2 + (gain / 2) ** 2) * math.pi * (
                                    3 * 0.3 * galaxies["ST_RE_GALFIT"][indices[k % average_num]]) ** 2))
 
@@ -284,7 +284,6 @@ for k in range(object_number):
         columns.append(
             [k, galaxies["ST_MAG_GALFIT"][index], 0.3 * galaxies["ST_RE_GALFIT"][index], ellips, betas / galsim.radians,
              input_shear[-1][0], input_shear[-1][1], theo_sn])
-
 
 # print(np.average(np.array(input_shear)[:, 0]))
 
@@ -334,7 +333,8 @@ for i in range(object_number):
             timings[2].append(x[1][2])
             for m in range(len(x[-1])):
                 columns.append(
-                    [x[0], int(x[0] / average_num), x[2], shear_min + int(x[0] / average_num) * interval, binning[int(x[2])], x[-2][m], x[-1][m],
+                    [x[0], int(x[0] / average_num), x[2], shear_min + int(x[0] / average_num) * interval,
+                     binning[int(x[2])], x[-2][m], x[-1][m],
                      x[4][m], x[3], x[5][m]])
                 # shear_catalog.add_row(column)
         else:
@@ -354,7 +354,8 @@ print(f"Failure count: {failure_counter}")
 # Convert columns to numpy array and create the output table
 columns = np.array(columns, dtype=float)
 shear_catalog = Table([columns[:, i] for i in range(10)], names=(
-'galaxy_id', 'shear_index', 'bin_index', 'input_g1', 'input_g2', 'meas_g1', 'meas_g2', 'mag_meas', 'mag_input', 'S/N'))
+    'galaxy_id', 'shear_index', 'bin_index', 'input_g1', 'input_g2', 'meas_g1', 'meas_g2', 'mag_meas', 'mag_input',
+    'S/N'))
 
 # Save the output files in a folder labeled by the current date and time
 now = datetime.datetime.now()
@@ -372,7 +373,8 @@ ascii.write(input_catalog, path + 'output/grid_simulations/' + f'run_lf_{date_ob
 
 if not os.path.isdir(path + "output/grid_simulations/" + f'run_lf_{date_object}_{current_time}/' + 'fits'):
     os.mkdir(path + "output/grid_simulations/" + f'run_lf_{date_object}_{current_time}/' + 'fits')
-file_name = os.path.join(path + "output/grid_simulations/" + f'run_lf_{date_object}_{current_time}/' + 'fits', 'real_galaxies.fits')
+file_name = os.path.join(path + "output/grid_simulations/" + f'run_lf_{date_object}_{current_time}/' + 'fits',
+                         'real_galaxies.fits')
 file_name_epsf = os.path.join(path + "output/grid_simulations/" + f'run_lf_{date_object}_{current_time}/' + 'fits',
                               'real_galaxies_psf.fits')
 

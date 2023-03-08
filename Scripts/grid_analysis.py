@@ -159,16 +159,13 @@ for run in [4, 2, 1]:
     data_complete_ref = ray.put(data_complete)
     input_g1_ref = ray.put(input_g1)
     input_g2_ref = ray.put(input_g2)
-    #input_comp_ref = ray.put(input_catalog)
+
     columns = []
 
     ny_tiles = [2, 1, 1][index]
     ring_num = [2, 2, 1][index]
     every = [4, 2, 1][index]
 
-    # for_fitting = [[[[[] for m in range(20)] for i in range(int(simulation["time_bins"]))] for mag in range(mag_bins + 1)]
-    #              for _ in range(2)]
-    # magnitudes = [20.5, 21.3, 22.1, 22.9, 23.7, 24.5]
 
     futures = [
         fct.one_shear_analysis.remote(m, config_ref, argv_ref, data_complete_ref, input_g1_ref, input_g2_ref, magnitudes,
