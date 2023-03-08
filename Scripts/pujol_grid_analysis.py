@@ -24,6 +24,7 @@ def linear_function(x, a, b):
 
 
 subfolder = sys.argv[4]
+path = sys.argv[5]
 if not os.path.isdir(subfolder + "/plots"):
     os.mkdir(subfolder + "/plots")
 start = timeit.default_timer()
@@ -241,7 +242,7 @@ for z in range(time_bins):
         if simulation.getboolean("output"):
             galsim.fits.writeMulti(images, file_name)
 
-        text_file = open(subfolder + "/puyol_results.txt", "a")
+        text_file = open(path + "/output/grid_simulations/fits.txt", "a")
 
         # Write in the output file depending on the error measurement method. Currently only "PUYOL" works
         if len(meas_1_solo) != 0 and len(meas_2_solo) != 0:

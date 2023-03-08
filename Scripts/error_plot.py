@@ -34,6 +34,9 @@ PLOT_EVERY_LF = int(simulation["plot_every_lf"])
 # How many runs to skip for RM
 SKIP_FIRST_RM = int(simulation["skip_first_rm"])
 
+if (SKIP_FIRST_RM <= 1) or (SKIP_FIRST_LF <=1):
+    raise ValueError("At least first 5 points should be skipped since bootstrapping likely yields NaNs before")
+
 
 
 mag_bins = int(simulation["bins_mag"])
@@ -96,7 +99,7 @@ for mag in range((mag_bins+1)):
 
     fig, axs = plt.subplots(2, 1, constrained_layout=True, figsize=(88*mm, 88*mm))
 
-    text_file = open(path+"output/error_scaling.txt", "a")
+    text_file = open(path+"output/rp_simulations/error_scaling.txt", "a")
     i = 0
     test1 = [1, 2, 4]
     names = ("no cancel", "shape (global)", "both (global)", "RM")

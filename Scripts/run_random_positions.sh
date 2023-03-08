@@ -99,26 +99,23 @@ then
       echo $extraction
       tail ${path}/output/rp_simulations/fits.txt -n $((extraction)) >> $path/output/rp_simulations/tmp_rm.txt
 
-      head $path/output/rp_simulations/tmp_rm.txt -n $(((mag_bins+1)*3*(run_lf))) | tail -n $(((mag_bins+1)*3)) >> $path/output/rp_simulations/tmp_rm_bias.txt
-
       if [ $binning == "MAG_AUTO" ]
       then
-        head $path/output/rp_simulations/tmp_rm.txt -n $(((mag_bins+1)*3*(run_lf))) | tail -n $(((mag_bins+1)*3)) >> $path/output/rp_simulations/bias_comparison_rp.txt
+        head $path/output/rp_simulations/tmp_rm.txt -n $(((mag_bins+1)*3*(run_lf))) | tail -n $(((mag_bins+1)*3)) >> $path/output/plots/bias_comparison_rp.txt
       fi
-      # head $path/output/rp_simulations/tmp_rm.txt -n $(((mag_bins+1)*3*(run_lf-1))) | tail -n $((mag_bins+1)*3) | tail -n 3 >> $path/output/rp_simulations/tmp_rm_bias.txt
-      tail $path/output/rp_simulations/tmp_rm.txt -n $((mag_bins+1)) >> $path/output/rp_simulations/tmp_rm_bias.txt
+
 
       if [ $binning == "MAG_AUTO" ] && [ $shape_options == $lf_folder_dyn ]
       then
-        tail $path/output/rp_simulations/tmp_rm.txt -n $((mag_bins+1)) >> $path/output/rp_simulations/bias_comparison_rp.txt
+        tail $path/output/rp_simulations/tmp_rm.txt -n $((mag_bins+1)) >> $path/output/plots/bias_comparison_rp.txt
       fi
 
       # ------------------------ PRODUCE THE UNCERTAINTY EVOLUTION PLOTS -------------------------#
       python3 error_plot.py $run_lf $run_rm $path M $shear_interval
-      tail ${path}/output/error_scaling.txt -n $((4*(mag_bins+1))) >> $path/output/plots/tmp_binned_improvement_rm.txt
+      tail ${path}/output/rp_simulations/error_scaling.txt -n $((4*(mag_bins+1))) >> $path/output/plots/binned_improvement_rp_m.txt
 
       python3 error_plot.py $run_lf $run_rm $path C $shear_interval
-      tail ${path}/output/error_scaling.txt -n $((4*(mag_bins+1))) >> $path/output/plots/tmp_binned_improvement_rm_c.txt
+      tail ${path}/output/rp_simulations/error_scaling.txt -n $((4*(mag_bins+1))) >> $path/output/plots/binned_improvement_rp_c.txt
 
       rm $path/output/rp_simulations/tmp_rm.txt
       # counter=$((counter-1))
@@ -126,17 +123,18 @@ then
   done
 
   # ------------------------------ PLOT THE BINNED IMPROVEMENTS ----------------------------------------------#
-  python3 plot_binned_data.py $path/output/plots/tmp_binned_improvement_rm.txt config_rp.ini $shear_interval RP
-  python3 plot_binned_data.py $path/output/plots/tmp_binned_improvement_rm_c.txt config_rp.ini $shear_interval RP
+  python3 plot_binned_data.py $path/output/plots/binned_improvement_rp_m.txt config_rp.ini $shear_interval RP
+  python3 plot_binned_data.py $path/output/plots/binned_improvement_rp_c.txt config_rp.ini $shear_interval RP
 
   # ------------------------------- PLOT THE BINNED COMPARISON -----------------------------------------------#
-  python3 bias_comparison.py $path/output/rp_simulations/bias_comparison_rp.txt RP
+  python3 bias_comparison.py $path/output/plots/bias_comparison_rp.txt RP
 
   # ----------------------------- REMOVE THE TEMPORARY FILES ---------------------------------------- #
-  rm $path/output/plots/tmp_binned_improvement_rm.txt
-  rm $path/output/plots/tmp_binned_improvement_rm_c.txt
-  rm $path/output/rp_simulations/fits.txt
-  rm $path/output/rp_simulations/bias_comparison_rp.txt
+  rm $path/output/plots/binned_improvement_rp_m.txt
+  rm $path/output/plots/binned_improvement_rp_c.txt
+  # rm $path/output/rp_simulations/fits.txt
+  rm $path/output/plots/bias_comparison_rp.txt
+  rm $path/output/rp_simulations/catalog_results*
 
 fi
 

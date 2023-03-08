@@ -18,6 +18,7 @@ from scipy.optimize import curve_fit
 import sys
 import configparser
 from functions import is_outlier
+import os
 
 
 def linear_function(x, a, b):
@@ -231,8 +232,16 @@ for m in range(time_bins):
             axs.set_xlabel("$g_1^t$")
             axs.set_ylabel("$<g_1^{obs}>-g_1^t$")
             # axs.grid(True)
+            if tiles == 1 and ring_num == 1:
+                axs.set_title("No noise cancellations")
+                label = "None"
+            elif tiles == 1 and ring_num == 2:
+                axs.set_title("Shape noise cancellation")
+                label = "Shape"
+            elif tiles == 2 and ring_num == 2:
+                axs.set_title("Both noise cancellations")
+                label = "Both"
 
-            axs.set_title("Both noise cancellations")
             textstr = '\n'.join((r'$\mu = (%.4f \pm %.4f)$' % (popt[0], error[0]),
                                  r'$c = (%.5f \pm %.5f)$' % (popt[1], error[1]),
                                  r'$\chi_{red}^2 = (%.2f)$' % (chisq_red)))
@@ -241,8 +250,12 @@ for m in range(time_bins):
             axs.text(0.4, 0.95, textstr, transform=axs.transAxes, fontsize=8,
                      verticalalignment='top', bbox=props)
 
-        if m == 0:
-            fig.savefig(path + f'output/plots/{int(objects)}_{mag}.pdf', dpi=300, bbox_inches='tight')
+        if not os.path.isdir(path + "output/plots/fits"):
+            os.mkdir(path + "output/plots/fits")
+
+        if simulation.getboolean("save_fits"):
+            fig.savefig(path + f'output/plots/fits/grid_fit_{label}_{m}_{mag}.pdf', dpi=300, bbox_inches='tight')
+
         plt.close()
         with open(path + "output/grid_simulations/fits.txt", "a") as text_file:
             if subplots == 2:
