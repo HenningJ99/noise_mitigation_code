@@ -489,8 +489,14 @@ ascii.write(shear_results, path + 'output/rp_simulations/' + f'run_lf_{date_obje
 
 # DELETE CATALOGUES AND FITS FILES TO SAVE MEMORY
 os.chdir(path + "output")
-os.system(f"rm -r FITS{index_fits}")
 os.system(f"rm -r source_extractor/{index_fits}")
 
+if simulation.getboolean("output"):
+    if not os.path.isdir(path + "output/rp_simulations/" + f'run_lf_{date_object}_{current_time}_{sys.argv[6]}/FITS_org'):
+        os.mkdir(path + "output/rp_simulations/" + f"run_lf_{date_object}_{current_time}_{sys.argv[6]}/FITS_org")
+
+    os.system('mv ' + path + f'output/FITS{index_fits}/*.fits' + ' ' + path + 'output/rp_simulations/' + f'run_lf_{date_object}_{current_time}_{sys.argv[6]}/FITS_org/')
+
+os.system(f"rm -r FITS{index_fits}")
 
 ray.shutdown()

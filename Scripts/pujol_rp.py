@@ -424,7 +424,13 @@ ray.shutdown()
 
 # DELETE ALL CATALOG AND FITS FILES TO SAVE MEMORY
 os.chdir(path + "output")
-os.system(f"rm -r FITS{index_fits}")
 os.system(f"rm -r source_extractor/{index_fits}")
+if simulation.getboolean("output"):
+    if not os.path.isdir(path + "output/rp_simulations/" + f'run_pujol_{date_object}_{current_time}/FITS_org'):
+        os.mkdir(path + "output/rp_simulations/" + f'run_pujol_{date_object}_{current_time}/FITS_org')
+
+    os.system('mv ' + path + f'output/FITS{index_fits}/*.fits' + ' ' + path + 'output/rp_simulations/' + f'run_pujol_{date_object}_{current_time}/FITS_org/')
+
+os.system(f"rm -r FITS{index_fits}")
 
 print(f"{timeit.default_timer() - start} seconds")
