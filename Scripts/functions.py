@@ -1258,10 +1258,10 @@ def catalog_worker_pujol(gal, k, position, psf, config, argv, num_shears, run_nu
     simulation = config['SIMULATION']
 
     if simulation.getboolean("same_but_shear"):
-        rng = galsim.UniformDeviate(seed=123+k)
+        random_seed = 123+k
     else:
         random_seed = np.random.randint(1e8)
-        rng = galsim.UniformDeviate(seed=random_seed)
+    rng = galsim.UniformDeviate(seed=random_seed)
 
     gain = float(image['gain'])
     pixel_scale = float(image['pixel_scale'])
@@ -1285,10 +1285,10 @@ def catalog_worker_pujol(gal, k, position, psf, config, argv, num_shears, run_nu
 
     if simulation.getboolean("same_but_shear"):
         if argv[6] == "rand":
-            central_shear = np.random.rand() * 0.02 - 0.01
+            central_shear = np.random.rand() * float(simulation["variable_field_mag"]) - float(simulation["variable_field_mag"]) / 2
         elif argv[6] == "zero":
             central_shear = 0
-        shears = [central_shear + k * 0.005 for k in np.arange(-5, 6)] # Random shear field
+        shears = [central_shear + k * float(simulation["same_but_shear_diff"]) / 2 for k in [-1, 1]]  # Slightly vary the (random) shear field
 
     if simulation["g2"] == "ZERO":
         draw = 0

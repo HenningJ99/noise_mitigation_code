@@ -8,6 +8,7 @@ import configparser
 import functions as fct
 from scipy.optimize import curve_fit
 import matplotlib.pyplot as plt
+import pickle
 
 # ---------------------------- INITIALIZATION --------------------------------------------------------------------------
 
@@ -373,6 +374,8 @@ output_errors = [[] for _ in range(len(magnitudes_list))]
 output_weights = [[] for _ in range(len(magnitudes_list))]
 columns = []
 time_fit = 0
+
+pickle.dump([meas0_averages, meas1_averages, meas0_weights, meas1_weights], open(subfolder + "meas_arrays.p", "wb"))
 for scene in range(analyse_every-1, total_scenes_per_shear, analyse_every):
     counter = 0
 
@@ -645,13 +648,18 @@ for scene in range(analyse_every-1, total_scenes_per_shear, analyse_every):
         if np.sum(meas1_weights[mag][:int((scene + 1) / division)]) != 0 and np.sum(
                 meas0_weights[mag][:int((scene + 1) / division)]) != 0:
 
+            if simulation.getboolean("same_but_shear"):
+                shear_diff = float(simulation["same_but_shear_diff"])
+            else:
+                shear_diff = shears[1] - shears[0]
+
             bias_data = fct.bootstrap_puyol(meas1_averages[mag][:int((scene + 1) / division)],
                                             meas0_averages[mag][:int((scene + 1) / division)], BOOTSTRAP_REPETITIONS,
-                                            shears[1] - shears[0], meas1_weights[mag][:int((scene + 1) / division)],
+                                            shear_diff, meas1_weights[mag][:int((scene + 1) / division)],
                                             meas0_weights[mag][:int((scene + 1) / division)])
 
             bias = (np.average(meas1_averages[mag][:int((scene + 1) / division)], weights=meas1_weights[mag][:int((scene + 1) / division)])-
-                    np.average(meas0_averages[mag][:int((scene + 1) / division)], weights=meas0_weights[mag][:int((scene + 1) / division)])) / (shears[1] - shears[0]) -1
+                    np.average(meas0_averages[mag][:int((scene + 1) / division)], weights=meas0_weights[mag][:int((scene + 1) / division)])) / shear_diff -1
 
 
             err = bias_data[1]
@@ -659,14 +667,14 @@ for scene in range(analyse_every-1, total_scenes_per_shear, analyse_every):
             err_err = np.std([fct.bootstrap_puyol(meas1_averages[mag][:int((scene + 1) / division)],
                                                   meas0_averages[mag][:int((scene + 1) / division)],
                                                   BOOTSTRAP_REPETITIONS,
-                                                  shears[1] - shears[0],
+                                                  shear_diff,
                                                   meas1_weights[mag][:int((scene + 1) / division)],
                                                   meas0_weights[mag][:int((scene + 1) / division)])[1] for _ in
                               range(10)])
             # BIAS FROM RESPONSE MEAN (WEIGHTED)
 
             responses_update = [(meas1_averages[mag][:int((scene + 1) / division)][i] -
-                                 meas0_averages[mag][:int((scene + 1) / division)][i]) / (shears[1] - shears[0]) - 1 for
+                                 meas0_averages[mag][:int((scene + 1) / division)][i]) / shear_diff - 1 for
                                 i in
                                 range(len(meas1_averages[mag][:int((scene + 1) / division)]))]
 
