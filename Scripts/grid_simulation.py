@@ -233,13 +233,15 @@ for k in range(object_number):
         # Calculate galaxy flux
         gal_flux = exp_time / gain * 10 ** (-0.4 * (galaxies["ST_MAG_GALFIT"][indices[k % average_num]] - zp))
 
-        # Define the galaxy profile (correct here for different pixel sizes of VIS and GEMS)
-        gal = galsim.Sersic(galaxies["ST_N_GALFIT"][indices[k % average_num]],
-                            half_light_radius=0.03 * galaxies["ST_RE_GALFIT"][indices[k % average_num]],
-                            flux=gal_flux)
-
         ellipticity = ellips[k % average_num]
         angle = betas[k % average_num]
+        q = (1-ellipticity) / (1+ellipticity)
+        # Define the galaxy profile (correct here for different pixel sizes of VIS and GEMS)
+        gal = galsim.Sersic(galaxies["ST_N_GALFIT"][indices[k % average_num]],
+                            half_light_radius=0.03 * galaxies["ST_RE_GALFIT"][indices[k % average_num]] * np.sqrt(q),
+                            flux=gal_flux)
+
+
 
         gal_list.append(gal.shear(g=ellipticity, beta=angle))
 
@@ -266,11 +268,15 @@ for k in range(object_number):
 
         gal_flux = exp_time / gain * 10 ** (-0.4 * (galaxies["ST_MAG_GALFIT"][index] - zp))
 
-        gal = galsim.Sersic(galaxies["ST_N_GALFIT"][index],
-                            half_light_radius=0.03 * galaxies["ST_RE_GALFIT"][index], flux=gal_flux)
-
         ellips = fct.generate_ellipticity(ellip_rms, ellip_max)
         betas = random.random() * 2 * math.pi * galsim.radians
+        q = (1-ellips) / (1+ellips)
+
+        # Correct for ellipticity
+        gal = galsim.Sersic(galaxies["ST_N_GALFIT"][index],
+                            half_light_radius=0.03 * galaxies["ST_RE_GALFIT"][index] * np.sqrt(q), flux=gal_flux)
+
+
 
         gal_list.append(gal.shear(g=ellips, beta=betas))
         input_shear.append([galsim.Shear(g=ellips, beta=betas).g1, galsim.Shear(g=ellips, beta=betas).g2])
