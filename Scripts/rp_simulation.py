@@ -351,8 +351,7 @@ for scene in range(total_scenes_per_shear):
 
         stamp_none = []
         stamp_shape = []
-        stamp_none_pixel = []
-        stamp_shape_pixel = []
+
 
         for i in range(galaxy_number):
             ready, not_ready = ray.wait(futures)
@@ -361,8 +360,6 @@ for scene in range(total_scenes_per_shear):
                 if x != -1:
                     stamp_none.append(x[0])
                     stamp_shape.append(x[1])
-                    stamp_none_pixel.append(x[2])
-                    stamp_shape_pixel.append(x[3])
                 else:
                     failure_counter += 1
 
@@ -382,9 +379,9 @@ for scene in range(total_scenes_per_shear):
                                             m, scene, argv_ref, config_ref, path, psf_ref, index_fits),
                fct.create_catalog_lf.remote(stamp_shape, 1, seed2,
                                             m, scene, argv_ref, config_ref, path, psf_ref, index_fits),
-               fct.create_catalog_lf.remote(stamp_none_pixel, 2, seed1,
+               fct.create_catalog_lf.remote(stamp_none, 2, seed1,
                                             m, scene, argv_ref, config_ref, path, psf_ref, index_fits),
-               fct.create_catalog_lf.remote(stamp_shape_pixel, 3, seed2,
+               fct.create_catalog_lf.remote(stamp_shape, 3, seed2,
                                             m, scene, argv_ref, config_ref, path, psf_ref, index_fits)
                ]
 

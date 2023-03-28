@@ -1213,28 +1213,28 @@ def catalog_worker(gal, gal2, position, position_2, m, psf, config, argv):
     else:
         stamp_rotated = galsim.Image(np.abs(stamp_rotated.array.copy()), bounds=stamp_rotated.bounds)
     # print(stamp.bounds, stamp_rotated.bounds)
-    '''
-    NOISE HANDLING
-    '''
-    stamp_none_nonoise = stamp.array.copy()
+    # '''
+    # NOISE HANDLING
+    # '''
+    # stamp_none_nonoise = stamp.array.copy()
+    #
+    # stamp.addNoise(galsim.noise.CCDNoiseHenning(rng, gain=gain, read_noise=0., sky_level=0.))
+    #
+    #
+    # # Build the pixel cancellated version of the normal galaxy
+    # stamp_none_pixel = galsim.Image(stamp_none_nonoise, bounds=stamp.bounds)
+    # stamp_none_pixel.addNoise(galsim.noise.CCDNoiseHenning(rng1, gain=gain, read_noise=0, sky_level=0., inv=True))
+    #
+    # stamp_shape_nonoise = stamp_rotated.array.copy()
+    #
+    # stamp_rotated.addNoise(galsim.noise.CCDNoiseHenning(rng, gain=gain, read_noise=0., sky_level=0.))
+    #
+    #
+    # # Build the pixel cancellated version of the rotated galaxy
+    # stamp_shape_pixel = galsim.Image(stamp_shape_nonoise, bounds=stamp_rotated.bounds)
+    # stamp_shape_pixel.addNoise(galsim.noise.CCDNoiseHenning(rng1, gain=gain, read_noise=0, sky_level=0., inv=True))
 
-    stamp.addNoise(galsim.noise.CCDNoiseHenning(rng, gain=gain, read_noise=0., sky_level=0.))
-
-
-    # Build the pixel cancellated version of the normal galaxy
-    stamp_none_pixel = galsim.Image(stamp_none_nonoise, bounds=stamp.bounds)
-    stamp_none_pixel.addNoise(galsim.noise.CCDNoiseHenning(rng1, gain=gain, read_noise=0, sky_level=0., inv=True))
-
-    stamp_shape_nonoise = stamp_rotated.array.copy()
-
-    stamp_rotated.addNoise(galsim.noise.CCDNoiseHenning(rng, gain=gain, read_noise=0., sky_level=0.))
-
-
-    # Build the pixel cancellated version of the rotated galaxy
-    stamp_shape_pixel = galsim.Image(stamp_shape_nonoise, bounds=stamp_rotated.bounds)
-    stamp_shape_pixel.addNoise(galsim.noise.CCDNoiseHenning(rng1, gain=gain, read_noise=0, sky_level=0., inv=True))
-
-    return stamp, stamp_rotated, stamp_none_pixel, stamp_shape_pixel
+    return stamp, stamp_rotated
 
 
 @ray.remote
@@ -1319,8 +1319,8 @@ def catalog_worker_pujol(gal, k, position, psf, config, argv, num_shears, run_nu
 
         stamp = galsim.Image(np.abs(stamp.array.copy()),
                              bounds=stamp.bounds)  # Avoid slightly negative values after FFT
-        without_noise = stamp.array.copy()
-        stamp.addNoise(galsim.noise.CCDNoiseHenning(rng, gain=gain, read_noise=0., sky_level=0.))
+        # without_noise = stamp.array.copy()
+        # stamp.addNoise(galsim.noise.CCDNoiseHenning(rng, gain=gain, read_noise=0., sky_level=0.))
 
         stamps.append(stamp)
 
@@ -1355,9 +1355,7 @@ def create_catalog_pujol(stamp_none, m, total_scene_count, argv, config, path, i
 
     image_none = galsim.Image(complete_image_size, complete_image_size, scale=pixel_scale)
 
-    # Ensure the same seed for the versions belonging to one run
-    rng = galsim.UniformDeviate(random_seed + 1 + 2 * total_scene_count)
-    image_none.addNoise(galsim.noise.CCDNoiseHenning(rng, gain=gain, read_noise=read_noise, sky_level=sky_level))
+
 
     for i in range(len(stamp_none[0])):
         # Find the overlapping bounds between the large image and the individual stamp.
@@ -1365,6 +1363,10 @@ def create_catalog_pujol(stamp_none, m, total_scene_count, argv, config, path, i
 
         # Add this to the corresponding location in the large image.
         image_none[bounds] += stamp_none[m][i][bounds]
+
+    # Ensure the same seed for the versions belonging to one run
+    rng = galsim.UniformDeviate(random_seed + 1 + 2 * total_scene_count)
+    image_none.addNoise(galsim.noise.CCDNoiseHenning(rng, gain=gain, read_noise=read_noise, sky_level=sky_level))
 
     # Write the image to the output directory
     image_none.write(path + f"output/FITS{index_fits}/catalog_none_pujol_{total_scene_count}_{m}.fits")
@@ -1526,7 +1528,7 @@ def create_catalog_lf(stamp, index, seed, m, scene, argv, config, path, psf, ind
     # Build the two large images for none and shape and add sky level and Gaussian RON to them
     image = galsim.Image(complete_image_size, complete_image_size, scale=pixel_scale)
 
-    image.addNoise(galsim.noise.CCDNoiseHenning(rng, gain=gain, read_noise=read_noise, sky_level=sky_level, inv=True if index > 1 else False))
+
 
     SOURCE_EXTRACTOR_DIR = path + "output/source_extractor"
 
@@ -1553,6 +1555,9 @@ def create_catalog_lf(stamp, index, seed, m, scene, argv, config, path, psf, ind
         bounds = stamp[i].bounds & image.bounds
 
         image[bounds] += stamp[i][bounds]
+
+    image.addNoise(galsim.noise.CCDNoiseHenning(rng, gain=gain, read_noise=read_noise, sky_level=sky_level,
+                                                inv=True if index > 1 else False))
 
     image.write(path + f"output/FITS{index_fits}/catalog_" + f"{scene}_{m}_{index}.fits")
 
