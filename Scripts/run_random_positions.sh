@@ -9,6 +9,7 @@ read -p "#Runs RM: " run_rm
 read -p "Magnitude bins: " mag_bins
 read -p "Smallest magnitude: " min_mag
 read -p "Largest magnitude: " max_mag
+read -p "Reps for improvement error: " reps
 read -p "Analyse every pujol: " analyse_every_pujol
 read -p "Generation only? (y/n): " gen_only
 if [ $gen_only == "n" ]
@@ -81,7 +82,7 @@ then
 
       python3 catalog_plot.py $run_lf $galaxy_num $path $sim_size $shape_options $binning
 
-      extraction=$(((mag_bins+1) * (3 * run_lf + run_rm / analyse_every_pujol)))
+      extraction=$((reps * (mag_bins+1) * (3 * run_lf + run_rm / analyse_every_pujol)))
       if [[ $shape_options == $lf_folder_stat ]]
       then
         if [[ $compare -eq 1 ]]
@@ -91,7 +92,7 @@ then
           python3 pujol_rp_analysis.py $sim_size $galaxy_num $run_rm 11 $path $puj_folder $binning
         fi
       else
-        tail ${path}/output/rp_simulations/fits.txt -n $((2 * extraction)) | head -n $(((mag_bins+1) * run_rm / analyse_every_pujol)) >> ${path}/output/rp_simulations/fits.txt
+        tail ${path}/output/rp_simulations/fits.txt -n $((2 * extraction)) | head -n $((reps * (mag_bins+1) * run_rm / analyse_every_pujol)) >> ${path}/output/rp_simulations/fits.txt
       fi
 
       # -------------------------- EXTRACT BIASES AND UNCERTAINTIES ---------------------#
@@ -101,7 +102,7 @@ then
 
       if [ $binning == "MAG_AUTO" ]
       then
-        head $path/output/rp_simulations/tmp_rm.txt -n $(((mag_bins+1)*3*(run_lf))) | tail -n $(((mag_bins+1)*3)) >> $path/output/plots/bias_comparison_rp.txt
+        head $path/output/rp_simulations/tmp_rm.txt -n $((reps * (mag_bins+1)*3*(run_lf))) | tail -n $(((mag_bins+1)*3)) >> $path/output/plots/bias_comparison_rp.txt
       fi
 
 
@@ -130,10 +131,10 @@ then
   python3 bias_comparison.py $path/output/plots/bias_comparison_rp.txt RP
 
   # ----------------------------- REMOVE THE TEMPORARY FILES ---------------------------------------- #
-  rm $path/output/plots/binned_improvement_rp_m.txt
-  rm $path/output/plots/binned_improvement_rp_c.txt
-  # rm $path/output/rp_simulations/fits.txt
-  rm $path/output/plots/bias_comparison_rp.txt
+  #rm $path/output/plots/binned_improvement_rp_m.txt
+  #rm $path/output/plots/binned_improvement_rp_c.txt
+  #rm $path/output/rp_simulations/fits.txt
+  #rm $path/output/plots/bias_comparison_rp.txt
   rm $path/output/rp_simulations/catalog_results*
 
 fi
