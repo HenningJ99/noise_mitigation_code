@@ -51,31 +51,31 @@ improvements = [[[] for _ in range(mag_bins+1)] for _ in range(4)]
 fit_parameters = [[[] for _ in range(mag_bins+1)] for _ in range(4)]
 for reps in range(REPS):
     # Read in the columns with relevant information from the temporary file
-    names_list = np.genfromtxt(path+"output/rp_simulations/tmp_rm.txt", skip_footer=int(REPS * (mag_bins+1) * run_rm / pujol_every + 3 * run_lf * (mag_bins+1) * (REPS - (reps+1))),
-                               dtype="unicode", skip_header=int(3 * (mag_bins+1) * SKIP_FIRST_LF + 3 * (mag_bins+1) * run_lf * reps))[:,0]
+    names_list = np.genfromtxt(path+"output/rp_simulations/tmp_rm.txt", skip_footer=int(REPS * (mag_bins+1) * run_rm / pujol_every + 3 * (run_lf - SKIP_FIRST_LF) * (mag_bins+1) * (REPS - (reps+1))),
+                               dtype="unicode", skip_header=int(3 * (mag_bins+1) * (run_lf - SKIP_FIRST_LF) * reps))[:,0]
 
     if sys.argv[4] == "C":
-        data_complete = np.genfromtxt(path+"output/rp_simulations/tmp_rm.txt", skip_footer=int(REPS * (mag_bins+1) * run_rm / pujol_every + 3 * run_lf * (mag_bins+1) * (REPS - (reps+1))), usecols=(0,6,7,8,9,1,2,3,11)
-                                      , skip_header=int(3 * (mag_bins+1) * SKIP_FIRST_LF + 3 * (mag_bins+1) * run_lf * reps))
+        data_complete = np.genfromtxt(path+"output/rp_simulations/tmp_rm.txt", skip_footer=int(REPS * (mag_bins+1) * run_rm / pujol_every + 3 * (run_lf - SKIP_FIRST_LF) * (mag_bins+1) * (REPS - (reps+1))), usecols=(0,6,7,8,9,1,2,3,11)
+                                      , skip_header=int(3 * (mag_bins+1) * (run_lf - SKIP_FIRST_LF) * reps))
 
         if sys.argv[5] == "0.02":
-            data_puyol_compl = np.genfromtxt(path+"output/rp_simulations/tmp_rm.txt", skip_header=int(3 * run_lf * (mag_bins + 1) * REPS + (mag_bins + 1) * SKIP_FIRST_RM + (mag_bins + 1) * run_rm / pujol_every * reps),
+            data_puyol_compl = np.genfromtxt(path+"output/rp_simulations/tmp_rm.txt", skip_header=int(3 * (run_lf - SKIP_FIRST_LF) * (mag_bins + 1) * REPS + (mag_bins + 1) * SKIP_FIRST_RM + (mag_bins + 1) * run_rm / pujol_every * reps),
                                              usecols=(0, 18, 19, 11, 24,1,2,3, 29), skip_footer=int((mag_bins+1) * (REPS - (reps+1)) * run_rm / pujol_every))
             # data_puyol_compl[:, 3] = data_puyol_compl[:, 3] * 2 / 11
 
         elif sys.argv[5] == "0.1":
-            data_puyol_compl = np.genfromtxt(path + "output/rp_simulations/tmp_rm.txt", skip_header=int(3 * run_lf * (mag_bins + 1) * REPS + (mag_bins + 1) * SKIP_FIRST_RM + (mag_bins + 1) * run_rm / pujol_every * reps),
+            data_puyol_compl = np.genfromtxt(path + "output/rp_simulations/tmp_rm.txt", skip_header=int(3 * (run_lf - SKIP_FIRST_LF) * (mag_bins + 1) * REPS + (mag_bins + 1) * SKIP_FIRST_RM + (mag_bins + 1) * run_rm / pujol_every * reps),
                                              usecols=(0, 18, 19, 11, 24, 1, 2, 3, 27), skip_footer=int((mag_bins+1) * (REPS - (reps+1)) * run_rm / pujol_every))
     elif sys.argv[4] == "M":
-        data_complete = np.genfromtxt(path + "output/rp_simulations/tmp_rm.txt", skip_footer=int(REPS * (mag_bins+1) * run_rm / pujol_every + 3 * run_lf * (mag_bins+1) * (REPS - (reps+1))),
-                                      usecols=(0, 4, 5, 8, 9, 1, 2, 3, 10), skip_header=int(3 * (mag_bins+1) * SKIP_FIRST_LF + 3 * (mag_bins+1) * run_lf * reps))
+        data_complete = np.genfromtxt(path + "output/rp_simulations/tmp_rm.txt", skip_footer=int(REPS * (mag_bins+1) * run_rm / pujol_every + 3 * (run_lf - SKIP_FIRST_LF) * (mag_bins+1) * (REPS - (reps+1))),
+                                      usecols=(0, 4, 5, 8, 9, 1, 2, 3, 10), skip_header=int(3 * (mag_bins+1) * (run_lf - SKIP_FIRST_LF) * reps))
         if sys.argv[5] == "0.02":
-            data_puyol_compl = np.genfromtxt(path + "output/rp_simulations/tmp_rm.txt", skip_header=int(3 * run_lf * (mag_bins + 1) * REPS + (mag_bins + 1) * SKIP_FIRST_RM + (mag_bins + 1) * run_rm / pujol_every * reps),
+            data_puyol_compl = np.genfromtxt(path + "output/rp_simulations/tmp_rm.txt", skip_header=int(3 * (run_lf - SKIP_FIRST_LF) * (mag_bins + 1) * REPS + (mag_bins + 1) * SKIP_FIRST_RM + (mag_bins + 1) * run_rm / pujol_every * reps),
                                          usecols=(0, 16, 17, 11, 24, 1, 2, 3, 28), skip_footer=int((mag_bins+1) * (REPS - (reps+1)) * run_rm / pujol_every))
             # data_puyol_compl[:, 3] = data_puyol_compl[:, 3] * 2 / 11
 
         elif sys.argv[5] == "0.1":
-            data_puyol_compl = np.genfromtxt(path + "output/rp_simulations/tmp_rm.txt", skip_header=int(3 * run_lf * (mag_bins + 1) * REPS + (mag_bins + 1) * SKIP_FIRST_RM + (mag_bins + 1) * run_rm / pujol_every * reps),
+            data_puyol_compl = np.genfromtxt(path + "output/rp_simulations/tmp_rm.txt", skip_header=int(3 * (run_lf - SKIP_FIRST_LF) * (mag_bins + 1) * REPS + (mag_bins + 1) * SKIP_FIRST_RM + (mag_bins + 1) * run_rm / pujol_every * reps),
                                              usecols=(0, 16, 17, 11, 24, 1, 2, 3, 26), skip_footer=int((mag_bins+1) * (REPS - (reps+1)) * run_rm / pujol_every))
 
     def linear_function(x, a):
