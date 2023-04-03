@@ -19,6 +19,7 @@ elif sys.argv[1] == "RP":
     config.set('SIMULATION', 'min_mag', sys.argv[3])
     config.set('SIMULATION', 'max_mag', sys.argv[4])
     config.set('SIMULATION', 'puj_analyse_every', sys.argv[5])
+    config.set('SIMULATION', 'skip_first_lf', sys.argv[6])
 
     with open('config_rp.ini', 'w') as configfile:
         config.write(configfile)
