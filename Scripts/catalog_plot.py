@@ -85,10 +85,12 @@ for reps in range(REPS):
     data_compl = []
     rand_ind = np.random.randint(0, file_number, size=file_number)
     #rand_ind = np.repeat(0, file_number)
-    print(rand_ind)
+
     # The permutation, which is saved should be the "normal" analysis with all runs included in consecutive order
     if reps == REPS-1:
         rand_ind = [i for i in range(file_number)]
+
+    print(rand_ind)
     for run in range(file_number):
 
         data_compl.append(
@@ -311,12 +313,12 @@ for reps in range(REPS):
                 both_noise_err_err = uncertainties_errors[(mag_bins + 1) * 5 * shear_bins:(mag_bins + 1) * 6 * shear_bins][
                                      m::(mag_bins + 1)]
 
-                mm = 1 / 25.4  # millimeter in inches
-                fig = plt.figure(figsize=(176 * mm, 88 * mm))
-                ax = fig.add_subplot(111)
+                if reps == REPS-1:
+                    mm = 1 / 25.4  # millimeter in inches
+                    fig = plt.figure(figsize=(176 * mm, 88 * mm))
+                    ax = fig.add_subplot(111)
 
-                names = ["normal", "rotated", "normal pixel", "rotated pixel"]
-                colors = ["blue", "red", "green", "orange"]
+                    names = ["normal", "rotated", "normal pixel", "rotated pixel"]
 
                 # INDIVIDUAL FITS
                 for i in range(4):
@@ -326,11 +328,11 @@ for reps in range(REPS):
                                 data[:, 2][i * shear_bins:(i + 1) * shear_bins] != 0)
                         deviation = data[:, 1][i * shear_bins:(i + 1) * shear_bins][filter] - \
                                     data[:, 0][i * shear_bins:(i + 1) * shear_bins][filter]
-                        if i == 0:
+                        if i == 0 and reps == REPS -1:
                             ax.errorbar(data[:, 0][i * shear_bins:(i + 1) * shear_bins][filter] + i * 0.001, deviation,
                                         uncertainties[0:(mag_bins + 1) * 4 * shear_bins][m::(mag_bins + 1)][
-                                        i * shear_bins:(i + 1) * shear_bins][filter], fmt="+", capsize=2, color=colors[i],
-                                        label="no cancel", alpha=0.5)
+                                        i * shear_bins:(i + 1) * shear_bins][filter], fmt="+", capsize=2, color="C0",
+                                        label="no cancel")
 
                         try:
                             popt, pcov = curve_fit(linear_function, data[:, 0][i * shear_bins:(i + 1) * shear_bins][filter],
@@ -389,8 +391,8 @@ for reps in range(REPS):
 
                         chisq = np.sum((r / data[:, 2][i * shear_bins:(i + 1) * shear_bins][filter] ** 2))
                         chisq_red = chisq / (len(r) - 2)
-                        if i == 0:
-                            ax.plot(data[:, 0][0:shear_bins], linear_function(data[:, 0][0:shear_bins], *popt), color=colors[i])
+                        if i == 0 and reps == REPS-1:
+                            ax.plot(data[:, 0][0:shear_bins], linear_function(data[:, 0][0:shear_bins], *popt), color="C0")
 
                     else:
                         if i == 0:
@@ -439,11 +441,13 @@ for reps in range(REPS):
 
                     error_minus = np.sqrt(np.diag(pcov_minus))
 
-                    ax.errorbar(data[:, 0][0:shear_bins][(shape_noise_err != 0) & (shape_noise_err != -1)] + 0.0004,
-                                np.delete(shape_noise, np.where((shape_noise_err == -1) | (shape_noise_err == 0))),
-                                np.delete(shape_noise_err,
-                                          np.where((shape_noise_err == -1) | (shape_noise_err == 0))), fmt="+", capsize=2,
-                                label="shape", color="green", alpha=0.5)
+                    if reps == REPS - 1:
+                        ax.errorbar(data[:, 0][0:shear_bins][(shape_noise_err != 0) & (shape_noise_err != -1)] + 0.0004,
+                                    np.delete(shape_noise, np.where((shape_noise_err == -1) | (shape_noise_err == 0))),
+                                    np.delete(shape_noise_err,
+                                              np.where((shape_noise_err == -1) | (shape_noise_err == 0))), fmt="+", capsize=2,
+                                    label="shape", color="C1")
+                        ax.plot(data[:, 0][0:shear_bins], linear_function(data[:, 0][0:shear_bins], *popt), color="C1")
 
                     with open(path + "output/rp_simulations/fits.txt", "a") as file:
                         file.write("%s\t %d\t %d\t %d\t %.7f\t %.7f\t %.7f\t %.7f\t %d\t %.1f\t %.7f\t %.7f\n" %
@@ -498,12 +502,13 @@ for reps in range(REPS):
                                                        absolute_sigma=True)
 
                     error_minus = np.sqrt(np.diag(pcov_minus))
-
-                    ax.errorbar(data[:, 0][0:shear_bins][(both_noise_err != 0) & (both_noise_err != -1)] + 0.0008,
-                                np.delete(both_noise, np.where((both_noise_err == -1) | (both_noise_err == 0))),
-                                np.delete(both_noise_err,
-                                          np.where((both_noise_err == -1) | (both_noise_err == 0))), fmt="+", capsize=2,
-                                label="both", color="black", alpha=0.5)
+                    if reps == REPS - 1:
+                        ax.errorbar(data[:, 0][0:shear_bins][(both_noise_err != 0) & (both_noise_err != -1)] + 0.0008,
+                                    np.delete(both_noise, np.where((both_noise_err == -1) | (both_noise_err == 0))),
+                                    np.delete(both_noise_err,
+                                              np.where((both_noise_err == -1) | (both_noise_err == 0))), fmt="+", capsize=2,
+                                    label="both", color="C2")
+                        ax.plot(data[:, 0][0:shear_bins], linear_function(data[:, 0][0:shear_bins], *popt), color="C2")
 
 
                     with open(path + "output/rp_simulations/fits.txt", "a") as file:
@@ -521,18 +526,18 @@ for reps in range(REPS):
                                     1, 1, 1, 1, shear_bins * galaxy_num * (run + 1) * (2 + 4 * noise_plus_meas)
                                     + (run + 1) * shear_bins * scene_creation * 4, magnitudes_list[m], 0.0, 0.0))
 
+                if reps == REPS - 1:
+                    ax.legend()
 
-                ax.legend()
+                    ax.set_xlabel("$g_1^\mathrm{true}$")
+                    ax.set_ylabel("$g_1^\mathrm{meas}-g_1^\mathrm{true}$")
+                    if not os.path.isdir(path + "output/plots/fits"):
+                        os.mkdir(path + "output/plots/fits")
 
-                ax.set_xlabel("$g_1^\mathrm{true}$")
-                ax.set_ylabel("$g_1^\mathrm{meas}-g_1^\mathrm{true}$")
-                if not os.path.isdir(path + "output/plots/fits"):
-                    os.mkdir(path + "output/plots/fits")
-
-                if simulation.getboolean("save_fits"):
-                    fig.savefig(path + "output/plots/fits/" + f"rp_fit_{run}_{m}.pdf", dpi=300,
-                                bbox_inches='tight')
-                plt.close()
+                    if simulation.getboolean("save_fits"):
+                        fig.savefig(path + "output/plots/fits/" + f"rp_fit_{run}_{m}.pdf", dpi=300,
+                                    bbox_inches='tight')
+                    plt.close()
 
 print(f"total analysis time: {timeit.default_timer() - start}")
 print(f"Davon bootstrapping: {bootstrapping}")
