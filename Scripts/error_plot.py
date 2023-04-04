@@ -36,10 +36,6 @@ PLOT_EVERY_LF = int(simulation["plot_every_lf"])
 # How many runs to skip for RM
 SKIP_FIRST_RM = int(simulation["skip_first_rm"])
 
-#if (SKIP_FIRST_RM <= 1) or (SKIP_FIRST_LF <=1):
-#    raise ValueError("At least first 5 points should be skipped since bootstrapping likely yields NaNs before")
-
-
 
 mag_bins = int(simulation["bins_mag"])
 
