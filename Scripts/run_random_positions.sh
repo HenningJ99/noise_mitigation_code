@@ -80,6 +80,8 @@ then
       # -------------------------- INITIAL ANALYSIS -------------------------------------#
       python3 rp_analysis.py $sim_size $galaxy_num $run_lf $path $shear_interval $shape_options $binning
 
+      mv $shape_options/analysis.dat $shape_options/analysis_${binning}.dat #Avoid overwriting output
+
       python3 catalog_plot.py $run_lf $galaxy_num $path $sim_size $shape_options $binning
 
       extraction=$((reps * (mag_bins+1) * (3 * run_lf + run_rm / analyse_every_pujol)))
@@ -91,6 +93,7 @@ then
         else
           python3 pujol_rp_analysis.py $sim_size $galaxy_num $run_rm 11 $path $puj_folder $binning
         fi
+        mv $puj_folder/analysis.dat $puj_folder/analysis_${binning}.dat # Avoid overwriting output
       else
         tail ${path}/output/rp_simulations/fits.txt -n $((2 * extraction)) | head -n $((reps * (mag_bins+1) * run_rm / analyse_every_pujol)) >> ${path}/output/rp_simulations/fits.txt
       fi
