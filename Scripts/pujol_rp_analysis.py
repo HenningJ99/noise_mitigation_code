@@ -7,6 +7,7 @@ import timeit
 import configparser
 import functions as fct
 from scipy.optimize import curve_fit
+from scipy import stats
 import matplotlib.pyplot as plt
 import pickle
 
@@ -85,8 +86,8 @@ else:
 # ------------------------------- ANALYSIS ----------------------------------------------------------------------------
 start1 = timeit.default_timer()
 
-data_complete = ascii.read(subfolder + "shear_catalog.dat")
-input_catalogs = ascii.read(subfolder + "input_catalog.dat")
+data_complete = ascii.read(subfolder + "shear_catalog.dat", fast_reader={'chunk_size': 100 * 1000000})
+#input_catalogs = ascii.read(subfolder + "input_catalog.dat")
 
 # S/N Cut
 data_complete = data_complete[data_complete["S/N"] > float(simulation["sn_cut"])]
@@ -95,36 +96,39 @@ print(100 * len(data_complete["meas_g1"][(data_complete["meas_g1"] >= 5) | (data
 # Outliers
 data_complete = data_complete[(data_complete["meas_g1"] < 5) & (data_complete["meas_g1"] > -5)]
 
+# Magnitude cut
+data_complete = data_complete[(data_complete[bin_type] > min_mag) & (data_complete[bin_type] < max_mag)]
+
 magnitudes_list = [min_mag + k * (max_mag - min_mag) / (mag_bins) for k in range(mag_bins + 1)]
 
 # ------------------------------ INPUT SHEAR ------------------------------------------------------------------------#
-input_shears = [[[] for _ in range(mag_bins + 1)] for _ in range(num_shears)]
-input_weights = [[[] for _ in range(mag_bins + 1)] for _ in range(num_shears)]
-for j in range(num_shears):
-    for i in range(total_scenes_per_shear):
-        for mag in range(len(magnitudes_list)):
-            if mag == len(magnitudes_list) - 1:
-                upper_limit = max_mag
-                lower_limit = min_mag
-            else:
-                upper_limit = magnitudes_list[mag + 1]
-                lower_limit = magnitudes_list[mag]
-
-            matched_sources = input_catalogs[input_catalogs["scene_index"] == i][
-                np.array(data_complete[(data_complete["scene_index"] == i) &
-                                       (data_complete["shear_index"] == j) &
-                                       (data_complete[bin_type] > lower_limit) & (data_complete[bin_type] < upper_limit)][
-                             "matching_index_optimized"], dtype=int)]
-            if len(matched_sources) != 0:
-                input_g1 = matched_sources["e"] * np.cos(2 * matched_sources["beta"])
-                input_shears[j][mag].append(np.average(input_g1))
-                input_weights[j][mag].append(len(input_g1))
-            else:
-                input_shears[j][mag].append(-1)
-                input_weights[j][mag].append(0)
-
-input_shears = np.array(input_shears)
-input_weights = np.array(input_weights)
+# input_shears = [[[] for _ in range(mag_bins + 1)] for _ in range(num_shears)]
+# input_weights = [[[] for _ in range(mag_bins + 1)] for _ in range(num_shears)]
+# for j in range(num_shears):
+#     for i in range(total_scenes_per_shear):
+#         for mag in range(len(magnitudes_list)):
+#             if mag == len(magnitudes_list) - 1:
+#                 upper_limit = max_mag
+#                 lower_limit = min_mag
+#             else:
+#                 upper_limit = magnitudes_list[mag + 1]
+#                 lower_limit = magnitudes_list[mag]
+#
+#             matched_sources = input_catalogs[input_catalogs["scene_index"] == i][
+#                 np.array(data_complete[(data_complete["scene_index"] == i) &
+#                                        (data_complete["shear_index"] == j) &
+#                                        (data_complete[bin_type] > lower_limit) & (data_complete[bin_type] < upper_limit)][
+#                              "matching_index_optimized"], dtype=int)]
+#             if len(matched_sources) != 0:
+#                 input_g1 = matched_sources["e"] * np.cos(2 * matched_sources["beta"])
+#                 input_shears[j][mag].append(np.average(input_g1))
+#                 input_weights[j][mag].append(len(input_g1))
+#             else:
+#                 input_shears[j][mag].append(-1)
+#                 input_weights[j][mag].append(0)
+#
+# input_shears = np.array(input_shears)
+# input_weights = np.array(input_weights)
 
 masks = []
 # For uncertainty behaviour analyse after every run
@@ -147,6 +151,21 @@ meas_weights = [[] for _ in range(len(magnitudes_list))]
 meas_weights_small = [[[] for _ in range(len(magnitudes_list))] for i in range(10)]
 meas_weights_small_ = [[[] for _ in range(len(magnitudes_list))] for i in range(10)]
 start_sorting = timeit.default_timer()
+
+def std_error(array):
+    return np.std(array) / np.sqrt(array.size)
+
+data_complete['binned_mag'] = np.trunc(data_complete[bin_type] + 0.5)  # Adding a row with the magnitudes in bins
+meas_comp = data_complete.group_by(["scene_index", "shear_index", "binned_mag"])
+meas_means = meas_comp["meas_g1"].groups.aggregate(np.mean)
+meas_stderr = meas_comp["meas_g1"].groups.aggregate(std_error)
+meas_lengths = meas_comp["meas_g1"].groups.aggregate(np.size)
+
+full_meas = data_complete.group_by(["scene_index", "shear_index"])
+meas_means_full = full_meas["meas_g1"].groups.aggregate(np.mean)
+meas_stderr_full = full_meas["meas_g1"].groups.aggregate(std_error)
+meas_lengths_full = full_meas["meas_g1"].groups.aggregate(np.size)
+
 for mag in range(len(magnitudes_list)):
     if mag == len(magnitudes_list) - 1:
         upper_limit = max_mag
@@ -155,6 +174,7 @@ for mag in range(len(magnitudes_list)):
         upper_limit = magnitudes_list[mag + 1]
         lower_limit = magnitudes_list[mag]
 
+
     print(len(data_complete["meas_g1"][
                   (data_complete["scene_index"] <= scene) & (data_complete[bin_type] > lower_limit) & (
                               data_complete[bin_type] < upper_limit)]))
@@ -162,53 +182,18 @@ for mag in range(len(magnitudes_list)):
                (data_complete["scene_index"] <= scene) & (data_complete[bin_type] > lower_limit) & (
                        data_complete[bin_type] < upper_limit)]) != 0:
 
-        meas0_averages_ = [np.average(data_complete["meas_g1"][(data_complete["scene_index"] == o) &
-                                                               (data_complete["shear_index"] == i) &
-                                                               (data_complete[bin_type] > lower_limit) &
-                                                               (data_complete[bin_type] < upper_limit)])
-                           if len(data_complete["meas_g1"][(data_complete["scene_index"] == o) &
-                                                           (data_complete["shear_index"] == i) &
-                                                           (data_complete[bin_type] > lower_limit) &
-                                                           (data_complete[bin_type] < upper_limit)]) != 0 else -1
-                           for o in range(scene + 1) for i in range(num_shears - 1)]
+        if mag != len(magnitudes_list) -1:
+            meas_averages_ = meas_means[mag::mag_bins]
+            meas_weights_ = meas_lengths[mag::mag_bins]
+        else:
+            meas_averages_ = meas_means_full
+            meas_weights_ = meas_lengths_full
 
-        meas1_averages_ = [np.average(data_complete["meas_g1"][(data_complete["scene_index"] == o) &
-                                                               (data_complete["shear_index"] == i) &
-                                                               (data_complete[bin_type] > lower_limit) &
-                                                               (data_complete[bin_type] < upper_limit)])
-                           if len(data_complete["meas_g1"][(data_complete["scene_index"] == o) &
-                                                           (data_complete["shear_index"] == i) &
-                                                           (data_complete[bin_type] > lower_limit) &
-                                                           (data_complete[bin_type] < upper_limit)]) != 0 else -1
-                           for o in range(scene + 1) for i in range(1, num_shears)]
+        meas0_averages_ = np.delete(meas_averages_, np.s_[num_shears-1::num_shears])
+        meas0_weights_ = np.delete(meas_weights_, np.s_[num_shears-1::num_shears])
 
-        meas0_weights_ = [len(data_complete["meas_g1"][(data_complete["scene_index"] == o) &
-                                                       (data_complete["shear_index"] == i) &
-                                                       (data_complete[bin_type] > lower_limit) &
-                                                       (data_complete[bin_type] < upper_limit)])
-                          for o in range(scene + 1) for i in range(num_shears - 1)]
-
-        meas1_weights_ = [len(data_complete["meas_g1"][(data_complete["scene_index"] == o) &
-                                                       (data_complete["shear_index"] == i) &
-                                                       (data_complete[bin_type] > lower_limit) &
-                                                       (data_complete[bin_type] < upper_limit)])
-                          for o in range(scene + 1) for i in range(1, num_shears)]
-
-        meas_averages_ = [np.average(data_complete["meas_g1"][(data_complete["scene_index"] == o) &
-                                                              (data_complete["shear_index"] == i) &
-                                                              (data_complete[bin_type] > lower_limit) &
-                                                              (data_complete[bin_type] < upper_limit)])
-                          if len(data_complete["meas_g1"][(data_complete["scene_index"] == o) &
-                                                          (data_complete["shear_index"] == i) &
-                                                          (data_complete[bin_type] > lower_limit) &
-                                                          (data_complete[bin_type] < upper_limit)]) != 0 else -1
-                          for o in range(scene + 1) for i in range(num_shears)]
-
-        meas_weights_ = [len(data_complete["meas_g1"][(data_complete["scene_index"] == o) &
-                                                      (data_complete["shear_index"] == i) &
-                                                      (data_complete[bin_type] > lower_limit) &
-                                                      (data_complete[bin_type] < upper_limit)])
-                         for o in range(scene + 1) for i in range(num_shears)]
+        meas1_averages_ = np.delete(meas_averages_, np.s_[::num_shears])
+        meas1_weights_ = np.delete(meas_weights_, np.s_[::num_shears])
 
         if num_shears == 11:
             for interval in range(10):
@@ -400,12 +385,12 @@ for reps in range(REPS):
     if reps == REPS - 1:
         rand_int = [i for i in range(int(total_scenes_per_shear / division))]
 
-    #print(meas1_averages.shape)
+
     meas1_averages = np.take(meas1_averages_, rand_int, axis=1)
     meas0_averages = np.take(meas0_averages_, rand_int, axis=1)
     meas1_weights = np.take(meas1_weights_, rand_int, axis=1)
     meas0_weights = np.take(meas1_weights_, rand_int, axis=1)
-    #print(meas1_averages.shape)
+
     meas_averages = np.take(meas_averages_, rand_int, axis=1)
     meas_weights = np.take(meas_weights_, rand_int, axis=1)
 
@@ -414,7 +399,7 @@ for reps in range(REPS):
         meas0_averages_small = np.take(meas0_averages_small_, rand_int, axis=2)
         meas1_weights_small = np.take(meas1_weights_small_, rand_int, axis=2)
         meas0_weights_small = np.take(meas1_weights_small_, rand_int, axis=2)
-        #print(meas1_averages_small.shape)
+
         meas_averages_small = np.take(meas_averages_small_, rand_int, axis=2)
         meas_weights_small = np.take(meas_weights_small_, rand_int, axis=2)
 
@@ -432,55 +417,19 @@ for reps in range(REPS):
                 lower_limit = magnitudes_list[mag]
 
             if bootstrap_fit:
+                start_fit = timeit.default_timer()
                 #------ BOOTSTRAP THE FIT FOR THE COMPARISON RM - LF ----------------#
                 for div in range(analyse_every):
-                    output_shear = []
-                    output_err = []
-                    output_weight = []
-                    for o in range(num_shears):
-                        if len(data_complete["meas_g1"][(data_complete["scene_index"] == scene + div - analyse_every + 1) &
-                                                        (data_complete["shear_index"] == o) & (
-                                                                data_complete[bin_type] > lower_limit) & (
-                                                                data_complete[bin_type] < upper_limit)]) != 0:
 
-                            output_shear.append(np.average(data_complete["meas_g1"][(data_complete["scene_index"] == scene + div - analyse_every + 1) &
-                                                                                    (data_complete["shear_index"] == o) & (
-                                                                                                data_complete[
-                                                                                                    bin_type] > lower_limit) & (
-                                                                                                data_complete[
-                                                                                                    bin_type] < upper_limit)]))
+                    if mag != mag_bins:
+                        output_shears[mag].append(list(meas_means[mag::mag_bins][(scene + div - analyse_every + 1) * num_shears : (scene + div - analyse_every + 2) * num_shears]))
+                        output_errors[mag].append(list(meas_stderr[mag::mag_bins][(scene + div - analyse_every + 1) * num_shears : (scene + div - analyse_every + 2) * num_shears]))
+                        output_weights[mag].append(list(meas_lengths[mag::mag_bins][(scene + div - analyse_every + 1) * num_shears : (scene + div - analyse_every + 2) * num_shears]))
+                    else:
+                        output_shears[mag].append(meas_means_full[(scene + div - analyse_every + 1) * num_shears : (scene + div - analyse_every + 2) * num_shears])
+                        output_errors[mag].append(meas_stderr_full[(scene + div - analyse_every + 1) * num_shears : (scene + div - analyse_every + 2) * num_shears])
+                        output_weights[mag].append(meas_lengths_full[(scene + div - analyse_every + 1) * num_shears : (scene + div - analyse_every + 2) * num_shears])
 
-
-                            output_err.append(np.std(data_complete["meas_g1"][(data_complete["scene_index"] == scene + div - analyse_every + 1) & (
-                                        data_complete["shear_index"] == o) & (
-                                                                                                data_complete[
-                                                                                                    bin_type] > lower_limit) & (
-                                                                                                data_complete[
-                                                                                                    bin_type] < upper_limit)])
-                                              / np.sqrt(len(data_complete["meas_g1"][(data_complete["scene_index"] == scene + div - analyse_every + 1) & (
-                                        data_complete["shear_index"] == o) & (
-                                                                                                data_complete[
-                                                                                                    bin_type] > lower_limit) & (
-                                                                                                data_complete[
-                                                                                                    bin_type] < upper_limit)])))
-
-                            output_weight.append(len(data_complete["meas_g1"][(data_complete["scene_index"] == scene + div - analyse_every + 1) & (
-                                        data_complete["shear_index"] == o) & (
-                                                                                                data_complete[
-                                                                                                    bin_type] > lower_limit) & (
-                                                                                                data_complete[
-                                                                                                    bin_type] < upper_limit)]))
-
-                        else:
-                            output_shear.append(-1)
-                            output_err.append(-1)
-                            output_weight.append(0)
-
-                    output_shears[mag].append(output_shear)
-                    output_errors[mag].append(output_err)
-                    output_weights[mag].append(output_weight)
-
-                start_fit = timeit.default_timer()
                 indices = np.random.choice(np.arange(0, scene+1, division), size=(BOOTSTRAP_REPETITIONS, int((scene + 1) / division)))
 
                 if division != 1:
@@ -562,11 +511,6 @@ for reps in range(REPS):
                     output_err.append(-1)
 
             filter = np.where(np.array(output_shear) != -1)[0]
-            popt, pcov = curve_fit(linear_function, np.array(shears),
-                                   np.average(input_shears[:, :, :scene], weights=input_weights[:, :, :scene], axis=2)[:,
-                                   mag])
-            r = np.average(input_shears[:, :, :scene], weights=input_weights[:, :, :scene], axis=2)[:,
-                mag] - linear_function(np.array(shears), *popt)
             if len(filter) >= 2:
                 deviation = np.array(output_shear)[filter] - np.array(shears)[filter]
                 popt, pcov = curve_fit(linear_function, np.array(shears)[filter], \
@@ -577,20 +521,33 @@ for reps in range(REPS):
                 popt = [-1, -1]
                 error = [-1, -1]
 
-            # Plot the fit
-            mm = 1 / 25.4
-            fig, ax = plt.subplots(figsize=(88 * mm, 88 * mm))
+            if reps == REPS-1:
+                # Plot the fit
+                mm = 1 / 25.4
+                fig, ax = plt.subplots(figsize=(88 * mm, 88 * mm))
 
-            ax.errorbar(np.array(shears)[filter], deviation, np.array(output_err)[filter], fmt="+--", markersize=5,
-                        capsize=2, elinewidth=0.5)
-            ax.plot(np.linspace(-0.1, 0.1, 10), linear_function(np.linspace(-0.1, 0.1, 10), *popt), alpha=0.7)
-            ax.plot(np.array(shears), r, "+")
-            ax.hlines(0.0, -0.1, 0.1, linestyle="dashed", alpha=0.8)
+                ax.errorbar(np.array(shears)[filter], deviation, np.array(output_err)[filter], fmt="+--", markersize=5,
+                            capsize=2, elinewidth=0.5)
+                ax.plot(np.linspace(-0.1, 0.1, 10), linear_function(np.linspace(-0.1, 0.1, 10), *popt), alpha=0.7)
 
-            ax.set_xlabel("$g_1^t$")
-            ax.set_ylabel("$<g_1^{obs}>-g_1^t$")
-            fig.savefig(subfolder + f"/plots/{scene}_{mag}.png", dpi=200, bbox_inches="tight")
-            plt.close()
+                # # Selection Bias
+                # try:
+                #     popt, pcov = curve_fit(linear_function, np.array(shears),
+                #                            np.average(input_shears[:, :, :scene], weights=input_weights[:, :, :scene], axis=2)[
+                #                            :,
+                #                            mag])
+                #     r = np.average(input_shears[:, :, :scene], weights=input_weights[:, :, :scene], axis=2)[:,
+                #         mag] - linear_function(np.array(shears), *popt)
+                #     ax.plot(np.array(shears), r, "+")
+                # except ZeroDivisionError:
+                #     pass
+
+                ax.hlines(0.0, -0.1, 0.1, linestyle="dashed", alpha=0.8)
+
+                ax.set_xlabel("$g_1^t$")
+                ax.set_ylabel("$<g_1^{obs}>-g_1^t$")
+                fig.savefig(subfolder + f"/plots/{scene}_{mag}.png", dpi=200, bbox_inches="tight")
+                plt.close()
 
             if num_shears == 11:
                 filter = np.where(np.array(output_shear[4:7:2]) != -1)[0]
@@ -637,10 +594,10 @@ for reps in range(REPS):
                         bias_small_err = bias_data[1]
                         bias_small_err_err = np.std([fct.bootstrap_puyol(meas1_averages_small[interval][mag][:int((scene + 1) / division)],
                                                                          meas0_averages_small[interval][mag][:int((scene + 1) / division)],
-                                                                         BOOTSTRAP_REPETITIONS, 0.02,
+                                                                         int(BOOTSTRAP_REPETITIONS/10), 0.02,
                                                                          meas1_weights_small[interval][mag][:int((scene + 1) / division)],
                                                                          meas0_weights_small[interval][mag][:int((scene + 1) / division)])[1]
-                                                     for _ in range(10)])
+                                                     for _ in range(10)]) / np.sqrt(10)
 
                     else:
                         bias_small = -1
@@ -709,11 +666,11 @@ for reps in range(REPS):
 
                 err_err = np.std([fct.bootstrap_puyol(meas1_averages[mag][:int((scene + 1) / division)],
                                                       meas0_averages[mag][:int((scene + 1) / division)],
-                                                      BOOTSTRAP_REPETITIONS,
+                                                      int(BOOTSTRAP_REPETITIONS / 10),
                                                       shear_diff,
                                                       meas1_weights[mag][:int((scene + 1) / division)],
                                                       meas0_weights[mag][:int((scene + 1) / division)])[1] for _ in
-                                  range(10)])
+                                  range(10)]) / np.sqrt(10)
                 # BIAS FROM RESPONSE MEAN (WEIGHTED)
 
                 responses_update = [(meas1_averages[mag][:int((scene + 1) / division)][i] -
@@ -769,7 +726,7 @@ for reps in range(REPS):
             counter += 1
 
 
-            if num_shears == 11 and reps==0:
+            if num_shears == 11 and reps==REPS-1:
                 with open(path + "output/rp_simulations/pujol_individual_biases.txt", "a") as file:
                     file.write("%d\t %d\t %d\t %.7f\t %.7f\t %.7f\t %.7f\t %.7f\t %.7f\t %.7f\t %.7f\t %.7f\t %.7f\t %.7f\t %.7f\t %.7f\t %.7f\t %.7f\t %.7f\t %.7f\t %.7f\t %.7f\t %.7f\n" %
                                (complete_image_size, galaxy_number, scene+1, individual_biases[0], individual_biases_err[0],
