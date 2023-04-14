@@ -58,12 +58,12 @@ complete_image_size = int(sys.argv[1])
 
 total_scenes_per_shear = int(sys.argv[3])
 
-magnitudes_list = [min_mag + k*(max_mag-min_mag)/(mag_bins) for k in range(mag_bins+1)]
-
+magnitudes_list = np.array([min_mag + k*(max_mag-min_mag)/(mag_bins) for k in range(mag_bins+1)])
+mag_auto_bin = magnitudes_list
 # --------------------------------------- ANALYSIS -------------------------------------------------------------------
 start1 = timeit.default_timer()
 
-data_complete = ascii.read(subfolder + 'shear_catalog.dat')
+data_complete = ascii.read(subfolder + 'shear_catalog.dat', fast_reader={'chunk_size': 100 * 1000000})
 
 # SN CUT
 data_complete = data_complete[data_complete["S/N"] > float(simulation["sn_cut"])]
@@ -72,16 +72,30 @@ print(100 * len(data_complete["meas_g1"][(data_complete["meas_g1"] >= 5) | (data
 # Outliers
 data_complete = data_complete[(data_complete["meas_g1"] < 5) & (data_complete["meas_g1"] > -5)]
 
+# Magnitude cut
+data_complete = data_complete[(data_complete[bin_type] > min_mag) & (data_complete[bin_type] < max_mag)]
 
+# Define function for the standard error to use by aggregate
+def std_error(array):
+    return np.std(array) / np.sqrt(array.size)
 
+# Use astropy to group arrays and calculate mean ellipticity for each scene, cancel index, shear index and magnitude
+data_complete['binned_mag'] = np.trunc(data_complete[bin_type] + 0.5) # Adding a row with the magnitudes in bins
+meas_comp = data_complete.group_by(['scene_index', 'cancel_index', 'shear_index', 'binned_mag'])
+meas_means = meas_comp['meas_g1'].groups.aggregate(np.mean)
+meas_std = meas_comp['meas_g1'].groups.aggregate(std_error)
+lengths = meas_comp['meas_g1'].groups.aggregate(np.size)
 
+full_impr = data_complete.group_by(['scene_index', 'cancel_index', 'shear_index'])
+meas_means_full = full_impr['meas_g1'].groups.aggregate(np.mean)
+meas_std_full = full_impr['meas_g1'].groups.aggregate(std_error)
+lengths_full = full_impr['meas_g1'].groups.aggregate(np.size)
 
-columns = []
 # WRITE RESULTS TO FILE
+columns = []
 for scene in range(total_scenes_per_shear):
     index = 0
     print(scene)
-
     with open(path + f"output/rp_simulations/catalog_results_{complete_image_size}_{galaxy_number}_{scene}.txt", "w") as file:
         for j in range(4):
             for i in range(shear_bins):
@@ -92,27 +106,25 @@ for scene in range(total_scenes_per_shear):
                     else:
                         lower_limit = magnitudes_list[mag]
                         upper_limit = magnitudes_list[mag + 1]
-
-                    meas = data_complete["meas_g1"][
-                        (data_complete["scene_index"] == scene) & (data_complete["shear_index"] == i) & (
-                                    data_complete["cancel_index"] == j) & (data_complete[bin_type] > lower_limit) & (data_complete[bin_type] < upper_limit)]
-
+                    start = timeit.default_timer()
 
                     g1 = shear_min + i * (shear_max - shear_min) / (shear_bins-1)
-                    #print(convolution_times[i])
 
-                    if len(meas) != 0:
+                    if mag != mag_bins:
+                        ind = 4 * scene * shear_bins * mag_bins + j * shear_bins * mag_bins + i * mag_bins + mag
                         file.write("%.4f\t %.6f\t %.6f\t %d\t %.1f\n" %
-                                       (g1, np.average(meas), np.std(meas) / np.sqrt(len(meas)),
-                                        len(meas), magnitudes_list[mag]))
-                        columns.append([g1, i, scene, j, np.average(meas), np.std(meas) / np.sqrt(len(meas)),
-                                        len(meas), magnitudes_list[mag]])
-                        #lf_results.add_row(column)
+                                   (g1, meas_means[ind], meas_std[ind],
+                                    lengths[ind], magnitudes_list[mag]))
+                        columns.append([g1, i, scene, j, meas_means[ind], meas_std[ind],
+                                        lengths[ind], magnitudes_list[mag]])
+
                     else:
+                        ind = scene * shear_bins * 4 + j * shear_bins + i
                         file.write("%.4f\t %.6f\t %.6f\t %d\t %.1f\n" %
-                                       (g1, -1, -1 , 0, magnitudes_list[mag]))
-                        columns.append([g1, i, scene, j, -1, -1, 0, magnitudes_list[mag]])
-                        #lf_results.add_row(column)
+                                   (g1, meas_means_full[ind], meas_std_full[ind],
+                                    lengths_full[ind], magnitudes_list[mag]))
+                        columns.append([g1, i, scene, j, meas_means_full[ind], meas_std_full[ind],
+                                        lengths_full[ind], magnitudes_list[mag]])
 
                     if i == mag_bins-1 and index == 3:
                         file.write("\n")

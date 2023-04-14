@@ -60,7 +60,14 @@ def bootstrap(array, weights, n):
         error = np.std(
             np.average(bootstrap[np.sum(weights, axis=1) != 0], weights=weights[np.sum(weights, axis=1) != 0], axis=1))
     # print(error)
-    return error
+
+    # Calculate the uncertainty of the uncertainty by splitting the sample in 10 and using the standard deviation
+    split_bootstrap = np.array_split(bootstrap, 10)
+    split_weights = np.array_split(weights, 10)
+    error_error = np.std([np.std(
+            np.average(split_bootstrap[i][np.sum(split_weights[i], axis=1) != 0], weights=split_weights[i][np.sum(split_weights[i], axis=1) != 0], axis=1)) for i in range(10)])
+
+    return error, error_error / np.sqrt(10)
 
 
 file_number = int(sys.argv[1])
@@ -83,12 +90,13 @@ errors_c = [[[[] for _ in range(mag_bins+1)] for _ in range(file_number)] for _ 
 for reps in range(REPS):
     print(reps)
     data_compl = []
+
     rand_ind = np.random.randint(0, file_number, size=file_number)
     #rand_ind = np.repeat(0, file_number)
 
     # The permutation, which is saved should be the "normal" analysis with all runs included in consecutive order
     if reps == REPS-1:
-        rand_ind = [i for i in range(file_number)]
+        rand_ind = np.array([i for i in range(file_number)])
 
     print(rand_ind)
     for run in range(file_number):
@@ -119,9 +127,9 @@ for reps in range(REPS):
                             (data_complete["shear_index"] == i) & (
                                     data_complete["cancel_index"] == j) & (data_complete[bin_type] == magnitudes_list[mag])], rand_ind[:(run+1)])
 
-                        uncertainties.append(bootstrap(bootstrap_array, weights, BOOTSTRAP_REPETITIONS))
-                        uncertainties_errors.append(
-                            np.std([bootstrap(bootstrap_array, weights, BOOTSTRAP_REPETITIONS) for _ in range(10)]))
+                        bootstrap_results = bootstrap(bootstrap_array, weights, BOOTSTRAP_REPETITIONS)
+                        uncertainties.append(bootstrap_results[0])
+                        uncertainties_errors.append(bootstrap_results[1])
 
             # SHAPE UNCERTAINTY
             for i in range(shear_bins):
@@ -177,9 +185,9 @@ for reps in range(REPS):
                     except ZeroDivisionError:
                         shape_noise_all.append(0)
 
-                    uncertainties.append(bootstrap(shape_noise_av, weights, BOOTSTRAP_REPETITIONS))
-                    uncertainties_errors.append(
-                        np.std([bootstrap(shape_noise_av, weights, BOOTSTRAP_REPETITIONS) for _ in range(10)]))
+                    bootstrap_results = bootstrap(shape_noise_av, weights, BOOTSTRAP_REPETITIONS)
+                    uncertainties.append(bootstrap_results[0])
+                    uncertainties_errors.append(bootstrap_results[1])
 
             # BOTH UNCERTAINTY
             for i in range(shear_bins):
@@ -272,9 +280,9 @@ for reps in range(REPS):
                     except ZeroDivisionError:
                         both_noise_all.append(0)
 
-                    uncertainties.append(bootstrap(both_noise_av, weights, BOOTSTRAP_REPETITIONS))
-                    uncertainties_errors.append(
-                        np.std([bootstrap(both_noise_av, weights, BOOTSTRAP_REPETITIONS) for _ in range(10)]))
+                    bootstrap_results = bootstrap(both_noise_av, weights, BOOTSTRAP_REPETITIONS)
+                    uncertainties.append(bootstrap_results[0])
+                    uncertainties_errors.append(bootstrap_results[1])
 
             uncertainties = np.array(uncertainties)
             uncertainties_errors = np.array(uncertainties_errors)
