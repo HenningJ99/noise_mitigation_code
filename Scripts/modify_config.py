@@ -8,6 +8,7 @@ if sys.argv[1] == "GRID":
     config.set('SIMULATION', 'time_bins', sys.argv[3])
     config.set('SIMULATION', 'min_mag', sys.argv[4])
     config.set('SIMULATION', 'max_mag', sys.argv[5])
+    config.set('SIMULATION', 'reps_for_improvements', sys.argv[6])
 
     with open('config_grid.ini', 'w') as configfile:
         config.write(configfile)

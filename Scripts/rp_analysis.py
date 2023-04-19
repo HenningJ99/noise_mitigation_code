@@ -82,9 +82,9 @@ def std_error(array):
 # Use astropy to group arrays and calculate mean ellipticity for each scene, cancel index, shear index and magnitude
 data_complete['binned_mag'] = np.trunc(data_complete[bin_type] + 0.5) # Adding a row with the magnitudes in bins
 meas_comp = data_complete.group_by(['scene_index', 'cancel_index', 'shear_index', 'binned_mag'])
-meas_means = meas_comp['meas_g1'].groups.aggregate(np.mean)
-meas_std = meas_comp['meas_g1'].groups.aggregate(std_error)
-lengths = meas_comp['meas_g1'].groups.aggregate(np.size)
+meas_means = meas_comp['scene_index', 'cancel_index', 'shear_index', 'binned_mag', 'meas_g1'].groups.aggregate(np.mean)
+meas_std = meas_comp['scene_index', 'cancel_index', 'shear_index', 'binned_mag', 'meas_g1'].groups.aggregate(std_error)
+lengths = meas_comp['scene_index', 'cancel_index', 'shear_index', 'binned_mag', 'meas_g1'].groups.aggregate(np.size)
 
 full_impr = data_complete.group_by(['scene_index', 'cancel_index', 'shear_index'])
 meas_means_full = full_impr['meas_g1'].groups.aggregate(np.mean)
@@ -111,12 +111,30 @@ for scene in range(total_scenes_per_shear):
                     g1 = shear_min + i * (shear_max - shear_min) / (shear_bins-1)
 
                     if mag != mag_bins:
-                        ind = 4 * scene * shear_bins * mag_bins + j * shear_bins * mag_bins + i * mag_bins + mag
+                        value = meas_means["meas_g1"][(meas_means["scene_index"] == scene) & (meas_means["cancel_index"] == j) & (meas_means["shear_index"] == i) & (meas_means["binned_mag"] == magnitudes_list[mag] + 0.5)].data
+                        error = meas_std["meas_g1"][
+                            (meas_means["scene_index"] == scene) & (meas_means["cancel_index"] == j) & (
+                                        meas_means["shear_index"] == i) & (
+                                        meas_means["binned_mag"] == magnitudes_list[mag] + 0.5)].data
+                        weight = lengths["meas_g1"][
+                            (meas_means["scene_index"] == scene) & (meas_means["cancel_index"] == j) & (
+                                        meas_means["shear_index"] == i) & (
+                                        meas_means["binned_mag"] == magnitudes_list[mag] + 0.5)].data
+                        
+                        if len(value) == 0:
+                            value = -1
+                            error = -1
+                            weight = 0
+                        else:
+                            value = value[0]
+                            error = error[0]
+                            weight = weight[0]
+                            
                         file.write("%.4f\t %.6f\t %.6f\t %d\t %.1f\n" %
-                                   (g1, meas_means[ind], meas_std[ind],
-                                    lengths[ind], magnitudes_list[mag]))
-                        columns.append([g1, i, scene, j, meas_means[ind], meas_std[ind],
-                                        lengths[ind], magnitudes_list[mag]])
+                                   (g1, value, error ,
+                                    weight, magnitudes_list[mag]))
+                        columns.append([g1, i, scene, j, value, error,
+                                        weight, magnitudes_list[mag]])
 
                     else:
                         ind = scene * shear_bins * 4 + j * shear_bins + i

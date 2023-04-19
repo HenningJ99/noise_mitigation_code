@@ -65,27 +65,27 @@ for biases in ["M", "C"]:
             # None
             axs.errorbar(magnitudes + 0.25,
                          (data[:, 4][0:(mag_bins + 1) * 3:3] + data[:, 4][(mag_bins + 1) * 3::3]) / 2, yerr=np.sqrt(
-                    data[:, 5][0:(mag_bins + 1) * 3:3] ** 2 + data[:, 5][(mag_bins + 1) * 3::3] ** 2) / 2, fmt='+',
-                         capsize=2, label="none")
+                    data[:, 5][0:(mag_bins + 1) * 3:3] ** 2 + data[:, 5][(mag_bins + 1) * 3::3] ** 2) / 2, fmt='s',
+                         capsize=2, label="none", markersize=3)
 
             # Shape local
             axs.errorbar(magnitudes + 0.35, data[:, 4][1:(mag_bins + 1) * 3:3], yerr=data[:, 5][1:(mag_bins + 1) * 3:3],
-                         fmt='+', capsize=2, label="shape local")
+                         fmt='^', capsize=2, label="shape local", markersize=3)
 
             # Both local
             axs.errorbar(magnitudes + 0.45, data[:, 4][2:(mag_bins + 1) * 3:3], yerr=data[:, 5][2:(mag_bins + 1) * 3:3],
-                         fmt='+', capsize=2, label="both local")
+                         fmt='v', capsize=2, label="both local",markersize=3)
 
             # Shape global
             axs.errorbar(magnitudes + 0.55, data[:, 4][(mag_bins + 1) * 3 + 1::3],
-                         yerr=data[:, 5][(mag_bins + 1) * 3 + 1::3], fmt='+', capsize=2, label="shape global")
+                         yerr=data[:, 5][(mag_bins + 1) * 3 + 1::3], fmt='x', capsize=2, label="shape global", markersize=3)
 
             # Shape global
             axs.errorbar(magnitudes + 0.65, data[:, 4][(mag_bins + 1) * 3 + 2::3],
-                         yerr=data[:, 5][(mag_bins + 1) * 3 + 2::3], fmt='+', capsize=2, label="both global")
+                         yerr=data[:, 5][(mag_bins + 1) * 3 + 2::3], fmt='p', capsize=2, label="both global", markersize=3)
 
             # Response method
-            axs.errorbar(magnitudes + 0.75, data_pu[:, 16], yerr=data_pu[:, 17], fmt="+", capsize=2, label="RM")
+            axs.errorbar(magnitudes + 0.75, data_pu[:, 16], yerr=data_pu[:, 17], fmt="+", capsize=2, label="RM", markersize=3)
 
             axs.set_ylim(-0.5, 0.2)
 
@@ -100,32 +100,32 @@ for biases in ["M", "C"]:
                                ((data[:, 4][0:(mag_bins + 1) * 3:3] + data[:, 4][(mag_bins + 1) * 3::3]))[bin] / 2,
                                yerr=np.sqrt(
                                    data[:, 5][0:(mag_bins + 1) * 3:3] ** 2 + data[:, 5][(mag_bins + 1) * 3::3] ** 2)[
-                                        bin] / 2, fmt='+',
-                               capsize=2, label="none", alpha=0.8)
+                                        bin] / 2, fmt='s',
+                               capsize=2, label="none", alpha=0.8, markersize=3)
 
                 # Shape local
                 axins.errorbar(magnitudes[bin] + 0.35, data[:, 4][1:(mag_bins + 1) * 3:3][bin],
-                               yerr=data[:, 5][1:(mag_bins + 1) * 3:3][bin], fmt='+', capsize=2, label="shape local",
-                               alpha=0.8)
+                               yerr=data[:, 5][1:(mag_bins + 1) * 3:3][bin], fmt='^', capsize=2, label="shape local",
+                               alpha=0.8, markersize=3)
 
                 # Both local
                 axins.errorbar(magnitudes[bin] + 0.45, data[:, 4][2:(mag_bins + 1) * 3:3][bin],
-                               yerr=data[:, 5][2:(mag_bins + 1) * 3:3][bin], fmt='+', capsize=2, label="both local",
-                               alpha=0.8)
+                               yerr=data[:, 5][2:(mag_bins + 1) * 3:3][bin], fmt='v', capsize=2, label="both local",
+                               alpha=0.8, markersize=3)
 
                 # Shape global
                 axins.errorbar(magnitudes[bin] + 0.55, data[:, 4][(mag_bins + 1) * 3 + 1::3][bin],
-                               yerr=data[:, 5][(mag_bins + 1) * 3 + 1::3][bin], fmt='+', capsize=2,
-                               label="shape global", alpha=0.8)
+                               yerr=data[:, 5][(mag_bins + 1) * 3 + 1::3][bin], fmt='x', capsize=2,
+                               label="shape global", alpha=0.8, markersize=3)
 
                 # Both global
                 axins.errorbar(magnitudes[bin] + 0.65, data[:, 4][(mag_bins + 1) * 3 + 2::3][bin],
-                               yerr=data[:, 5][(mag_bins + 1) * 3 + 2::3][bin], fmt='+', capsize=2, label="both global",
-                               alpha=0.8)
+                               yerr=data[:, 5][(mag_bins + 1) * 3 + 2::3][bin], fmt='p', capsize=2, label="both global",
+                               alpha=0.8, markersize=3)
 
                 # Response method
                 axins.errorbar(magnitudes[bin] + 0.75, data_pu[:, 16][bin], yerr=data_pu[:, 17][bin], fmt="+",
-                               capsize=2, label="RM", alpha=0.8)
+                               capsize=2, label="RM", alpha=0.8, markersize=3)
                 ylim = axs.get_ylim()
                 y_delta = ylim[1] - ylim[0]
                 ip = InsetPosition(axs,
@@ -144,6 +144,8 @@ for biases in ["M", "C"]:
             axs.set_ylabel("$\mu$-bias")
             # axs.grid(True)
             axs.set_xlim(20.5, magnitudes[-1])
+            axs.set_xticks([21, 22, 23, 24, 25, 26])
+
 
         # For the grid
         elif type == "GR":
@@ -151,22 +153,22 @@ for biases in ["M", "C"]:
 
             # None
             axs.errorbar(magnitudes + 0.25, data_2[:, 4][0:(mag_bins + 1)], yerr=data_2[:, 5][0:(mag_bins + 1)],
-                         fmt='+', capsize=2,
-                         label="none")
+                         fmt='s', capsize=2,
+                         label="none", markersize=3)
 
             # Shape
             axs.errorbar(magnitudes + 0.35, data_2[:, 4][(mag_bins + 1):(mag_bins + 1) * 2],
-                         yerr=data_2[:, 5][(mag_bins + 1):(mag_bins + 1) * 2], fmt='+', capsize=2,
-                         label="shape")
+                         yerr=data_2[:, 5][(mag_bins + 1):(mag_bins + 1) * 2], fmt='^', capsize=2,
+                         label="shape", markersize=3)
 
             # Both
             axs.errorbar(magnitudes + 0.45, data_2[:, 4][(mag_bins + 1) * 2:(mag_bins + 1) * 3],
-                         yerr=data_2[:, 5][(mag_bins + 1) * 2:(mag_bins + 1) * 3], fmt='+', capsize=2,
-                         label="both")
+                         yerr=data_2[:, 5][(mag_bins + 1) * 2:(mag_bins + 1) * 3], fmt='v', capsize=2,
+                         label="both", markersize=3)
 
             # Response method
-            axs.errorbar(magnitudes + 0.55, data_p[:, 20], yerr=data_p[:, 21], fmt="+", capsize=2, label="RM")
-
+            axs.errorbar(magnitudes + 0.55, data_p[:, 20], yerr=data_p[:, 21], fmt="x", capsize=2, label="RM", markersize=3)
+            axs.set_ylim(-0.5, 0.2)
             # Do the zoom ins
             for bin in range(mag_bins):
                 axins = inset_axes(axs, width=0.4, height=0.7,
@@ -175,22 +177,22 @@ for biases in ["M", "C"]:
 
                 # None
                 axins.errorbar(magnitudes[bin] + 0.25, data_2[:, 4][0:(mag_bins + 1)][bin],
-                               yerr=data_2[:, 5][0:(mag_bins + 1)][bin], fmt='+', capsize=2,
-                               label="none")
+                               yerr=data_2[:, 5][0:(mag_bins + 1)][bin], fmt='s', capsize=2,
+                               label="none", markersize=3)
 
                 # Shape
                 axins.errorbar(magnitudes[bin] + 0.35, data_2[:, 4][(mag_bins + 1):(mag_bins + 1) * 2][bin],
-                               yerr=data_2[:, 5][(mag_bins + 1):(mag_bins + 1) * 2][bin], fmt='+', capsize=2,
-                               label="shape")
+                               yerr=data_2[:, 5][(mag_bins + 1):(mag_bins + 1) * 2][bin], fmt='^', capsize=2,
+                               label="shape", markersize=3)
 
                 # Both
                 axins.errorbar(magnitudes[bin] + 0.45, data_2[:, 4][(mag_bins + 1) * 2:(mag_bins + 1) * 3][bin],
-                               yerr=data_2[:, 5][(mag_bins + 1) * 2:(mag_bins + 1) * 3][bin], fmt='+', capsize=2,
-                               label="both")
+                               yerr=data_2[:, 5][(mag_bins + 1) * 2:(mag_bins + 1) * 3][bin], fmt='v', capsize=2,
+                               label="both", markersize=3)
 
                 # Response method
-                axins.errorbar(magnitudes[bin] + 0.55, data_p[:, 20][bin], yerr=data_p[:, 21][bin], fmt="+", capsize=2,
-                               label="RM")
+                axins.errorbar(magnitudes[bin] + 0.55, data_p[:, 20][bin], yerr=data_p[:, 21][bin], fmt="x", capsize=2,
+                               label="RM", markersize=3)
                 ylim = axs.get_ylim()
                 y_delta = ylim[1] - ylim[0]
                 ip = InsetPosition(axs,
@@ -206,6 +208,9 @@ for biases in ["M", "C"]:
             axs.set_xlabel("$m_{\mathrm{GEMS}}$")
             axs.set_ylabel("$\mu$-bias")
             axs.set_xlim(20.5, magnitudes[-1])
+
+            #axs.set_yticks([])
+            axs.set_yticklabels([])
             # axs.grid(True)
 
     # Additive biases
@@ -217,55 +222,57 @@ for biases in ["M", "C"]:
             axs.errorbar(magnitudes + 0.3, (data[:, 6][0:(mag_bins + 1) * 3:3] + data[:, 6][(mag_bins + 1) * 3::3]) / 2,
                          yerr=np.sqrt(
                              data[:, 7][0:(mag_bins + 1) * 3:3] ** 2 + data[:, 7][(mag_bins + 1) * 3::3] ** 2) / 2,
-                         fmt='+', capsize=2, label="none")
+                         fmt='s', capsize=2, label="none", markersize=3)
 
             # Shape local
             axs.errorbar(magnitudes + 0.4, data[:, 6][1:(mag_bins + 1) * 3:3], yerr=data[:, 7][1:(mag_bins + 1) * 3:3],
-                         fmt='+', capsize=2, label="shape local")
+                         fmt='^', capsize=2, label="shape local", markersize=3)
 
             # Both local
             axs.errorbar(magnitudes + 0.5, data[:, 6][2:(mag_bins + 1) * 3:3], yerr=data[:, 7][2:(mag_bins + 1) * 3:3],
-                         fmt='+', capsize=2, label="both local")
+                         fmt='v', capsize=2, label="both local", markersize=3)
 
             # Shape local
             axs.errorbar(magnitudes + 0.6, data[:, 6][(mag_bins + 1) * 3 + 1::3],
-                         yerr=data[:, 7][(mag_bins + 1) * 3 + 1::3], fmt='+', capsize=2, label="shape global")
+                         yerr=data[:, 7][(mag_bins + 1) * 3 + 1::3], fmt='x', capsize=2, label="shape global", markersize=3)
 
             # Shape global
             axs.errorbar(magnitudes + 0.7, data[:, 6][(mag_bins + 1) * 3 + 2::3],
-                         yerr=data[:, 7][(mag_bins + 1) * 3 + 2::3], fmt='+', capsize=2, label="both global")
+                         yerr=data[:, 7][(mag_bins + 1) * 3 + 2::3], fmt='p', capsize=2, label="both global", markersize=3)
 
             # Response method
-            axs.errorbar(magnitudes + 0.8, data_pu[:, 18], yerr=data_pu[:, 19], fmt="+", capsize=2, label="RM")
+            axs.errorbar(magnitudes + 0.8, data_pu[:, 18], yerr=data_pu[:, 19], fmt="+", capsize=2, label="RM", markersize=3)
             axs.set_xlabel("$m_{\mathrm{AUTO}}$")
             axs.set_ylabel("$c$-bias")
             axs.set_xlim(20.5, magnitudes[-1])
+            axs.set_ylim(-0.0005, 0.002)
+            axs.set_xticks([21,22,23,24,25,26])
 
         elif type == "GR":
             axs.set_title("Grid")
 
             # None
-            axs.errorbar(magnitudes + 0.3, data_2[:, 6][0:(mag_bins + 1)], yerr=data_2[:, 7][0:(mag_bins + 1)], fmt='+',
+            axs.errorbar(magnitudes + 0.3, data_2[:, 6][0:(mag_bins + 1)], yerr=data_2[:, 7][0:(mag_bins + 1)], fmt='s',
                          capsize=2,
-                         label="none")
+                         label="none", markersize=3)
 
             # Shape
             axs.errorbar(magnitudes + 0.4, data_2[:, 6][(mag_bins + 1):(mag_bins + 1) * 2],
-                         yerr=data_2[:, 7][(mag_bins + 1):(mag_bins + 1) * 2], fmt='+', capsize=2,
-                         label="shape")
+                         yerr=data_2[:, 7][(mag_bins + 1):(mag_bins + 1) * 2], fmt='^', capsize=2,
+                         label="shape", markersize=3)
 
             # Both
             axs.errorbar(magnitudes + 0.5, data_2[:, 6][(mag_bins + 1) * 2:(mag_bins + 1) * 3],
-                         yerr=data_2[:, 7][(mag_bins + 1) * 2:(mag_bins + 1) * 3], fmt='+', capsize=2,
-                         label="both")
+                         yerr=data_2[:, 7][(mag_bins + 1) * 2:(mag_bins + 1) * 3], fmt='v', capsize=2,
+                         label="both", markersize=3)
 
             # Response method
-            axs.errorbar(magnitudes + 0.6, data_p[:, 22], yerr=data_p[:, 23], fmt="+", capsize=2, label="RM")
+            axs.errorbar(magnitudes + 0.6, data_p[:, 22], yerr=data_p[:, 23], fmt="x", capsize=2, label="RM", markersize=3)
             axs.set_xlabel("$m_{\mathrm{GEMS}}$")
             axs.set_ylabel("$c$-bias")
-            axs.set_ylim(-0.0010, 0.0025)
+            axs.set_ylim(-0.0005, 0.002)
             # axs.grid(True)
-            #
+            axs.set_yticklabels([])
 
             axs.set_xlim(20.5, magnitudes[-1])
 
