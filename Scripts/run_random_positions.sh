@@ -11,6 +11,7 @@ read -p "Smallest magnitude: " min_mag
 read -p "Largest magnitude: " max_mag
 read -p "Reps for improvement error: " reps
 read -p "Analyse every pujol: " analyse_every_pujol
+read -p "Skip first lf points: " skip_first_lf
 read -p "Generation only? (y/n): " gen_only
 if [ $gen_only == "n" ]
 then
@@ -21,7 +22,7 @@ fi
 # read -p "0 (no pixel noise cancel) or 1: " y_tiles
 
 # -------------------------- MODIFY CONFIG FILE WITH MAG_BINS
-python3 modify_config.py RP $mag_bins $min_mag $max_mag $analyse_every_pujol
+python3 modify_config.py RP $mag_bins $min_mag $max_mag $analyse_every_pujol $skip_first_lf $reps
 
 compare=`echo | awk "{ print ($shear_interval == 0.02)?1 : 0 }"` #Comparison to decide on shear interval
 
@@ -80,11 +81,11 @@ then
       # -------------------------- INITIAL ANALYSIS -------------------------------------#
       python3 rp_analysis.py $sim_size $galaxy_num $run_lf $path $shear_interval $shape_options $binning
 
-      mv $shape_options/analysis.dat $shape_options/analysis_${binning}.dat #Avoid overwriting output
-
       python3 catalog_plot.py $run_lf $galaxy_num $path $sim_size $shape_options $binning
 
-      extraction=$((reps * (mag_bins+1) * (3 * run_lf + run_rm / analyse_every_pujol)))
+      mv $shape_options/analysis.dat $shape_options/analysis_${binning}.dat #Avoid overwriting output
+
+      extraction=$((reps * (mag_bins+1) * (3 * (run_lf - skip_first_lf) + run_rm / analyse_every_pujol)))
       if [[ $shape_options == $lf_folder_stat ]]
       then
         if [[ $compare -eq 1 ]]
@@ -105,7 +106,7 @@ then
 
       if [ $binning == "MAG_AUTO" ]
       then
-        head $path/output/rp_simulations/tmp_rm.txt -n $((reps * (mag_bins+1)*3*(run_lf))) | tail -n $(((mag_bins+1)*3)) >> $path/output/plots/bias_comparison_rp.txt
+        head $path/output/rp_simulations/tmp_rm.txt -n $((reps * (mag_bins+1)*3*(run_lf - skip_first_lf))) | tail -n $(((mag_bins+1)*3)) >> $path/output/plots/bias_comparison_rp.txt
       fi
 
 
@@ -117,15 +118,18 @@ then
       # ------------------------ PRODUCE THE UNCERTAINTY EVOLUTION PLOTS -------------------------#
       python3 error_plot.py $run_lf $run_rm $path M $shear_interval
       tail ${path}/output/rp_simulations/error_scaling.txt -n $((4*(mag_bins+1))) >> $path/output/plots/binned_improvement_rp_m.txt
+      #tail ${path}/output/rp_simulations/error_scaling.txt -n $((4*(mag_bins+1))) >> $path/output/plots/binned_improvement_rp_m.txt
 
       python3 error_plot.py $run_lf $run_rm $path C $shear_interval
       tail ${path}/output/rp_simulations/error_scaling.txt -n $((4*(mag_bins+1))) >> $path/output/plots/binned_improvement_rp_c.txt
+      #tail ${path}/output/rp_simulations/error_scaling.txt -n $((4*(mag_bins+1))) >> $path/output/plots/binned_improvement_rp_c.txt
+
 
       rm $path/output/rp_simulations/tmp_rm.txt
       # counter=$((counter-1))
     done
   done
-
+  
   # ------------------------------ PLOT THE BINNED IMPROVEMENTS ----------------------------------------------#
   python3 plot_binned_data.py $path/output/plots/binned_improvement_rp_m.txt config_rp.ini $shear_interval RP
   python3 plot_binned_data.py $path/output/plots/binned_improvement_rp_c.txt config_rp.ini $shear_interval RP

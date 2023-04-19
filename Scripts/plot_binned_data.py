@@ -42,20 +42,20 @@ if type == "RP":
         response = data[4 * i * (mag_bins + 1) + 3:4 * (i + 1) * (mag_bins + 1):4]
 
         axs[i % 2].set_title(f"[$-${shear_interval}, {shear_interval}]")
-        axs[i % 2].errorbar(magnitudes, shape_noise[:, 5][:-1], yerr=shape_noise[:, 6][:-1], fmt='+', capsize=2, elinewidth=0.5,
-                     color="blue" if i < 2 else "navy", label="shape local" if i < 2 else "shape global")
+        # axs[i % 2].errorbar(magnitudes, shape_noise[:, 5][:-1], yerr=shape_noise[:, 6][:-1], fmt='+' if i < 2 else "x", capsize=2, elinewidth=0.5,
+        #              color="blue" if i < 2 else "navy", label="shape local" if i < 2 else "shape global", markersize=4)
 
-        axs[i % 2].plot(magnitudes, shape_noise[:, 5][:-1], color="blue" if i < 2 else "navy")
+        axs[i % 2].plot(magnitudes, shape_noise[:, 5][:-1], '+-' if i < 2 else "x-", color="blue" if i < 2 else "navy", label="shape local" if i < 2 else "shape global")
 
-        axs[i % 2].errorbar(magnitudes, both_noise[:, 5][:-1], yerr=both_noise[:, 6][:-1], fmt='+', capsize=2, elinewidth=0.5,
-                     color="orange" if i < 2 else "orangered", label="both local" if i < 2 else "both global")
+        # axs[i % 2].errorbar(magnitudes, both_noise[:, 5][:-1], yerr=both_noise[:, 6][:-1], fmt='^' if i < 2 else "v", capsize=2, elinewidth=0.5,
+        #              color="orange" if i < 2 else "orangered", label="both local" if i < 2 else "both global", markersize=4)
 
-        axs[i % 2].plot(magnitudes, both_noise[:, 5][:-1], color="orange" if i < 2 else "orangered")
+        axs[i % 2].plot(magnitudes, both_noise[:, 5][:-1], '^-' if i < 2 else "v-", color="orange" if i < 2 else "orangered", label="both local" if i < 2 else "both global")
 
         if i < 2:
-            axs[i % 2].errorbar(magnitudes, response[:, 5][:-1], yerr=response[:, 6][:-1], fmt='+', capsize=2, elinewidth=0.5,
-                         color="green", label="RM")
-            axs[i % 2].plot(magnitudes, response[:, 5][:-1], color="green")
+            # axs[i % 2].errorbar(magnitudes, response[:, 5][:-1], yerr=response[:, 6][:-1], fmt='p', capsize=2, elinewidth=0.5,
+            #              color="green", label="RM", markersize=4)
+            axs[i % 2].plot(magnitudes, response[:, 5][:-1], 'p-', color="green", label="RM")
 
         axs[0].set_yscale('log')
         axs[1].set_yscale('log')
@@ -78,23 +78,23 @@ elif type == "GRID":
     response = data[3::4]
 
     axs.set_title(f"[$-${shear_interval}, {shear_interval}]")
-    axs.errorbar(magnitudes, shape_noise[:, 5][:-1], yerr=shape_noise[:, 6][:-1], fmt='+', capsize=2,
-                        elinewidth=0.5,
-                        color="blue", label="shape")
+    # axs.errorbar(magnitudes, shape_noise[:, 5][:-1], yerr=shape_noise[:, 6][:-1], fmt='s', capsize=2,
+    #                     elinewidth=0.5,
+    #                     color="blue", label="shape", markersize=4)
 
-    axs.plot(magnitudes, shape_noise[:, 5][:-1], color="blue")
+    axs.plot(magnitudes, shape_noise[:, 5][:-1], 's-', label="shape", color="blue")
 
-    axs.errorbar(magnitudes, both_noise[:, 5][:-1], yerr=both_noise[:, 6][:-1], fmt='+', capsize=2,
-                        elinewidth=0.5,
-                        color="orange", label="both")
+    # axs.errorbar(magnitudes, both_noise[:, 5][:-1], yerr=both_noise[:, 6][:-1], fmt='^', capsize=2,
+    #                     elinewidth=0.5,
+    #                     color="orange", label="both", markersize=4)
 
-    axs.plot(magnitudes, both_noise[:, 5][:-1], color="orange")
+    axs.plot(magnitudes, both_noise[:, 5][:-1], "^-", label="both", color="orange")
 
 
-    axs.errorbar(magnitudes, response[:, 5][:-1], yerr=response[:, 6][:-1], fmt='+', capsize=2,
-                        elinewidth=0.5,
-                        color="green", label="RM")
-    axs.plot(magnitudes, response[:, 5][:-1], color="green")
+    # axs.errorbar(magnitudes, response[:, 5][:-1], yerr=response[:, 6][:-1], fmt='v', capsize=2,
+    #                     elinewidth=0.5,
+    #                     color="green", label="RM", markersize=4)
+    axs.plot(magnitudes, response[:, 5][:-1], "v-", label="RM", color="green")
 
     axs.set_yscale('log')
 

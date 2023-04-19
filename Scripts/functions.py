@@ -845,10 +845,10 @@ def one_galaxy(k, input_g1, ellip_gal, image_sampled_psf, psf, config, argv):
     if len(R_11) != 0:
         return (
             np.average(R_11) - 1, np.std(R_11) / np.sqrt(len(R_11)), len(R_11), np.average(alpha),
-            np.std(alpha) / np.sqrt(len(alpha)), len(alpha), SNR, k, gal_mag, gal_mag_meas,
+            np.std(alpha) / np.sqrt(len(alpha)), len(alpha), SNR, gal_image if simulation.getboolean("output") else "", k, gal_mag, gal_mag_meas,
             meas_g1)
     else:
-        return 0, 0, 0, 0, 0, 0, SNR, k, gal_mag, gal_mag_meas,  meas_g1
+        return 0, 0, 0, 0, 0, 0, SNR, gal_image if simulation.getboolean("output") else "", k, gal_mag, gal_mag_meas,  meas_g1
 
 
 @ray.remote
@@ -1719,9 +1719,9 @@ def one_shear_analysis(m, config, argv, data_complete, input_g1, input_g2, magni
 
 
             array_g1 = data_complete[(data_complete["shear_index"] == m)].copy()
-            array_g2 = data_complete[(data_complete["bin_index"] == m)].copy()
+            array_g2 = data_complete[(data_complete["shear_index"] == m)].copy()
             input_array_g1 = input_g1[(data_complete["shear_index"] == m)].copy()
-            input_array_g2 = input_g2[(data_complete["bin_index"] == m)].copy()
+            input_array_g2 = input_g2[(data_complete["shear_index"] == m)].copy()
 
             # Mask the arrays to include only the wanted magnitude range
             array_g1["meas_g1"].mask = (array_g1["meas_g1"].mask) | (array_g1[bin_type] <= lower_limit) | (
