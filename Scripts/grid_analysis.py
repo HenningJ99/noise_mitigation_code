@@ -13,26 +13,14 @@ Syntax:
     grid_analysis.py <total_gal> <gal_per_shear> <nx_tiles> <pixel_noise_times> <shear_interval> <path>
 
 """
-import random
-
 from astropy.table import Table
-from astropy.table import QTable
 from astropy.io import ascii
 import numpy as np
 import sys
-import os
 import logging
-import galsim
 import timeit
 import configparser
 import functions as fct
-import math
-import ray
-import psutil
-from scipy.optimize import curve_fit
-import scipy
-import matplotlib.pyplot as plt
-import datetime
 import ray
 
 # ------------------------------PROCESS INPUT AND CONFIG ------------------------------------------------------------#
@@ -52,6 +40,8 @@ simulation = config['SIMULATION']
 psf_config = config['PSF']
 
 subfolder = sys.argv[6]
+rep = sys.argv[7]
+REPS = int(simulation["reps_for_improvements"])
 object_number = int(sys.argv[1])
 average_num = int(sys.argv[2])
 
@@ -149,6 +139,10 @@ argv_ref = ray.put(sys.argv)
 # Do the analysis for both, shape and none
 for run in [4, 2, 1]:
     indices = np.arange(0, len(catalog), 4)
+
+    if rep != REPS - 1:
+        np.random.shuffle(indices)
+
     if run != 1:
         indices = np.sort(np.append(indices, [indices + i for i in range(1, run)]))
 

@@ -8,6 +8,7 @@ read -p "Smallest magnitude: " min_mag
 read -p "Largest magnitude: " max_mag
 read -p "Magnitude bins: " mag_bins
 read -p "Time bins: " time_bins
+read -p "Reps for improvement error: " reps
 read -p "Generation only? (y/n): " gen_only
 if [ $gen_only == "n" ]
 then
@@ -18,7 +19,7 @@ fi
 # read -p "0 (no pixel noise cancel) or 1: " y_tiles
 
 # ------------------ MODIFY CONFIG FILE WITH INPUT --------------------------------------------------#
-python3 modify_config.py GRID $mag_bins $time_bins $min_mag $max_mag
+python3 modify_config.py GRID $mag_bins $time_bins $min_mag $max_mag $reps
 
 compare=`echo | awk "{ print ($shear_interval == 0.02)?1 : 0 }"` #Comparison to decide on shear interval
 
@@ -63,21 +64,27 @@ then
   fi
 
   # ----------------------- ANALYSIS ------------------------------------------------------------------------------#
-  python3 grid_analysis.py $object_num $galaxy_num 2 1 $shear_interval $lf_folder
+  for i in $(seq 0 $((reps-1)))
+  do
+    python3 grid_analysis.py $object_num $galaxy_num 2 1 $shear_interval $lf_folder $i
 
-  python3 plot_data.py $lf_folder/results_${object_num}_${galaxy_num}_1_1.dat 1 mod $path
-  python3 plot_data.py $lf_folder/results_${object_num}_${galaxy_num}_1_2.dat 1 mod $path
-  python3 plot_data.py $lf_folder/results_${object_num}_${galaxy_num}_2_2.dat 1 mod $path
+    python3 plot_data.py $lf_folder/results_${object_num}_${galaxy_num}_1_1.dat 1 mod $path
+    python3 plot_data.py $lf_folder/results_${object_num}_${galaxy_num}_1_2.dat 1 mod $path
+    python3 plot_data.py $lf_folder/results_${object_num}_${galaxy_num}_2_2.dat 1 mod $path
+  done
 
-  if [[ $compare -eq 1 ]]
-  then
-    python3 pujol_grid_analysis.py $pujol_num 1 2 $puj_folder $path
-  else
-    python3 pujol_grid_analysis.py $pujol_num 1 11 $puj_folder $path
-  fi
+  for i in $(seq 0 $((reps-1)))
+  do
+    if [[ $compare -eq 1 ]]
+    then
+      python3 pujol_grid_analysis.py $pujol_num 1 2 $puj_folder $path $i
+    else
+      python3 pujol_grid_analysis.py $pujol_num 1 11 $puj_folder $path $i
+    fi
+  done
 
   # --------------------- EXTRACTION FROM OUTPUT FILES -----------------------------------------------------------#
-  tail ${path}/output/grid_simulations/fits.txt -n $((4 * time_bins * (mag_bins+1))) >> $path/output/grid_simulations/tmp.txt
+  tail ${path}/output/grid_simulations/fits.txt -n $((4 * reps * time_bins * (mag_bins+1))) >> $path/output/grid_simulations/tmp.txt
   #tail $puj_folder/puyol_results.txt -n $((time_bins * (mag_bins+1))) >> $path/output/grid_simulations/tmp.txt
 
   # --------------------- UNCERTAINTY BEHAVIOUR PLOTS --------------------------------------------------------------#
@@ -104,9 +111,9 @@ then
 
   # ---------------------- REMOVE TEMPORARY FILES -------------------------------------------------------------------#
   rm $path/output/grid_simulations/tmp.txt
-  rm $path/output/plots/binned_improvement_m.txt
-  rm $path/output/plots/binned_improvement_c.txt
-  rm $path/output/plots/grid_bias.txt
+  #rm $path/output/plots/binned_improvement_m.txt
+  #rm $path/output/plots/binned_improvement_c.txt
+  #rm $path/output/plots/grid_bias.txt
 
   #object_num=$((galaxy_num * 40))
   #

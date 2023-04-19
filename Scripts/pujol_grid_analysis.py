@@ -49,6 +49,8 @@ simulation = config['SIMULATION']
 psf_config = config['PSF']
 timings = config["TIMINGS"]
 
+rep = sys.argv[6]
+REPS = int(simulation["reps_for_improvements"])
 noise_plus_meas = float(timings["noise_plus_meas"])
 
 if simulation["bin_type"] == "GEMS":
@@ -88,6 +90,15 @@ if mag_bins != 0:
 else:
     magnitudes = [float(simulation["max_mag"])]  # If no binning at all
 
+indices_base = np.arange(0, len(data_complete), 2*num_shears)
+
+if rep != REPS-1:
+    np.random.shuffle(indices_base)
+
+indices = np.repeat(indices_base, 2*num_shears)
+indices = indices + np.repeat(np.array([i for i in range(2*num_shears)]), len(indices_base)).reshape(2*num_shears, -1).T.flatten()
+
+data_used = data_complete[indices]
 for z in range(time_bins):
     for mag in range(mag_bins + 1):
         print(mag)
@@ -98,7 +109,7 @@ for z in range(time_bins):
             upper_limit = magnitudes[mag + 1]
             lower_limit = magnitudes[mag]
 
-        array = data_complete[(data_complete[bin_type] > lower_limit) & (data_complete[bin_type] < upper_limit)]
+        array = data_used[(data_used[bin_type] > lower_limit) & (data_used[bin_type] < upper_limit)]
 
         array = array[0: int(len(array) / (z + 1)) - int(len(array) / (z + 1)) % (num_shears * 2)]
 
@@ -166,15 +177,17 @@ for z in range(time_bins):
             popt = [-1, -1]
             error = [-1, -1]
 
-        mm = 1 / 25.4
-        fig, ax = plt.subplots(figsize=(88 * mm, 88 * mm))
-        ax.errorbar(np.array(shears)[filter], deviation, np.array(output_err)[filter], fmt="+--", markersize=5,
-                    capsize=2, elinewidth=0.5)
-        ax.plot(np.linspace(-0.1, 0.1, 10), linear_function(np.linspace(-0.1, 0.1, 10), *popt), alpha=0.7)
-        ax.set_xlabel("$g_1^t$")
-        ax.set_ylabel("$<g_1^{obs}>-g_1^t$")
-        fig.savefig(subfolder + f"/plots/{z}_{mag}.png", dpi=200, bbox_inches="tight")
-        plt.close()
+        if rep == REPS - 1:
+            mm = 1 / 25.4
+            fig, ax = plt.subplots(figsize=(88 * mm, 88 * mm))
+            ax.errorbar(np.array(shears)[filter], deviation, np.array(output_err)[filter], fmt="+--", markersize=5,
+                        capsize=2, elinewidth=0.5)
+            ax.plot(np.linspace(-0.1, 0.1, 10), linear_function(np.linspace(-0.1, 0.1, 10), *popt), alpha=0.7)
+            ax.set_xlabel("$g_1^t$")
+            ax.set_ylabel("$<g_1^{obs}>-g_1^t$")
+            fig.savefig(subfolder + f"/plots/{z}_{mag}.png", dpi=200, bbox_inches="tight")
+            plt.close()
+            
         meas_1 = array.copy()["meas_g1"]
         meas_1.mask[(num_shears - 1)::num_shears] = True
 
@@ -233,14 +246,6 @@ for z in range(time_bins):
                     solo_bias_weight + pair_bias_weight)
 
             print(solo_bias_weight, pair_bias_weight)
-
-        # Write the image to a file
-        if not os.path.isdir(subfolder + '/' + 'fits'):
-            os.mkdir(subfolder + '/' + 'fits')
-        file_name = os.path.join(subfolder + '/' + 'fits', 'puyol.fits')
-
-        if simulation.getboolean("output"):
-            galsim.fits.writeMulti(images, file_name)
 
         text_file = open(path + "/output/grid_simulations/fits.txt", "a")
 

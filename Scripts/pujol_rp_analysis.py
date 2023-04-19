@@ -157,9 +157,9 @@ def std_error(array):
 
 data_complete['binned_mag'] = np.trunc(data_complete[bin_type] + 0.5)  # Adding a row with the magnitudes in bins
 meas_comp = data_complete.group_by(["scene_index", "shear_index", "binned_mag"])
-meas_means = meas_comp["meas_g1"].groups.aggregate(np.mean)
-meas_stderr = meas_comp["meas_g1"].groups.aggregate(std_error)
-meas_lengths = meas_comp["meas_g1"].groups.aggregate(np.size)
+meas_means = meas_comp["scene_index", "shear_index", "binned_mag", "meas_g1"].groups.aggregate(np.mean)
+meas_stderr = meas_comp["scene_index", "shear_index", "binned_mag", "meas_g1"].groups.aggregate(std_error)
+meas_lengths = meas_comp["scene_index", "shear_index", "binned_mag", "meas_g1"].groups.aggregate(np.size)
 
 full_meas = data_complete.group_by(["scene_index", "shear_index"])
 meas_means_full = full_meas["meas_g1"].groups.aggregate(np.mean)
@@ -181,10 +181,25 @@ for mag in range(len(magnitudes_list)):
     if len(data_complete["meas_g1"][
                (data_complete["scene_index"] <= scene) & (data_complete[bin_type] > lower_limit) & (
                        data_complete[bin_type] < upper_limit)]) != 0:
+        meas_averages_ = []
+        meas_weights_ = []
 
         if mag != len(magnitudes_list) -1:
-            meas_averages_ = meas_means[mag::mag_bins]
-            meas_weights_ = meas_lengths[mag::mag_bins]
+            for i in range(num_shears):
+                for o in range(scene+1):
+                    value = meas_means["meas_g1"][(meas_means["scene_index"] == o) & (meas_means["shear_index"] == i) & (meas_means["binned_mag"] == magnitudes_list[mag] + 0.5)].data
+                    weight = meas_lengths["meas_g1"][
+                        (meas_means["scene_index"] == o) & (meas_means["shear_index"] == i) & (
+                                    meas_means["binned_mag"] == magnitudes_list[mag] + 0.5)].data
+                    if len(value) == 0:
+                        value = -1
+                        weight = 0
+                    else:
+                        value = value[0]
+                        weight = weight[0]
+
+                    meas_averages_.append(value)
+                    meas_weights_.append(weight)
         else:
             meas_averages_ = meas_means_full
             meas_weights_ = meas_lengths_full
@@ -422,9 +437,36 @@ for reps in range(REPS):
                 for div in range(analyse_every):
 
                     if mag != mag_bins:
-                        output_shears[mag].append(list(meas_means[mag::mag_bins][(scene + div - analyse_every + 1) * num_shears : (scene + div - analyse_every + 2) * num_shears]))
-                        output_errors[mag].append(list(meas_stderr[mag::mag_bins][(scene + div - analyse_every + 1) * num_shears : (scene + div - analyse_every + 2) * num_shears]))
-                        output_weights[mag].append(list(meas_lengths[mag::mag_bins][(scene + div - analyse_every + 1) * num_shears : (scene + div - analyse_every + 2) * num_shears]))
+                        output_shear = []
+                        output_error = []
+                        output_weight = []
+                        for o in range(num_shears):
+                            value = meas_means["meas_g1"][
+                                (meas_means["scene_index"] == scene + div - analyse_every + 1) & (meas_means["shear_index"] == o) & (
+                                            meas_means["binned_mag"] == magnitudes_list[mag] + 0.5)].data
+                            error = meas_stderr["meas_g1"][
+                                (meas_means["scene_index"] == scene + div - analyse_every + 1) & (meas_means["shear_index"] == o) & (
+                                        meas_means["binned_mag"] == magnitudes_list[mag] + 0.5)].data
+                            weight = meas_lengths["meas_g1"][
+                                (meas_means["scene_index"] == scene + div - analyse_every + 1) & (meas_means["shear_index"] == o) & (
+                                        meas_means["binned_mag"] == magnitudes_list[mag] + 0.5)].data
+
+                            if len(value) == 0:
+                                value = -1
+                                error = -1
+                                weight = 0
+                            else:
+                                value = value[0]
+                                error = error[0]
+                                weight = weight[0]
+
+                            output_shear.append(value)
+                            output_error.append(error)
+                            output_weight.append(weight)
+
+                        output_shears[mag].append(output_shear)
+                        output_errors[mag].append(output_error)
+                        output_weights[mag].append(output_weight)
                     else:
                         output_shears[mag].append(meas_means_full[(scene + div - analyse_every + 1) * num_shears : (scene + div - analyse_every + 2) * num_shears])
                         output_errors[mag].append(meas_stderr_full[(scene + div - analyse_every + 1) * num_shears : (scene + div - analyse_every + 2) * num_shears])
