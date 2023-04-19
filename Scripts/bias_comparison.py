@@ -129,7 +129,7 @@ for biases in ["M", "C"]:
                 ylim = axs.get_ylim()
                 y_delta = ylim[1] - ylim[0]
                 ip = InsetPosition(axs,
-                                   [0.02 + 0.165 * bin, 1 - np.abs(axins.get_ylim()[0] - ylim[1]) / y_delta - 0.3, 0.13,
+                                   [0.02 + bin / mag_bins, 1 - np.abs(axins.get_ylim()[0] - ylim[1]) / y_delta - 0.3, 1 / (mag_bins +1),
                                     0.25])
                 axins.set_axes_locator(ip)
                 axins.spines[["left", "right", "bottom", "top"]].set_alpha(0.5)
@@ -196,7 +196,7 @@ for biases in ["M", "C"]:
                 ylim = axs.get_ylim()
                 y_delta = ylim[1] - ylim[0]
                 ip = InsetPosition(axs,
-                                   [0.02 + 0.2 * bin, 1 - np.abs(axins.get_ylim()[0] - ylim[1]) / y_delta - 0.3, 0.15,
+                                   [0.02 + bin / mag_bins, 1 - np.abs(axins.get_ylim()[0] - ylim[1]) / y_delta - 0.3, 1 / (mag_bins+1),
                                     0.25])
                 axins.set_axes_locator(ip)
                 axins.spines[["left", "right", "bottom", "top"]].set_alpha(0.5)

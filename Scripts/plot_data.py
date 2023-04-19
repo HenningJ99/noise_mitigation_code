@@ -242,11 +242,12 @@ for m in range(time_bins):
                 axs.set_title("Both noise cancellations")
                 label = "Both"
 
-            textstr = '\n'.join((r'$\mu = (%.4f \pm %.4f)$' % (popt[0], error[0]),
-                                 r'$c = (%.5f \pm %.5f)$' % (popt[1], error[1]),
-                                 r'$\chi_{red}^2 = (%.2f)$' % (chisq_red)))
+            textstr = '\n'.join(
+                (r'$\mu\,[10^{-2}]= %.2f \pm %.2f$' % (1e2 * popt[0], 1e2 * error[0]),
+                 r'$c\,[10^{-4}] = %.2f \pm %.2f$' % (1e4 * popt[1], 1e4 * error[1]),
+                 r'$\chi_{red}^2\,\,\,\,\,\,\,\,\,\,\,\,\, = %.2f$' % (chisq_red)))
 
-            props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
+            props = dict(boxstyle='round', facecolor='wheat', alpha=0.7)
             axs.text(0.4, 0.95, textstr, transform=axs.transAxes, fontsize=8,
                      verticalalignment='top', bbox=props)
 
