@@ -49,7 +49,7 @@ simulation = config['SIMULATION']
 psf_config = config['PSF']
 timings = config["TIMINGS"]
 
-rep = sys.argv[6]
+rep = int(sys.argv[6])
 REPS = int(simulation["reps_for_improvements"])
 noise_plus_meas = float(timings["noise_plus_meas"])
 
@@ -93,7 +93,7 @@ else:
 indices_base = np.arange(0, len(data_complete), 2*num_shears)
 
 if rep != REPS-1:
-    np.random.shuffle(indices_base)
+    indices_base = np.random.choice(indices_base, size=len(indices_base), replace=True)
 
 indices = np.repeat(indices_base, 2*num_shears)
 indices = indices + np.repeat(np.array([i for i in range(2*num_shears)]), len(indices_base)).reshape(2*num_shears, -1).T.flatten()
