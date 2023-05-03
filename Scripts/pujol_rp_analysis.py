@@ -92,7 +92,7 @@ data_complete = ascii.read(subfolder + "shear_catalog.dat", fast_reader={'chunk_
 # S/N Cut
 data_complete = data_complete[data_complete["S/N"] > float(simulation["sn_cut"])]
 
-print(100 * len(data_complete["meas_g1"][(data_complete["meas_g1"] >= 5) | (data_complete["meas_g1"] <= -5)]) / len(data_complete["meas_g1"]))
+print(f"Outlier with shears larger than 5 in percent {100 * len(data_complete['meas_g1'][(data_complete['meas_g1'] >= 5) | (data_complete['meas_g1'] <= -5)]) / len(data_complete['meas_g1']):.5f}")
 # Outliers
 data_complete = data_complete[(data_complete["meas_g1"] < 5) & (data_complete["meas_g1"] > -5)]
 
