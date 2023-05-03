@@ -28,13 +28,16 @@ compare=`echo | awk "{ print ($shear_interval == 0.02)?1 : 0 }"` #Comparison to 
 
 if [ $analysis_only == "n" ]
 then
+  echo "Starting global cancellation simulations!"
   # -------------------------- CATALOG GENERATION --------------------------------#
   python3 rp_simulation.py $sim_size $galaxy_num $run_lf $path $shear_interval True
-  lf_folder_dyn=$(ls -td $path/output/rp_simulations/*/ | head -1)
+  lf_folder_global=$(ls -td $path/output/rp_simulations/*/ | head -1)
 
+  echo "Starting local cancellation simulations!"
   python3 rp_simulation.py $sim_size $galaxy_num $run_lf $path $shear_interval False
-  lf_folder_stat=$(ls -td $path/output/rp_simulations/*/ | head -1)
+  lf_folder_local=$(ls -td $path/output/rp_simulations/*/ | head -1)
 
+  echo "Starting response method simulations!"
   if [[ $compare -eq 1 ]]
   then
     python3 pujol_rp.py $sim_size $galaxy_num $run_rm 2 $path
@@ -50,43 +53,49 @@ then
 
   if [ $analysis_only == "y" ]
   then
-    read -p "Linear fit folder (dynamic): " lf_folder_dyn
-    read -p "Linear fit folder (static): " lf_folder_stat
+    read -p "Linear fit folder (global): " lf_folder_global
+    read -p "Linear fit folder (local): " lf_folder_local
     read -p "Pujol folder: " puj_folder
 
-    lf_folder_dyn=$path/output/rp_simulations/$lf_folder_dyn
-    lf_folder_stat=$path/output/rp_simulations/$lf_folder_stat
+    lf_folder_global=$path/output/rp_simulations/$lf_folder_global
+    lf_folder_local=$path/output/rp_simulations/$lf_folder_local
     puj_folder=$path/output/rp_simulations/$puj_folder
 
     # Check if directories exist
-    if [ -d "$lf_folder_dyn" ] && [ -d "$puj_folder" ] && [ -d "$lf_folder_stat" ]; then
+    if [ -d "$lf_folder_global" ] && [ -d "$puj_folder" ] && [ -d "$lf_folder_local" ]; then
       ### Take action if $DIR exists ###
       echo "Files found! Continuing"
     else
       ###  Control will jump here if $DIR does NOT exists ###
-      echo "Error: ${lf_folder_dyn} or ${puj_folder} or ${lf_folder_stat} not found. Can not continue."
+      echo "Error: ${lf_folder_global} or ${puj_folder} or ${lf_folder_local} not found. Can not continue."
       exit 1
     fi
   fi
 
   # -------------------------- PLOTTING THE SCENES --------------------------------#
-  #python3 display_fits.py lf $lf_folder_dyn 32 $((sim_size-32)) 32 $((sim_size-32))
-  #python3 display_fits.py lf $lf_folder_stat 32 $((sim_size-32)) 32 $((sim_size-32))
+  #python3 display_fits.py lf $lf_folder_global 32 $((sim_size-32)) 32 $((sim_size-32))
+  #python3 display_fits.py lf $lf_folder_local 32 $((sim_size-32)) 32 $((sim_size-32))
   #python3 display_fits.py puj $puj_folder 32 $((sim_size-32)) 32 $((sim_size-32))
   #counter=4
-  for shape_options in $lf_folder_stat $lf_folder_dyn
+  for shape_options in $lf_folder_local $lf_folder_global
   do
     for binning in MAG_AUTO GEMS # Do the analysis for GEMS and MAG_AUTO Binning for comparison
     do
+      echo "Starting analysis for $shape_options binned in $binning!"
       # -------------------------- INITIAL ANALYSIS -------------------------------------#
+
+      echo "Fit method analysis ..."
       python3 rp_analysis.py $sim_size $galaxy_num $run_lf $path $shear_interval $shape_options $binning
 
+      echo "Plotting and bootstrapping ..."
       python3 catalog_plot.py $run_lf $galaxy_num $path $sim_size $shape_options $binning
 
       mv $shape_options/analysis.dat $shape_options/analysis_${binning}.dat #Avoid overwriting output
 
       extraction=$((reps * (mag_bins+1) * (3 * (run_lf - skip_first_lf) + run_rm / analyse_every_pujol)))
-      if [[ $shape_options == $lf_folder_stat ]]
+
+      echo "Response method analysis ..."
+      if [[ $shape_options == $lf_folder_local ]]
       then
         if [[ $compare -eq 1 ]]
         then
@@ -110,7 +119,7 @@ then
       fi
 
 
-      if [ $binning == "MAG_AUTO" ] && [ $shape_options == $lf_folder_dyn ]
+      if [ $binning == "MAG_AUTO" ] && [ $shape_options == $lf_folder_global ]
       then
         tail $path/output/rp_simulations/tmp_rm.txt -n $((mag_bins+1)) >> $path/output/plots/bias_comparison_rp.txt
       fi
@@ -129,7 +138,8 @@ then
       # counter=$((counter-1))
     done
   done
-  
+
+  echo "Creating the binned improvements and bias comparisons!"
   # ------------------------------ PLOT THE BINNED IMPROVEMENTS ----------------------------------------------#
   python3 plot_binned_data.py $path/output/plots/binned_improvement_rp_m.txt config_rp.ini $shear_interval RP
   python3 plot_binned_data.py $path/output/plots/binned_improvement_rp_c.txt config_rp.ini $shear_interval RP
@@ -138,14 +148,15 @@ then
   python3 bias_comparison.py $path/output/plots/bias_comparison_rp.txt RP
 
   # ----------------------------- REMOVE THE TEMPORARY FILES ---------------------------------------- #
-  #rm $path/output/plots/binned_improvement_rp_m.txt
-  #rm $path/output/plots/binned_improvement_rp_c.txt
-  #rm $path/output/rp_simulations/fits.txt
-  #rm $path/output/plots/bias_comparison_rp.txt
+  rm $path/output/plots/binned_improvement_rp_m.txt
+  rm $path/output/plots/binned_improvement_rp_c.txt
+  rm $path/output/rp_simulations/fits.txt
+  rm $path/output/plots/bias_comparison_rp.txt
   rm $path/output/rp_simulations/catalog_results*
 
 fi
 
+echo "Done!"
 
 
 

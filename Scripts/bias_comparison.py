@@ -87,7 +87,7 @@ for biases in ["M", "C"]:
             # Response method
             axs.errorbar(magnitudes + 0.75, data_pu[:, 16], yerr=data_pu[:, 17], fmt="+", capsize=2, label="RM", markersize=3)
 
-            axs.set_ylim(-0.5, 0.2)
+            #axs.set_ylim(-0.5, 0.2)
 
             # Do the zoom ins
             for bin in range(mag_bins):
@@ -168,7 +168,7 @@ for biases in ["M", "C"]:
 
             # Response method
             axs.errorbar(magnitudes + 0.55, data_p[:, 20], yerr=data_p[:, 21], fmt="x", capsize=2, label="RM", markersize=3)
-            axs.set_ylim(-0.5, 0.2)
+            #axs.set_ylim(-0.5, 0.2)
             # Do the zoom ins
             for bin in range(mag_bins):
                 axins = inset_axes(axs, width=0.4, height=0.7,
@@ -210,7 +210,7 @@ for biases in ["M", "C"]:
             axs.set_xlim(20.5, magnitudes[-1])
 
             #axs.set_yticks([])
-            axs.set_yticklabels([])
+            #axs.set_yticklabels([])
             # axs.grid(True)
 
     # Additive biases
@@ -245,7 +245,7 @@ for biases in ["M", "C"]:
             axs.set_xlabel("$m_{\mathrm{AUTO}}$")
             axs.set_ylabel("$c$-bias")
             axs.set_xlim(20.5, magnitudes[-1])
-            axs.set_ylim(-0.0005, 0.002)
+            #axs.set_ylim(-0.0005, 0.002)
             axs.set_xticks([21,22,23,24,25,26])
 
         elif type == "GR":
@@ -270,9 +270,9 @@ for biases in ["M", "C"]:
             axs.errorbar(magnitudes + 0.6, data_p[:, 22], yerr=data_p[:, 23], fmt="x", capsize=2, label="RM", markersize=3)
             axs.set_xlabel("$m_{\mathrm{GEMS}}$")
             axs.set_ylabel("$c$-bias")
-            axs.set_ylim(-0.0005, 0.002)
+            #axs.set_ylim(-0.0005, 0.002)
             # axs.grid(True)
-            axs.set_yticklabels([])
+            #axs.set_yticklabels([])
 
             axs.set_xlim(20.5, magnitudes[-1])
 

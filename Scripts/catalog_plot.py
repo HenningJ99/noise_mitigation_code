@@ -88,7 +88,7 @@ bootstrapping = 0
 errors_m = [[[[] for _ in range(mag_bins+1)] for _ in range(file_number)] for _ in range(3)]
 errors_c = [[[[] for _ in range(mag_bins+1)] for _ in range(file_number)] for _ in range(3)]
 for reps in range(REPS):
-    print(reps)
+    print(f"{reps+1}/{REPS}")
     data_compl = []
 
     rand_ind = np.random.randint(0, file_number, size=file_number)
@@ -98,7 +98,7 @@ for reps in range(REPS):
     if reps == REPS-1:
         rand_ind = np.array([i for i in range(file_number)])
 
-    print(rand_ind)
+
     for run in range(file_number):
 
         data_compl.append(

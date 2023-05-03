@@ -28,9 +28,11 @@ object_num=$((galaxy_num * 20))
 if [ $analysis_only == "n" ]
 then
   # ------------------ CATALOG GENERATION ------------------------------------------------------------#
+  echo "Starting Fit method simulations!"
   python3 grid_simulation.py $object_num $galaxy_num 2 1 $shear_interval $path
   lf_folder=$(ls -td $path/output/grid_simulations/* | head -1)
 
+  echo "Starting Response method simulations!"
   if [[ $compare -eq 1 ]]
   then
     python3 pujol_grid.py $pujol_num 1 CCD_SIM 2 $path
@@ -111,11 +113,10 @@ then
 
   # ---------------------- REMOVE TEMPORARY FILES -------------------------------------------------------------------#
   rm $path/output/grid_simulations/tmp.txt
-  #rm $path/output/plots/binned_improvement_m.txt
-  #rm $path/output/plots/binned_improvement_c.txt
-  #rm $path/output/plots/grid_bias.txt
+  rm $path/output/plots/binned_improvement_m.txt
+  rm $path/output/plots/binned_improvement_c.txt
+  rm $path/output/plots/grid_bias.txt
 
-  #object_num=$((galaxy_num * 40))
-  #
-  #runtime=`python3 grid_simulation.py $object_num $((galaxy_num * 2)) 1 1 $shear_interval $path| grep 'Runtime'|cut -f2 -d ":" |cut -f1 -d "."`
 fi
+
+echo "Done!"

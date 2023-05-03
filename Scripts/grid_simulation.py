@@ -392,4 +392,4 @@ psfs = [image_sampled_psf, image_epsf]
 galsim.fits.writeMulti(psfs, file_name_epsf)
 
 ray.shutdown()
-print(timeit.default_timer() - start)
+print(f"Runtime: {timeit.default_timer() - start:.2f} seconds")

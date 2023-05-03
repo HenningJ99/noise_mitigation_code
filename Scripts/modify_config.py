@@ -23,7 +23,7 @@ elif sys.argv[1] == "RP":
     config.set('SIMULATION', 'skip_first_lf', sys.argv[6])
     config.set('SIMULATION', 'reps_for_improvements', sys.argv[7])
 
-    if (int(sys.argv[6]) <= 5) or (int(config['SIMULATION']['skip_first_rm']) <= 5):
+    if (int(sys.argv[6]) < 5) or (int(config['SIMULATION']['skip_first_rm']) < 5):
         raise ValueError("At least first 5 points should be skipped since bootstrapping likely yields NaNs before")
 
     with open('config_rp.ini', 'w') as configfile:

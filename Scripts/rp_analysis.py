@@ -68,7 +68,7 @@ data_complete = ascii.read(subfolder + 'shear_catalog.dat', fast_reader={'chunk_
 # SN CUT
 data_complete = data_complete[data_complete["S/N"] > float(simulation["sn_cut"])]
 
-print(100 * len(data_complete["meas_g1"][(data_complete["meas_g1"] >= 5) | (data_complete["meas_g1"] <= -5)]) / len(data_complete["meas_g1"]))
+print(f"Outlier with shears larger 5 in percent: {100 * len(data_complete['meas_g1'][(data_complete['meas_g1'] >= 5) | (data_complete['meas_g1'] <= -5)]) / len(data_complete['meas_g1']):.5f}")
 # Outliers
 data_complete = data_complete[(data_complete["meas_g1"] < 5) & (data_complete["meas_g1"] > -5)]
 
@@ -95,7 +95,7 @@ lengths_full = full_impr['meas_g1'].groups.aggregate(np.size)
 columns = []
 for scene in range(total_scenes_per_shear):
     index = 0
-    print(scene)
+    print(f"{scene+1} / {total_scenes_per_shear}")
     with open(path + f"output/rp_simulations/catalog_results_{complete_image_size}_{galaxy_number}_{scene}.txt", "w") as file:
         for j in range(4):
             for i in range(shear_bins):

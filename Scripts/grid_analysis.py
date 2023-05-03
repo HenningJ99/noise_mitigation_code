@@ -107,7 +107,7 @@ if mag_bins != 0:
         for k in range(mag_bins + 1)]
 else:
     magnitudes = [float(simulation["max_mag"])]  # If no binning at all
-print(magnitudes)
+
 
 binning = [-0.1 + 0.01 * k for k in range(21)]
 shears = [shear_min + (shear_max - shear_min) / ((object_number / average_num) - 1) * m for m in range(20)]
@@ -156,10 +156,10 @@ for run in [4, 2, 1]:
 
     indices_ids_full = indices_ids_full + np.array(adding)
 
-    print(indices_ids_full[:10])
+
     catalog_new = catalog[indices_ids_full]
 
-    print(np.mean(catalog_new["meas_g1"]))
+
 
     catalog_new["binned_time"] = np.repeat(indices, np.take(unique_indices_occ, indices_ids))
     del indices_ids, indices_ids_full
