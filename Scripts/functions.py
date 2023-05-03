@@ -1684,7 +1684,7 @@ def measure_catalog_lf(m, scene, argv, config, path, psf, index_fits):
 
 
 @ray.remote
-def one_shear_analysis(m, config, argv, data_complete, input_g1, input_g2, magnitudes, every, binning):
+def one_shear_analysis_old(m, config, argv, data_complete, input_g1, input_g2, magnitudes, every, binning):
     """
     This function does do the analysis for one shear of the grid catalog.
 
@@ -1826,4 +1826,139 @@ def one_scene_analysis(data_complete, path, complete_image_size, galaxy_number, 
                                    (g1, -1, -1, 0, magnitudes_list[mag]))
                         columns.append([g1, i, scene, j, -1, -1, 0, magnitudes_list[mag]])
 
+    return columns
+
+def bootstrap_new(array, weights, n):
+    """
+    Takes an array and returns the standard deviation estimated via bootstrap
+    """
+    samples = []
+    for _ in range(n):
+        #print(len(array), np.sum(weights))
+        indices = np.random.choice(np.arange(len(array)), size=(len(array)))
+        bootstrap = np.take(array, indices)
+        bootstrap_weights = np.take(weights, indices)
+
+        samples.append(np.average(bootstrap, weights=bootstrap_weights))
+
+    error = np.std(samples)
+    split = np.array_split(samples, 10)
+    error_err = np.std([np.std(split[i]) for i in range(10)])
+
+    return error, error_err
+@ray.remote
+def one_shear_analysis(m, config, argv, meas_comp, meas_weights, meas_comp_bs, meas_weights_bs, magnitudes):
+
+    simulation = config["SIMULATION"]
+    mag_bins = int(simulation["bins_mag"])
+    BOOTSTRAP_REPETITIONS = int(simulation["bootstrap_repetitions"])
+    columns = []
+
+    shear_min = -float(argv[5])
+    shear_max = float(argv[5])
+
+    object_number = int(argv[1])
+    average_num = int(argv[2])
+
+    if simulation["bin_type"] == "GEMS":
+        bin_type = "mag_input"
+    elif simulation["bin_type"] == "MEAS":
+        bin_type = "mag_meas"
+
+    columns = []
+    for i in reversed(range(int(simulation["time_bins"]))):
+        for mag in range(mag_bins + 1):
+
+            if mag == mag_bins:
+                upper_lim = float(simulation["max_mag"])
+                lower_lim = float(simulation["min_mag"])
+            else:
+                upper_lim = magnitudes[mag + 1]
+                lower_lim = magnitudes[mag]
+
+            value = meas_comp["meas_g1"][(meas_comp["shear_index"] == m) & (meas_comp["binned_time"] <= i) & (
+                        meas_comp["binned_mag"] > lower_lim) & (meas_comp["binned_mag"] < upper_lim)].data
+            intr_g1 = meas_comp["intr_g1"][
+                (meas_comp["shear_index"] == m) & (meas_comp["binned_time"] <= i) & (
+                            meas_comp["binned_mag"] > lower_lim) & (meas_comp["binned_mag"] < upper_lim)].data
+            # A few try excepts to handle empty array_g1s occuring for example for the faintest magnitudes
+            if len(value) == 0:
+                av_g1_mod = 0
+                err_g1_mod = 0
+                err_g1_mod_err = 0
+                intrinsic_av_g1 = 0
+                length = 0
+
+            else:
+                av_g1_mod = np.average(value, weights=meas_weights["meas_g1"][
+                    (meas_comp["shear_index"] == m) & (meas_comp["binned_time"] <= i) & (
+                                meas_comp["binned_mag"] > lower_lim) & (
+                                meas_comp["binned_mag"] < upper_lim)].data)  # np.average(array_g1["meas_g1"])
+                length = np.sum(meas_weights["meas_g1"][
+                                    (meas_comp["shear_index"] == m) & (meas_comp["binned_time"] <= i) & (
+                                                meas_comp["binned_mag"] > lower_lim) & (
+                                                meas_comp["binned_mag"] < upper_lim)].data)
+                bootstrap_res = bootstrap_new(meas_comp_bs["meas_g1"][(meas_comp_bs["shear_index"] == m) & (
+                            meas_comp_bs["binned_time"] <= i) & (meas_comp_bs["binned_mag"] > lower_lim) & (
+                                                                              meas_comp_bs[
+                                                                                  "binned_mag"] < upper_lim)].data,
+                                          meas_weights_bs["meas_g1"][(meas_comp_bs["shear_index"] == m) & (
+                                                      meas_comp_bs["binned_time"] <= i) & (meas_comp_bs[
+                                                                                               "binned_mag"] > lower_lim) & (
+                                                                                 meas_comp_bs[
+                                                                                     "binned_mag"] < upper_lim)].data,
+                                          BOOTSTRAP_REPETITIONS)
+
+
+                err_g1_mod = bootstrap_res[0]
+                err_g1_mod_err = bootstrap_res[1]
+                intrinsic_av_g1 = np.average(intr_g1, weights=meas_weights["meas_g1"][
+                    (meas_comp["shear_index"] == m) & (meas_comp["binned_time"] <= i) & (
+                                meas_comp["binned_mag"] > lower_lim) & (
+                                meas_comp["binned_mag"] < upper_lim)].data)
+            value = meas_comp["meas_g2"][(meas_comp["shear_index"] == m) & (meas_comp["binned_time"] <= i) &
+                                         (meas_comp["binned_mag"] > lower_lim) & (
+                                                     meas_comp["binned_mag"] < upper_lim)].data
+            intr_g2 = meas_comp["intr_g2"][
+                (meas_comp["shear_index"] == m) & (meas_comp["binned_time"] <= i) &
+                (meas_comp["binned_mag"] > lower_lim) & (meas_comp["binned_mag"] < upper_lim)].data
+            if len(value) == 0:
+                av_g2_mod = 0
+                err_g2_mod = 0
+                err_g2_mod_err = 0
+                intrinsic_av_g2 = 0
+                length = 0
+            else:
+                av_g2_mod = np.average(value, weights=meas_weights["meas_g1"][
+                    (meas_comp["shear_index"] == m) & (meas_comp["binned_time"] <= i) & (
+                                meas_comp["binned_mag"] > lower_lim) & (
+                                meas_comp["binned_mag"] < upper_lim)].data)  # np.average(array_g2["meas_g2"])
+                length = np.sum(meas_weights["meas_g1"][
+                                    (meas_comp["shear_index"] == m) & (meas_comp["binned_time"] <= i) & (
+                                                meas_comp["binned_mag"] > lower_lim) & (
+                                                meas_comp["binned_mag"] < upper_lim)].data)
+
+                bootstrap_res = bootstrap_new(meas_comp_bs["meas_g2"][(meas_comp_bs["shear_index"] == m) & (
+                            meas_comp_bs["binned_time"] <= i) & (meas_comp_bs["binned_mag"] > lower_lim) & (
+                                                                              meas_comp_bs[
+                                                                                  "binned_mag"] < upper_lim)].data,
+                                          meas_weights_bs["meas_g1"][(meas_comp_bs["shear_index"] == m) & (
+                                                      meas_comp_bs["binned_time"] <= i) & (meas_comp_bs[
+                                                                                               "binned_mag"] > lower_lim) & (
+                                                                                 meas_comp_bs[
+                                                                                     "binned_mag"] < upper_lim)].data,
+                                          BOOTSTRAP_REPETITIONS)
+
+                err_g2_mod = bootstrap_res[0]
+                err_g2_mod_err = bootstrap_res[1]
+                intrinsic_av_g2 = np.average(intr_g2, weights=meas_weights["meas_g1"][
+                    (meas_comp["shear_index"] == m) & (meas_comp["binned_time"] <= i) & (
+                                meas_comp["binned_mag"] > lower_lim) & (
+                                meas_comp["binned_mag"] < upper_lim)].data)
+
+            columns.append([m,
+                            shear_min + (shear_max - shear_min) / ((object_number / average_num) - 1) * m,
+                            shear_min + (shear_max - shear_min) / ((object_number / average_num) - 1) * m,
+                            av_g1_mod, err_g1_mod, err_g1_mod_err, av_g2_mod, err_g2_mod, err_g2_mod_err,
+                            length, upper_lim, intrinsic_av_g1, intrinsic_av_g2, i, mag])
     return columns

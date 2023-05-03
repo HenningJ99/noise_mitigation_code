@@ -231,6 +231,8 @@ for m in range(time_bins):
             axs.plot(data["input_g1"], linear_function(data["input_g1"], *popt))
             axs.set_xlabel("$g_1^t$")
             axs.set_ylabel("$<g_1^{obs}>-g_1^t$")
+
+
             # axs.grid(True)
             if tiles == 1 and ring_num == 1:
                 axs.set_title("No noise cancellations")
@@ -279,7 +281,7 @@ for m in range(time_bins):
                         (int(objects), int(galaxies), int(tiles), int(ring_num), popt[0], error[0], popt[1], error[1],
                          int(runtime), \
                          used_meas, np.sum(data["n_pairs"]),
-                         int(objects) * int(ring_num) * (1 + int(tiles) * noise_plus_meas) * 1 / (m + 1),
+                         int(objects) * int(ring_num) * (1 + int(tiles) * noise_plus_meas) * (10-m) / 10,
                          (error_plus[0] - error_minus[0]) / 2, (error_plus[1] - error_minus[1]) / 2))
                 else:
                     text_file.write(
@@ -287,4 +289,4 @@ for m in range(time_bins):
                         (int(objects), int(galaxies), int(tiles), int(ring_num), popt[0], error[0], popt[1], error[1],
                          int(runtime), \
                          used_meas, np.sum(data["n_pairs"]),
-                         int(objects) * int(ring_num) * (1 + int(tiles) * noise_plus_meas) * 1 / (m + 1)))
+                         int(objects) * int(ring_num) * (1 + int(tiles) * noise_plus_meas) * (10-m) / 10))
