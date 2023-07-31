@@ -166,44 +166,50 @@ for run in [4, 2, 1]:
     #print(catalog_new[:10])
     # Stopped here on friday
     catalog_new = catalog_new[catalog_new["cancel_index"] < run]
-    meas_all = catalog_new.group_by(["shear_index", "binned_mag", "binned_time"])
-    meas_comp = meas_all[
-        "galaxy_id", "shear_index", "binned_mag", "binned_time", "meas_g1", "meas_g2", "intr_g1", "intr_g2"].groups.aggregate(
-        np.mean)
-    meas_weights = meas_all["galaxy_id", "binned_time", "meas_g1"].groups.aggregate(np.size)
 
-    # Group also by galaxy id
-    meas_all_bs = catalog_new.group_by(["shear_index", "binned_mag", "binned_time", "galaxy_id"])
-    meas_comp_bs = meas_all_bs[
-        "galaxy_id", "shear_index", "binned_mag", "binned_time", "meas_g1", "meas_g2", "intr_g1", "intr_g2"].groups.aggregate(
-        np.mean)
-    meas_weights_bs = meas_all_bs["galaxy_id", "binned_time", "meas_g1"].groups.aggregate(np.size)
+    columns = [[], []]
+    for shear_component, k in enumerate(["shear_index_g1", "shear_index_g2"]):
 
-    meas_comp_ref = ray.put(meas_comp)
-    meas_weights_ref = ray.put(meas_weights)
-    meas_comp_bs_ref = ray.put(meas_comp_bs)
-    meas_weights_bs_ref = ray.put(meas_weights_bs)
+        meas_all = catalog_new.group_by([k, "binned_mag", "binned_time"])
+        meas_comp = meas_all[
+            "galaxy_id", k, "binned_mag", "binned_time", "meas_g1", "meas_g2", "intr_g1", "intr_g2"].groups.aggregate(
+            np.mean)
+        meas_weights = meas_all["galaxy_id", "binned_time", "meas_g1", "meas_g2"].groups.aggregate(np.size)
 
-    futures = [
-        fct.one_shear_analysis.remote(m, config_ref, argv_ref, meas_comp_ref, meas_weights_ref, meas_comp_bs_ref, meas_weights_bs_ref,
-                                      magnitudes) for m in range(int(object_number / average_num))]
-    for i in range(len(futures)):
-        ready, not_ready = ray.wait(futures)
+        # Group also by galaxy id
+        meas_all_bs = catalog_new.group_by([k, "binned_mag", "binned_time", "galaxy_id"])
+        meas_comp_bs = meas_all_bs[
+            "galaxy_id", k, "binned_mag", "binned_time", "meas_g1", "meas_g2", "intr_g1", "intr_g2"].groups.aggregate(
+            np.mean)
+        meas_weights_bs = meas_all_bs["galaxy_id", "binned_time", "meas_g1", "meas_g2"].groups.aggregate(np.size)
 
-        for x in ray.get(ready)[0]:
-            columns.append(x)
+        meas_comp_ref = ray.put(meas_comp)
+        meas_weights_ref = ray.put(meas_weights)
+        meas_comp_bs_ref = ray.put(meas_comp_bs)
+        meas_weights_bs_ref = ray.put(meas_weights_bs)
 
-        futures = not_ready
-        if not futures:
-            break
+        futures = [
+            fct.one_shear_analysis.remote(m, config_ref, argv_ref, meas_comp_ref, meas_weights_ref, meas_comp_bs_ref, meas_weights_bs_ref,
+                                          magnitudes, k) for m in range(int(object_number / average_num))]
+        for i in range(len(futures)):
+            ready, not_ready = ray.wait(futures)
+
+            for x in ray.get(ready)[0]:
+                columns[shear_component].append(x)
+
+            futures = not_ready
+            if not futures:
+                break
 
 
 
-    # Convert columns to numpy array and create the output Table
-    columns = np.array(columns, dtype=float)
-    columns = columns[np.lexsort((columns[:,14], -columns[:,13], columns[:, 0]))]
+        # Convert columns to numpy array and create the output Table
+        columns[shear_component] = np.array(columns[shear_component], dtype=float)
+        columns[shear_component] = columns[shear_component][np.lexsort((columns[shear_component][:,9], -columns[shear_component][:,8], columns[shear_component][:, 0]))]
 
-    shear_results = Table([columns[:, i] for i in range(1, 13)],
+    columns = np.hstack(columns)
+
+    shear_results = Table(columns[:, [1, 11, 2, 3, 4, 12, 13, 14, 6, 7, 8, 17]],
                           names=('input_g1', 'input_g2', 'meas_g1_mod', 'meas_g1_mod_err', 'meas_g1_mod_err_err',
                                  'meas_g2_mod',
                                  'meas_g2_mod_err', 'meas_g2_mod_err_err', 'n_pairs', 'mag', 'intrinsic_g1',

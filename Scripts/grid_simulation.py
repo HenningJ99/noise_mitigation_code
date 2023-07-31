@@ -360,7 +360,7 @@ print(f"Failure count: {failure_counter}")
 # Convert columns to numpy array and create the output table
 columns = np.array(columns, dtype=float)
 shear_catalog = Table([columns[:, i] for i in range(10)], names=(
-    'galaxy_id', 'shear_index', 'bin_index', 'input_g1', 'input_g2', 'meas_g1', 'meas_g2', 'mag_meas', 'mag_input',
+    'galaxy_id', 'shear_index_g1', 'shear_index_g2', 'input_g1', 'input_g2', 'meas_g1', 'meas_g2', 'mag_meas', 'mag_input',
     'S/N'))
 
 # Save the output files in a folder labeled by the current date and time
