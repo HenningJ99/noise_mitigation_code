@@ -1865,7 +1865,7 @@ def one_shear_analysis(m, config, argv, meas_comp, meas_weights, meas_comp_bs, m
     elif simulation["bin_type"] == "MEAS":
         bin_type = "mag_meas"
 
-    if index == "shear_index":
+    if index == "shear_index_g1":
         shear = "g1"
     else:
         shear = "g2"
