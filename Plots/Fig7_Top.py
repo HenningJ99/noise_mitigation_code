@@ -55,14 +55,14 @@ r = deviation - linear_function(data["input_g1"], *popt)
 chisq = np.sum((r / data["meas_g1" + used_meas + "_err"]) ** 2)
 chisq_red = chisq / (len(r) - len(popt))
 axs.plot(data["input_g1"], linear_function(data["input_g1"], *popt))
-axs.set_xlabel("$g_1^t$")
-axs.set_ylabel("$<g_1^{obs}>-g_1^t$")
+axs.set_xlabel("$g_1^\mathrm{t}$")
+axs.set_ylabel("$<g_1^\mathrm{obs}>-g_1^\mathrm{t}$")
 
 
 textstr = '\n'.join(
     (r'$\mu\,[10^{-3}]= %.2f \pm %.2f$' % (1e3 * popt[0], 1e3 * error[0]),
      r'$c\,[10^{-4}] = %.2f \pm %.2f$' % (1e4 * popt[1], 1e4 * error[1]),
-     r'$\chi_{red}^2\,\,\,\,\,\,\,\,\,\,\,\,\, = %.2f$' % (chisq_red)))
+     r'$\chi_\mathrm{red}^2\,\,\,\,\,\,\,\,\,\,\,\,\, = %.2f$' % (chisq_red)))
 
 props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
 axs.text(0.05, 0.95, textstr, transform=axs.transAxes, fontsize=8,

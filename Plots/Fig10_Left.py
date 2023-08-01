@@ -58,7 +58,7 @@ fig, axs = plt.subplots(constrained_layout=True, figsize=(93*mm, 88*mm))
 
 i = 0
 names = ("no cancel", "shape", "both", "RM")
-colors = ("blue", "red", "black", "orange", "purple")
+colors = ("C0", "C1", "C2", "C3", "C4")
 fmts = ("s", "^", "v", "o")
 for data in (no_cancel, shape_noise, both, data_puyol):
     # data = data[data[:, 0].argsort()]
