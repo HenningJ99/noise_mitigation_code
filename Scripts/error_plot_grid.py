@@ -30,11 +30,11 @@ REPS = int(simulation["reps_for_improvements"])
 
 # Read in the relevant parameters from the temporary fit file
 if sys.argv[2] == "M":
-    data_complete = np.genfromtxt(path+"output/grid_simulations/tmp.txt", skip_footer=REPS * (mag_bins+1) * time_bins, usecols=(0,4,5, 11, 10, 12)) # 4,5, for m-bias | 6,7 for c-
+    data_complete = np.genfromtxt(path+"output/grid_simulations/tmp.txt", skip_footer=REPS * (mag_bins+1) * time_bins, usecols=(0,4,5, 10, 9, 11)) # 4,5, for m-bias | 6,7 for c-
     data_puyol_compl = np.genfromtxt(path+"output/grid_simulations/tmp.txt", skip_header=REPS * 3 * (mag_bins+1) * time_bins, usecols=(0, 7, 8, 12, 11, 18)) # 7,8 for m-bias | 13,14 for c-bias
 elif sys.argv[2] == "C":
     data_complete = np.genfromtxt(path + "output/grid_simulations/tmp.txt", skip_footer=REPS * (mag_bins+1) * time_bins,
-                                  usecols=(0, 6, 7, 11, 10, 13))  # 4,5, for m-bias | 6,7 for c-
+                                  usecols=(0, 6, 7, 10, 9, 12))  # 4,5, for m-bias | 6,7 for c-
     data_puyol_compl = np.genfromtxt(path + "output/grid_simulations/tmp.txt", skip_header=REPS * 3 * (mag_bins+1) * time_bins,
                                      usecols=(0, 13, 14, 12, 11, 19))  # 7,8 for m-bias | 13,14 for c-bias
 test1 = np.genfromtxt(path+"output/grid_simulations/tmp.txt", skip_footer=REPS * (mag_bins+1) * time_bins, usecols=(0,1,2,3))
