@@ -98,8 +98,10 @@ for m in range(time_bins):
                 errors_plus = [[], []]
                 errors_minus = [[], []]
             for k, component in enumerate(["g1", "g2"]):
-
-                deviation = data["meas_" + component] - data["input_" + component]
+                if k == 1 and simulation["g2"] == "ZERO":
+                    deviation = data["meas_" + component]
+                else:
+                    deviation = data["meas_" + component] - data["input_" + component]
                 axs[k].errorbar(data["input_" + component][~is_outlier(deviation)], deviation[~is_outlier(deviation)], \
                                 yerr=data["meas_" + component + "_err"][~is_outlier(deviation)], fmt='+', capsize=2,
                                 elinewidth=0.5)
@@ -136,16 +138,19 @@ for m in range(time_bins):
 
                 axs[k].plot(data["input_" + component], linear_function(data["input_" + component], *popts[k]))
                 if component == "g1":
-                    axs[k].set_xlabel("$g_1^t$")
-                    axs[k].set_ylabel("$<g_1^{obs}>-g_1^t$")
+                    axs[k].set_xlabel("$g_1^\mathrm{t}$")
+                    axs[k].set_ylabel("$<g_1^\mathrm{obs}>-g_1^\mathrm{t}$")
                 else:
-                    axs[k].set_xlabel("$g_2^t$")
-                    axs[k].set_ylabel("$<g_2^{obs}>-g_2^t$")
+                    if simulation["g2"] == "ZERO":
+                        axs[k].set_xlabel("$g_1^\mathrm{t}$")
+                    else:
+                        axs[k].set_xlabel("$g_2^\mathrm{t}$")
+                    axs[k].set_ylabel("$<g_2^\mathrm{obs}>-g_2^\mathrm{t}$")
                 # axs[0].grid(True)
 
                 textstr = '\n'.join((r'$\mu = (%.4f \pm %.4f)$' % (popts[k][0], errors[k][0]),
                                      r'$c = (%.5f \pm %.5f)$' % (popts[k][1], errors[k][1]),
-                                     r'$\chi_{red}^2 = (%.2f)$' % (chisq_red)))
+                                     r'$\chi_\mathrm{red}^2 = (%.2f)$' % (chisq_red)))
 
                 props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
                 axs[k].text(0.3, 0.95, textstr, transform=axs[k].transAxes, fontsize=8,
@@ -199,8 +204,8 @@ for m in range(time_bins):
             chisq = np.sum((r / data["meas_g1" + "_err"][~is_outlier(deviation)]) ** 2)
             chisq_red = chisq / (len(r) - len(popt))
             axs.plot(data["input_g1"], linear_function(data["input_g1"], *popt))
-            axs.set_xlabel("$g_1^t$")
-            axs.set_ylabel("$<g_1^{obs}>-g_1^t$")
+            axs.set_xlabel("$g_1^\mathrm{t}$")
+            axs.set_ylabel("$<g_1^\mathrm{obs}>-g_1^\mathrm{t}$")
 
 
             # axs.grid(True)
@@ -217,7 +222,7 @@ for m in range(time_bins):
             textstr = '\n'.join(
                 (r'$\mu\,[10^{-2}]= %.2f \pm %.2f$' % (1e2 * popt[0], 1e2 * error[0]),
                  r'$c\,[10^{-4}] = %.2f \pm %.2f$' % (1e4 * popt[1], 1e4 * error[1]),
-                 r'$\chi_{red}^2\,\,\,\,\,\,\,\,\,\,\,\,\, = %.2f$' % (chisq_red)))
+                 r'$\chi_\mathrm{red}^2\,\,\,\,\,\,\,\,\,\,\,\,\, = %.2f$' % (chisq_red)))
 
             props = dict(boxstyle='round', facecolor='wheat', alpha=0.7)
             axs.text(0.4, 0.95, textstr, transform=axs.transAxes, fontsize=8,
