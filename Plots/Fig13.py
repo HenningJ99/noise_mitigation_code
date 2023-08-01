@@ -35,13 +35,13 @@ for i in range(4):
 
     axs[i % 2].set_title(f"[$-${shear_interval}, {shear_interval}]")
 
-    axs[i % 2].plot(magnitudes, shape_noise[:, 5][:-1], '+-' if i < 2 else "x-", color="blue" if i < 2 else "navy", label="shape local" if i < 2 else "shape global")
+    axs[i % 2].plot(magnitudes, shape_noise[:, 5][:-1], '+-' if i < 2 else "x-", color="C0" if i < 2 else "C1", label="shape local" if i < 2 else "shape global")
 
-    axs[i % 2].plot(magnitudes, both_noise[:, 5][:-1], '^-' if i < 2 else "v-", color="orange" if i < 2 else "orangered", label="both local" if i < 2 else "both global")
+    axs[i % 2].plot(magnitudes, both_noise[:, 5][:-1], '^-' if i < 2 else "v-", color="C2" if i < 2 else "C3", label="both local" if i < 2 else "both global")
 
     if i < 2:
 
-        axs[i % 2].plot(magnitudes, response[:, 5][:-1], 'p-', color="green", label="RM")
+        axs[i % 2].plot(magnitudes, response[:, 5][:-1], 'p-', color="C4", label="RM")
 
     axs[0].set_yscale('log')
     axs[1].set_yscale('log')

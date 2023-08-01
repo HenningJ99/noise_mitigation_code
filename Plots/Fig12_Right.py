@@ -33,11 +33,11 @@ response = data[3::4]
 axs.set_title(f"[$-${shear_interval}, {shear_interval}]")
 
 
-axs.plot(magnitudes, shape_noise[:, 5][:-1], 's-', label="shape", color="blue")
+axs.plot(magnitudes, shape_noise[:, 5][:-1], 's-', label="shape", color="C0")
 
-axs.plot(magnitudes, both_noise[:, 5][:-1], "^-", label="both", color="orange")
+axs.plot(magnitudes, both_noise[:, 5][:-1], "^-", label="both", color="C1")
 
-axs.plot(magnitudes, response[:, 5][:-1], "v-", label="RM", color="green")
+axs.plot(magnitudes, response[:, 5][:-1], "v-", label="RM", color="C2")
 
 axs.set_yscale('log')
 
