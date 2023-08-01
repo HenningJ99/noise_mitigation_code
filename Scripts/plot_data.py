@@ -33,7 +33,7 @@ def cubic_term_mirrored(x, a, b, c, d):
     return a * x + b + np.sign(x) * c * x ** 2 + np.sign(x) * d * x ** 3
 
 
-path = sys.argv[4] + "/"
+path = sys.argv[3] + "/"
 
 data_complete = ascii.read(sys.argv[1])
 
@@ -59,10 +59,7 @@ time_bins = int(simulation["time_bins"])
 
 subplots = int(sys.argv[2])
 
-if sys.argv[3] == "normal":
-    used_meas = ""
-else:
-    used_meas = "_" + sys.argv[3]
+
 
 for m in range(time_bins):
     for mag in range(mag_bins + 1):
@@ -102,14 +99,14 @@ for m in range(time_bins):
                 errors_minus = [[], []]
             for k, component in enumerate(["g1", "g2"]):
 
-                deviation = data["meas_" + component + used_meas] - data["input_" + component]
+                deviation = data["meas_" + component] - data["input_" + component]
                 axs[k].errorbar(data["input_" + component][~is_outlier(deviation)], deviation[~is_outlier(deviation)], \
-                                yerr=data["meas_" + component + used_meas + "_err"][~is_outlier(deviation)], fmt='+', capsize=2,
+                                yerr=data["meas_" + component + "_err"][~is_outlier(deviation)], fmt='+', capsize=2,
                                 elinewidth=0.5)
 
                 popts[k], pcov = curve_fit(linear_function, data["input_" + component][~is_outlier(deviation)],
                                        deviation[~is_outlier(deviation)], \
-                                       sigma=data["meas_" + component + used_meas + "_err"][~is_outlier(deviation)],
+                                       sigma=data["meas_" + component + "_err"][~is_outlier(deviation)],
                                        absolute_sigma=True)
 
                 errors[k] = np.sqrt(np.diag(pcov))
@@ -117,16 +114,16 @@ for m in range(time_bins):
                 if WITH_ERROR:
                     popts_plus[k], pcov_plus = curve_fit(linear_function, data["input_" + component][~is_outlier(deviation)],
                                                      deviation[~is_outlier(deviation)], \
-                                                     sigma=data["meas_" + component + used_meas + "_err"][~is_outlier(deviation)] +
-                                                           data["meas_" + component + used_meas + "_err_err"][~is_outlier(deviation)],
+                                                     sigma=data["meas_" + component + "_err"][~is_outlier(deviation)] +
+                                                           data["meas_" + component + "_err_err"][~is_outlier(deviation)],
                                                      absolute_sigma=True)
 
                     errors_plus[k] = np.sqrt(np.diag(pcov_plus))
 
                     popts_minus[k], pcov_minus = curve_fit(linear_function, data["input_" + component][~is_outlier(deviation)],
                                                        deviation[~is_outlier(deviation)], \
-                                                       sigma=data["meas_" + component + used_meas + "_err"][~is_outlier(deviation)] -
-                                                             data["meas_" + component + used_meas + "_err_err"][
+                                                       sigma=data["meas_" + component + "_err"][~is_outlier(deviation)] -
+                                                             data["meas_" + component + "_err_err"][
                                                                  ~is_outlier(deviation)],
                                                        absolute_sigma=True)
 
@@ -134,7 +131,7 @@ for m in range(time_bins):
 
                 r = deviation[~is_outlier(deviation)] - linear_function(data["input_" + component][~is_outlier(deviation)], *popts[k])
 
-                chisq = np.sum((r / data["meas_" + component + used_meas + "_err"][~is_outlier(deviation)]) ** 2)
+                chisq = np.sum((r / data["meas_" + component + "_err"][~is_outlier(deviation)]) ** 2)
                 chisq_red = chisq / (len(r) - 2)
 
                 axs[k].plot(data["input_" + component], linear_function(data["input_" + component], *popts[k]))
@@ -166,15 +163,15 @@ for m in range(time_bins):
 
         else:
 
-            deviation = data["meas_g1" + used_meas] - data["input_g1"]
+            deviation = data["meas_g1"] - data["input_g1"]
 
             axs.errorbar(data["input_g1"][~is_outlier(deviation)], deviation[~is_outlier(deviation)], \
-                         yerr=data["meas_g1" + used_meas + "_err"][~is_outlier(deviation)], fmt='+', capsize=2,
+                         yerr=data["meas_g1" + "_err"][~is_outlier(deviation)], fmt='+', capsize=2,
                          elinewidth=0.5)
 
             popt, pcov = curve_fit(linear_function, data["input_g1"][~is_outlier(deviation)],
                                    deviation[~is_outlier(deviation)], \
-                                   sigma=data["meas_g1" + used_meas + "_err"][~is_outlier(deviation)],
+                                   sigma=data["meas_g1" + "_err"][~is_outlier(deviation)],
                                    absolute_sigma=True)
 
             error = np.sqrt(np.diag(pcov))
@@ -182,16 +179,16 @@ for m in range(time_bins):
             if WITH_ERROR:
                 popt_plus, pcov_plus = curve_fit(linear_function, data["input_g1"][~is_outlier(deviation)],
                                                  deviation[~is_outlier(deviation)], \
-                                                 sigma=data["meas_g1" + used_meas + "_err"][~is_outlier(deviation)] +
-                                                       data["meas_g1" + used_meas + "_err_err"][~is_outlier(deviation)],
+                                                 sigma=data["meas_g1" + "_err"][~is_outlier(deviation)] +
+                                                       data["meas_g1" + "_err_err"][~is_outlier(deviation)],
                                                  absolute_sigma=True)
 
                 error_plus = np.sqrt(np.diag(pcov_plus))
 
                 popt_minus, pcov_minus = curve_fit(linear_function, data["input_g1"][~is_outlier(deviation)],
                                                    deviation[~is_outlier(deviation)], \
-                                                   sigma=data["meas_g1" + used_meas + "_err"][~is_outlier(deviation)] -
-                                                         data["meas_g1" + used_meas + "_err_err"][
+                                                   sigma=data["meas_g1" + "_err"][~is_outlier(deviation)] -
+                                                         data["meas_g1" + "_err_err"][
                                                              ~is_outlier(deviation)],
                                                    absolute_sigma=True)
 
@@ -199,7 +196,7 @@ for m in range(time_bins):
 
             r = deviation[~is_outlier(deviation)] - linear_function(data["input_g1"][~is_outlier(deviation)], *popt)
 
-            chisq = np.sum((r / data["meas_g1" + used_meas + "_err"][~is_outlier(deviation)]) ** 2)
+            chisq = np.sum((r / data["meas_g1" + "_err"][~is_outlier(deviation)]) ** 2)
             chisq_red = chisq / (len(r) - len(popt))
             axs.plot(data["input_g1"], linear_function(data["input_g1"], *popt))
             axs.set_xlabel("$g_1^t$")
@@ -249,16 +246,14 @@ for m in range(time_bins):
             else:
                 if WITH_ERROR:
                     text_file.write(
-                        "%d \t %d \t %d \t %d \t %.6f \t %.6f \t %.6f \t %.6f\t %d\t %s\t %.1f\t %d\t %.6f\t %.6f\n" % \
+                        "%d \t %d \t %d \t %d \t %.6f \t %.6f \t %.6f \t %.6f\t %d\t %.1f\t %d\t %.6f\t %.6f\n" % \
                         (int(objects), int(galaxies), int(tiles), int(ring_num), popt[0], error[0], popt[1], error[1],
-                         int(runtime), \
-                         used_meas, np.sum(data["n_pairs"]),
+                         int(runtime), np.sum(data["n_pairs"]),
                          int(objects) * int(ring_num) * (1 + int(tiles) * noise_plus_meas) * (10-m) / 10,
                          (error_plus[0] - error_minus[0]) / 2, (error_plus[1] - error_minus[1]) / 2))
                 else:
                     text_file.write(
-                        "%d \t %d \t %d \t %d \t %.6f \t %.6f \t %.6f \t %.6f\t %d\t %s\t %.1f\t %d\n" % \
+                        "%d \t %d \t %d \t %d \t %.6f \t %.6f \t %.6f \t %.6f\t %d\t %.1f\t %d\n" % \
                         (int(objects), int(galaxies), int(tiles), int(ring_num), popt[0], error[0], popt[1], error[1],
-                         int(runtime), \
-                         used_meas, np.sum(data["n_pairs"]),
+                         int(runtime), np.sum(data["n_pairs"]),
                          int(objects) * int(ring_num) * (1 + int(tiles) * noise_plus_meas) * (10-m) / 10))

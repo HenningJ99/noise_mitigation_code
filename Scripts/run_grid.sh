@@ -70,9 +70,9 @@ then
   do
     python3 grid_analysis.py $object_num $galaxy_num 2 1 $shear_interval $lf_folder $i
 
-    python3 plot_data.py $lf_folder/results_${object_num}_${galaxy_num}_1_1.dat 1 mod $path
-    python3 plot_data.py $lf_folder/results_${object_num}_${galaxy_num}_1_2.dat 1 mod $path
-    python3 plot_data.py $lf_folder/results_${object_num}_${galaxy_num}_2_2.dat 1 mod $path
+    python3 plot_data.py $lf_folder/results_${object_num}_${galaxy_num}_1_1.dat 1 $path
+    python3 plot_data.py $lf_folder/results_${object_num}_${galaxy_num}_1_2.dat 1 $path
+    python3 plot_data.py $lf_folder/results_${object_num}_${galaxy_num}_2_2.dat 1 $path
   done
 
   for i in $(seq 0 $((reps-1)))

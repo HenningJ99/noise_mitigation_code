@@ -209,10 +209,10 @@ for run in [4, 2, 1]:
 
     columns = np.hstack(columns)
 
-    shear_results = Table(columns[:, [1, 11, 2, 3, 4, 12, 13, 14, 6, 7, 8, 17]],
-                          names=('input_g1', 'input_g2', 'meas_g1_mod', 'meas_g1_mod_err', 'meas_g1_mod_err_err',
-                                 'meas_g2_mod',
-                                 'meas_g2_mod_err', 'meas_g2_mod_err_err', 'n_pairs', 'mag', 'intrinsic_g1',
+    shear_results = Table(columns[:, [1, 11, 2, 3, 4, 12, 13, 14, 5, 6, 7, 17]],
+                          names=('input_g1', 'input_g2', 'meas_g1', 'meas_g1_err', 'meas_g1_err_err',
+                                 'meas_g2',
+                                 'meas_g2_err', 'meas_g2_err_err', 'n_pairs', 'mag', 'intrinsic_g1',
                                  'intrinsic_g2'))
 
     stop = timeit.default_timer()
