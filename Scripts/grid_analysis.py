@@ -133,6 +133,7 @@ for run in [4, 2, 1]:
     ring_num = [2, 2, 1][index]
     every = [4, 2, 1][index]
 
+    # Create the time binning in an extra column
     indices = np.repeat(np.array([i for i in range(int(simulation["time_bins"]))]), per_time_bin)
     indices = np.append(indices, np.repeat(int(simulation["time_bins"]) - 1, rest))
 
@@ -153,13 +154,9 @@ for run in [4, 2, 1]:
     tmp = np.take(unique_indices_occ, indices_ids)
     adding = [i for j in range(len(indices_ids)) for i in range(tmp[j])]
 
-
     indices_ids_full = indices_ids_full + np.array(adding)
 
-
     catalog_new = catalog[indices_ids_full]
-
-
 
     catalog_new["binned_time"] = np.repeat(indices, np.take(unique_indices_occ, indices_ids))
     del indices_ids, indices_ids_full
