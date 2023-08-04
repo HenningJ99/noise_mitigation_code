@@ -424,23 +424,21 @@ def worker(k, ellip_gal, psf, image_sampled_psf, config, argv, input_shear):
 
     fails = [[0, 0], [0, 0]]
 
-    # Setup the g2 values
-    binning = [-0.1 + 0.01 * k for k in range(21)]  # Creates values between -0.1 and 0.1
-
     if simulation["g2"] == "ZERO":
         g2 = 0
         bin_index = int(k / average_num) # np.digitize(g1, binning)
     elif simulation["g2"] == "GAUSS":
+        binning = [shear_min + interval * k for k in range(20)]
         # Draw as long as a value between -0.1 and 0.1 is created
         draw = -1
-        while (draw > 0.1) or (draw < -0.1):
+        while (draw > shear_max) or (draw < shear_min):
             draw = np.random.normal(loc=0.0, scale=0.03)
 
         bin_index = np.digitize(draw, binning)
 
         g2 = binning[bin_index] - 0.005
     elif simulation["g2"] == "UNIFORM":
-        binning = [-0.1 + 0.2 / 19 * k for k in range(20)]
+        binning = [shear_min + interval * k for k in range(20)]
         bin_index = np.random.choice(np.arange(20))
 
         g2 = binning[bin_index]
