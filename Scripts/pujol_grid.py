@@ -227,12 +227,10 @@ for k in range(object_number):
         # Calculate galaxy flux
         gal_flux = exp_time / gain * 10 ** (-0.4 * (galaxies["ST_MAG_GALFIT"][indices[k]] - zp))
 
-        # Correct for ellipticity
-        q = (1-ellips[k]) / (1+ellips[k])
 
         # Define the galaxy profile (correct here for different pixel sizes of VIS and GEMS)
         gal = galsim.Sersic(galaxies["ST_N_GALFIT"][indices[k]],
-                            half_light_radius=0.03 * galaxies["ST_RE_GALFIT"][indices[k]] * np.sqrt(q), flux=gal_flux)
+                            half_light_radius=0.03 * galaxies["ST_RE_GALFIT"][indices[k]], flux=gal_flux)
 
         gal_list.append(gal.shear(g=ellips[k], beta=betas[k]))
 

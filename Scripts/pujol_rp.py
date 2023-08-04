@@ -259,11 +259,8 @@ for total_scene_count in range(total_scenes_per_shear):
             magnitudes.append(galaxies["ST_MAG_GALFIT"][index])
             gal_flux = exp_time / gain * 10 ** (-0.4 * (galaxies["ST_MAG_GALFIT"][index] - zp))
 
-            q = (1-ellips) / (1+ellips)
-
-            # Correct for the ellipticity
             gal = galsim.Sersic(galaxies["ST_N_GALFIT"][index],
-                                half_light_radius=0.03 * galaxies["ST_RE_GALFIT"][index] * np.sqrt(q), flux=gal_flux)
+                                half_light_radius=0.03 * galaxies["ST_RE_GALFIT"][index], flux=gal_flux)
 
             if galaxies["ST_MAG_GALFIT"][index] <= 24.5:
                 gal_below24_5 += 1
