@@ -5,7 +5,7 @@ Created on Sat Oct 23 16:41:35 2021
 @author: Henning
 
 This script does the fits for the linear fit method and plots them. Syntax is
-plot_data.py <input_data> <1 or 2 plots (g1 and g2)> <normal or mod>
+plot_data.py <input_data> <1 or 2 plots (g1 and g2)> <path>
 """
 WITH_ERROR = True
 
