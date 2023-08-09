@@ -148,12 +148,12 @@ for m in range(time_bins):
                     axs[k].set_ylabel("$<g_2^\mathrm{obs}>-g_2^\mathrm{t}$")
                 # axs[0].grid(True)
 
-                textstr = '\n'.join((r'$\mu = (%.4f \pm %.4f)$' % (popts[k][0], errors[k][0]),
-                                     r'$c = (%.5f \pm %.5f)$' % (popts[k][1], errors[k][1]),
+                textstr = '\n'.join((r'$\mu\,[10^{-3}]= %.2f \pm %.2f$' % (1e3 * popts[k][0], 1e3 * errors[k][0]),
+                                    r'$c\,[10^{-4}] = %.2f \pm %.2f$' % (1e4 * popts[k][1], 1e4 * errors[k][1]),
                                      r'$\chi_\mathrm{red}^2 = (%.2f)$' % (chisq_red)))
 
                 props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
-                axs[k].text(0.3, 0.95, textstr, transform=axs[k].transAxes, fontsize=8,
+                axs[k].text(0.05, 0.95, textstr, transform=axs[k].transAxes, fontsize=8,
                             verticalalignment='top', bbox=props)
 
             if tiles == 1 and ring_num == 1:
@@ -220,12 +220,12 @@ for m in range(time_bins):
                 label = "Both"
 
             textstr = '\n'.join(
-                (r'$\mu\,[10^{-2}]= %.2f \pm %.2f$' % (1e2 * popt[0], 1e2 * error[0]),
+                (r'$\mu\,[10^{-3}]= %.2f \pm %.2f$' % (1e3 * popt[0], 1e3 * error[0]),
                  r'$c\,[10^{-4}] = %.2f \pm %.2f$' % (1e4 * popt[1], 1e4 * error[1]),
                  r'$\chi_\mathrm{red}^2\,\,\,\,\,\,\,\,\,\,\,\,\, = %.2f$' % (chisq_red)))
 
             props = dict(boxstyle='round', facecolor='wheat', alpha=0.7)
-            axs.text(0.4, 0.95, textstr, transform=axs.transAxes, fontsize=8,
+            axs.text(0.05, 0.95, textstr, transform=axs.transAxes, fontsize=8,
                      verticalalignment='top', bbox=props)
 
         if not os.path.isdir(path + "output/plots/fits"):
