@@ -10,7 +10,7 @@ Output:
     - Measured shears against input shears in magnitude and time bins with uncertainties
 
 Syntax:
-    grid_analysis.py <total_gal> <gal_per_shear> <nx_tiles> <pixel_noise_times> <shear_interval> <path>
+    grid_analysis.py <total_gal> <gal_per_shear> <nx_tiles> <pixel_noise_times> <shear_interval> <path> <rep>
 
 """
 import random
@@ -75,7 +75,8 @@ catalog["intr_g1"] = np.repeat(np.take(input_catalog["intr_g1"], np.unique(catal
 catalog["intr_g2"] = np.repeat(np.take(input_catalog["intr_g2"], np.unique(catalog["galaxy_id"]).astype(int)),
                                4) * np.tile([1, -1, 1, -1], len(np.unique(catalog["galaxy_id"])))
 
-catalog = catalog[(catalog["S/N"] > float(simulation["sn_cut"])) & (catalog["meas_g1"] < 5) & (catalog["meas_g1"] > -5)]
+catalog = catalog[(catalog["meas_g1"] != 0) & (catalog["S/N"] >= float(simulation["sn_cut"])) &
+                  (catalog["meas_g1"] < 5) & (catalog["meas_g1"] > -5)]
 
 if simulation["bin_type"] == "GEMS":
     bin_type = "mag_input"
