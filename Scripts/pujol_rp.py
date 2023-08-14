@@ -259,8 +259,9 @@ for total_scene_count in range(total_scenes_per_shear):
             magnitudes.append(galaxies["ST_MAG_GALFIT"][index])
             gal_flux = exp_time / gain * 10 ** (-0.4 * (galaxies["ST_MAG_GALFIT"][index] - zp))
 
+            q = (1 - ellips) / (1 + ellips)
             gal = galsim.Sersic(galaxies["ST_N_GALFIT"][index],
-                                half_light_radius=0.03 * galaxies["ST_RE_GALFIT"][index], flux=gal_flux)
+                                half_light_radius=0.03 * galaxies["ST_RE_GALFIT"][index] * np.sqrt(q), flux=gal_flux)
 
             if galaxies["ST_MAG_GALFIT"][index] <= 24.5:
                 gal_below24_5 += 1
@@ -276,20 +277,20 @@ for total_scene_count in range(total_scenes_per_shear):
 
             theo_sn = exp_time * 10 ** (-0.4 * (galaxies["ST_MAG_GALFIT"][index] - zp)) / \
                       np.sqrt((exp_time * 10 ** (-0.4 * (galaxies["ST_MAG_GALFIT"][index] - zp)) +
-                               sky_level * gain * math.pi * (3 * 0.3 * galaxies["ST_RE_GALFIT"][index]) ** 2 +
+                               sky_level * gain * math.pi * (3 * 0.3 * np.sqrt(q) * galaxies["ST_RE_GALFIT"][index]) ** 2 +
                                (read_noise ** 2 + (gain / 2) ** 2) * math.pi * (
-                                       3 * 0.3 * galaxies["ST_RE_GALFIT"][index]) ** 2))
+                                       3 * 0.3 * np.sqrt(q) * galaxies["ST_RE_GALFIT"][index]) ** 2))
 
 
             columns.append(
                 [total_scene_count, positions[i][0], positions[i][1], galaxies["ST_MAG_GALFIT"][index], ellips,
                  betas / galsim.radians,
-                 galaxies["ST_N_GALFIT"][index], galaxies["ST_RE_GALFIT"][index], theo_sn])
+                 galaxies["ST_N_GALFIT"][index], 0.3 * np.sqrt(q) * galaxies["ST_RE_GALFIT"][index], theo_sn])
 
             columns.append(
                 [total_scene_count + 1, positions[i][0], positions[i][1], galaxies["ST_MAG_GALFIT"][index], ellips,
                  (betas + math.pi / 2 * galsim.radians) / galsim.radians,
-                 galaxies["ST_N_GALFIT"][index], galaxies["ST_RE_GALFIT"][index], theo_sn])
+                 galaxies["ST_N_GALFIT"][index], 0.3 * np.sqrt(q) * galaxies["ST_RE_GALFIT"][index], theo_sn])
 
 
         print(gal_below24_5)

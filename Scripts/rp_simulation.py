@@ -259,9 +259,10 @@ for scene in range(total_scenes_per_shear):
 
             gal_flux = exp_time / gain * 10 ** (-0.4 * (galaxies["ST_MAG_GALFIT"][index] - zp))
 
+            q = (1 - ellips) / (1 + ellips)
             # Correct for ellipticty
             gal = galsim.Sersic(galaxies["ST_N_GALFIT"][index],
-                                half_light_radius=0.03 * galaxies["ST_RE_GALFIT"][index], flux=gal_flux)
+                                half_light_radius=0.03 * galaxies["ST_RE_GALFIT"][index] * np.sqrt(q), flux=gal_flux)
 
             gal = gal.shear(g=ellips, beta=betas)
 
@@ -269,9 +270,9 @@ for scene in range(total_scenes_per_shear):
 
             theo_sn = exp_time * 10 ** (-0.4 * (galaxies["ST_MAG_GALFIT"][index] - zp)) / \
                       np.sqrt((exp_time * 10 ** (-0.4 * (galaxies["ST_MAG_GALFIT"][index] - zp)) +
-                               sky_level * gain * math.pi * (3 * 0.3 * galaxies["ST_RE_GALFIT"][index]) ** 2 +
+                               sky_level * gain * math.pi * (3 * 0.3 * np.sqrt(q) * galaxies["ST_RE_GALFIT"][index]) ** 2 +
                                (read_noise ** 2 + (gain / 2) ** 2) * math.pi * (
-                                           3 * 0.3 * galaxies["ST_RE_GALFIT"][index]) ** 2))
+                                           3 * 0.3 * np.sqrt(q) * galaxies["ST_RE_GALFIT"][index]) ** 2))
 
             if sys.argv[6] == "RANDOM_GAL":
                 index2 = random.randint(0, len(galaxies["GEMS_FLAG"]) - 1)
@@ -281,7 +282,7 @@ for scene in range(total_scenes_per_shear):
 
                 # Correct for ellipticity
                 gal = galsim.Sersic(galaxies["ST_N_GALFIT"][index2],
-                                    half_light_radius=0.03 * galaxies["ST_RE_GALFIT"][index2], flux=gal_flux)
+                                    half_light_radius=0.03 * galaxies["ST_RE_GALFIT"][index2] * np.sqrt(q), flux=gal_flux)
 
                 gal = gal.shear(g=ellips, beta=betas)
 
@@ -289,9 +290,9 @@ for scene in range(total_scenes_per_shear):
 
                 theo_sn2 = exp_time * 10 ** (-0.4 * (galaxies["ST_MAG_GALFIT"][index2] - zp)) / \
                           np.sqrt((exp_time * 10 ** (-0.4 * (galaxies["ST_MAG_GALFIT"][index2] - zp)) +
-                                   sky_level * gain * math.pi * (3 * 0.3 * galaxies["ST_RE_GALFIT"][index2]) ** 2 +
+                                   sky_level * gain * math.pi * (3 * 0.3 * np.sqrt(q) * galaxies["ST_RE_GALFIT"][index2]) ** 2 +
                                    (read_noise ** 2 + (gain / 2) ** 2) * math.pi * (
-                                           3 * 0.3 * galaxies["ST_RE_GALFIT"][index2]) ** 2))
+                                           3 * 0.3 * np.sqrt(q) * galaxies["ST_RE_GALFIT"][index2]) ** 2))
             else:
                 magnitudes.append(galaxies["ST_MAG_GALFIT"][index])
                 index2 = index
@@ -305,16 +306,19 @@ for scene in range(total_scenes_per_shear):
                         columns.append([scene, m, k, positions[i][1], complete_image_size - positions[i][0],
                                         galaxies["ST_MAG_GALFIT"][index2], ellips,
                                         (betas + math.pi / 2 * galsim.radians) / galsim.radians,
-                                        galaxies["ST_N_GALFIT"][index2], galaxies["ST_RE_GALFIT"][index2], theo_sn2])
+                                        galaxies["ST_N_GALFIT"][index2],
+                                        0.3 * np.sqrt(q) * galaxies["ST_RE_GALFIT"][index2], theo_sn2])
                     else:
                         columns.append([scene, m, k, positions_2[i][0], positions_2[i][1],
                                         galaxies["ST_MAG_GALFIT"][index2], ellips,
                                         (betas + math.pi / 2 * galsim.radians) / galsim.radians,
-                                        galaxies["ST_N_GALFIT"][index2], galaxies["ST_RE_GALFIT"][index2], theo_sn2])
+                                        galaxies["ST_N_GALFIT"][index2],
+                                        0.3 * np.sqrt(q) * galaxies["ST_RE_GALFIT"][index2], theo_sn2])
                 else:
                     columns.append([scene, m, k, positions[i][0], positions[i][1],
                                     galaxies["ST_MAG_GALFIT"][index], ellips, betas / galsim.radians,
-                                    galaxies["ST_N_GALFIT"][index], galaxies["ST_RE_GALFIT"][index], theo_sn])
+                                    galaxies["ST_N_GALFIT"][index],
+                                    0.3 * np.sqrt(q) * galaxies["ST_RE_GALFIT"][index], theo_sn])
 
 
         if sys.argv[6] != "RANDOM_GAL":

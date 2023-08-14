@@ -236,12 +236,11 @@ for k in range(object_number):
         ellipticity = ellips[k % average_num]
         angle = betas[k % average_num]
 
+        q = (1 - ellipticity) / (1 + ellipticity)
         # Define the galaxy profile (correct here for different pixel sizes of VIS and GEMS)
         gal = galsim.Sersic(galaxies["ST_N_GALFIT"][indices[k % average_num]],
-                            half_light_radius=0.03 * galaxies["ST_RE_GALFIT"][indices[k % average_num]],
+                            half_light_radius=0.03 * galaxies["ST_RE_GALFIT"][indices[k % average_num]] * np.sqrt(q),
                             flux=gal_flux)
-
-
 
         gal_list.append(gal.shear(g=ellipticity, beta=angle))
 
@@ -251,12 +250,13 @@ for k in range(object_number):
         theo_sn = exp_time * 10 ** (-0.4 * (galaxies["ST_MAG_GALFIT"][indices[k % average_num]] - zp)) / \
                   np.sqrt((exp_time * 10 ** (-0.4 * (galaxies["ST_MAG_GALFIT"][indices[k % average_num]] - zp)) +
                            sky_level * gain * math.pi * (
-                                   3 * 0.3 * galaxies["ST_RE_GALFIT"][indices[k % average_num]]) ** 2 +
+                                   3 * 0.3 * np.sqrt(q) * galaxies["ST_RE_GALFIT"][indices[k % average_num]]) ** 2 +
                            (read_noise ** 2 + (gain / 2) ** 2) * math.pi * (
-                                   3 * 0.3 * galaxies["ST_RE_GALFIT"][indices[k % average_num]]) ** 2))
+                                   3 * 0.3 * np.sqrt(q) * galaxies["ST_RE_GALFIT"][indices[k % average_num]]) ** 2))
 
         columns.append([k, galaxies["ST_MAG_GALFIT"][indices[k % average_num]],
-                        0.3 * galaxies["ST_RE_GALFIT"][indices[k % average_num]],
+                        0.3 * np.sqrt(q) * galaxies["ST_RE_GALFIT"][indices[k % average_num]],
+                        galaxies["ST_N_GALFIT"][indices[k % average_num]],
                         ellips[(k - 1) % average_num] if k % 2 != 0 else ellips[k % average_num],
                         betas[(k - 1) % average_num] / galsim.radians
                         if k % 2 != 0 else betas[k % average_num] / galsim.radians,
@@ -271,32 +271,31 @@ for k in range(object_number):
         ellips = fct.generate_ellipticity(ellip_rms, ellip_max)
         betas = random.random() * 2 * math.pi * galsim.radians
 
-
+        q = (1 - ellips) / (1 + ellips)
         # Correct for ellipticity
         gal = galsim.Sersic(galaxies["ST_N_GALFIT"][index],
-                            half_light_radius=0.03 * galaxies["ST_RE_GALFIT"][index], flux=gal_flux)
-
-
+                            half_light_radius=0.03 * galaxies["ST_RE_GALFIT"][index] * np.sqrt(q), flux=gal_flux)
 
         gal_list.append(gal.shear(g=ellips, beta=betas))
         input_shear.append([galsim.Shear(g=ellips, beta=betas).g1, galsim.Shear(g=ellips, beta=betas).g2])
 
         theo_sn = exp_time * 10 ** (-0.4 * (galaxies["ST_MAG_GALFIT"][index] - zp)) / \
                   np.sqrt((exp_time * 10 ** (-0.4 * (galaxies["ST_MAG_GALFIT"][index] - zp)) +
-                           sky_level * gain * math.pi * (3 * 0.3 * galaxies["ST_RE_GALFIT"][index]) ** 2 +
+                           sky_level * gain * math.pi * (3 * 0.3 * np.sqrt(q) * galaxies["ST_RE_GALFIT"][index]) ** 2 +
                            (read_noise ** 2 + (gain / 2) ** 2) * math.pi * (
-                                   3 * 0.3 * galaxies["ST_RE_GALFIT"][index]) ** 2))
+                                   3 * 0.3 * np.sqrt(q) * galaxies["ST_RE_GALFIT"][index]) ** 2))
 
         columns.append(
-            [k, galaxies["ST_MAG_GALFIT"][index], 0.3 * galaxies["ST_RE_GALFIT"][index], ellips, betas / galsim.radians,
-             input_shear[-1][0], input_shear[-1][1], theo_sn])
+            [k, galaxies["ST_MAG_GALFIT"][index], 0.3 * np.sqrt(q) * galaxies["ST_RE_GALFIT"][index],
+             galaxies["ST_N_GALFIT"][index], ellips, betas / galsim.radians, input_shear[-1][0], input_shear[-1][1],
+             theo_sn])
 
 # print(np.average(np.array(input_shear)[:, 0]))
 
 # Convert columns to a numpy array and crate the input table from it
 columns = np.array(columns, dtype=float)
-input_catalog = Table([columns[:, i] for i in range(8)],
-                      names=('galaxy_id', 'mag', 'hlr', 'e', 'beta', 'intr_g1', 'intr_g2', 'theo_sn'))
+input_catalog = Table([columns[:, i] for i in range(9)],
+                      names=('galaxy_id', 'mag', 'hlr', 'n', 'e', 'beta', 'intr_g1', 'intr_g2', 'theo_sn'))
 
 # ------------------------- DISTRIBUTE WORK FOR MULTIPROCESSING -------------------------------------------------------
 
