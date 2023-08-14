@@ -207,7 +207,7 @@ input_shears_compl = []
 columns = []
 # gal_below25_5 = 0
 for k in range(object_number):
-    q = (1 - ellips[k]) / (1 + ellips[k])
+    q = galaxies["ST_B_IMAGE"][indices[k]] / galaxies["ST_A_IMAGE"][indices[k]]
     theo_sn = exp_time * 10 ** (-0.4 * (galaxies["ST_MAG_GALFIT"][indices[k]] - zp)) / \
               np.sqrt((exp_time * 10 ** (-0.4 * (galaxies["ST_MAG_GALFIT"][indices[k]] - zp)) +
                        sky_level * gain * math.pi * (3 * 0.3 * np.sqrt(q) * galaxies["ST_RE_GALFIT"][indices[k]]) ** 2 +

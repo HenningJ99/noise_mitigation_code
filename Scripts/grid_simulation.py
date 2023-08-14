@@ -236,7 +236,7 @@ for k in range(object_number):
         ellipticity = ellips[k % average_num]
         angle = betas[k % average_num]
 
-        q = (1 - ellipticity) / (1 + ellipticity)
+        q = galaxies["ST_B_IMAGE"][indices[k % average_num]] / galaxies["ST_A_IMAGE"][indices[k % average_num]]
         # Define the galaxy profile (correct here for different pixel sizes of VIS and GEMS)
         gal = galsim.Sersic(galaxies["ST_N_GALFIT"][indices[k % average_num]],
                             half_light_radius=0.03 * galaxies["ST_RE_GALFIT"][indices[k % average_num]] * np.sqrt(q),
@@ -271,7 +271,7 @@ for k in range(object_number):
         ellips = fct.generate_ellipticity(ellip_rms, ellip_max)
         betas = random.random() * 2 * math.pi * galsim.radians
 
-        q = (1 - ellips) / (1 + ellips)
+        q = galaxies["ST_B_IMAGE"][index] / galaxies["ST_A_IMAGE"][index]
         # Correct for ellipticity
         gal = galsim.Sersic(galaxies["ST_N_GALFIT"][index],
                             half_light_radius=0.03 * galaxies["ST_RE_GALFIT"][index] * np.sqrt(q), flux=gal_flux)

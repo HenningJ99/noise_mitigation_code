@@ -259,7 +259,7 @@ for scene in range(total_scenes_per_shear):
 
             gal_flux = exp_time / gain * 10 ** (-0.4 * (galaxies["ST_MAG_GALFIT"][index] - zp))
 
-            q = (1 - ellips) / (1 + ellips)
+            q = galaxies["ST_B_IMAGE"][index] / galaxies["ST_A_IMAGE"][index]
             # Correct for ellipticty
             gal = galsim.Sersic(galaxies["ST_N_GALFIT"][index],
                                 half_light_radius=0.03 * galaxies["ST_RE_GALFIT"][index] * np.sqrt(q), flux=gal_flux)
