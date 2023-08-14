@@ -207,19 +207,21 @@ input_shears_compl = []
 columns = []
 # gal_below25_5 = 0
 for k in range(object_number):
-
+    q = (1 - ellips[k]) / (1 + ellips[k])
     theo_sn = exp_time * 10 ** (-0.4 * (galaxies["ST_MAG_GALFIT"][indices[k]] - zp)) / \
               np.sqrt((exp_time * 10 ** (-0.4 * (galaxies["ST_MAG_GALFIT"][indices[k]] - zp)) +
-                       sky_level * gain * math.pi * (3 * 0.3 * galaxies["ST_RE_GALFIT"][indices[k]]) ** 2 +
+                       sky_level * gain * math.pi * (3 * 0.3 * np.sqrt(q) * galaxies["ST_RE_GALFIT"][indices[k]]) ** 2 +
                        (read_noise ** 2 + (gain / 2) ** 2) * math.pi * (
-                                   3 * 0.3 * galaxies["ST_RE_GALFIT"][indices[k]]) ** 2))
+                                   3 * 0.3 * np.sqrt(q) * galaxies["ST_RE_GALFIT"][indices[k]]) ** 2))
     if k % 2 != 0:
         gal_list.append(gal.shear(g=ellips[k-1], beta=betas[k-1] + math.pi / 2 * galsim.radians))
 
         input_shears_compl.append(galsim.Shear(g=ellips[k-1], beta=betas[k-1] + math.pi / 2 * galsim.radians).g1)
 
-        columns.append([k, galaxies["ST_MAG_GALFIT"][indices[k]], 0.3 * galaxies["ST_RE_GALFIT"][indices[k]], ellips[k-1],
-                  (betas[k-1] + math.pi / 2 *galsim.radians) / galsim.radians, input_shears_compl[-1], theo_sn])
+        columns.append([k, galaxies["ST_MAG_GALFIT"][indices[k]],
+                        0.3 * np.sqrt(q) * galaxies["ST_RE_GALFIT"][indices[k]], ellips[k-1],
+                        galaxies["ST_N_GALFIT"][indices[k]], (betas[k-1] + math.pi / 2 *galsim.radians) / galsim.radians,
+                        input_shears_compl[-1], theo_sn])
     else:
         # if galaxies["ST_MAG_GALFIT"][indices[k]] <= 25.5 and galaxies["ST_MAG_GALFIT"][indices[k]] >= 24.5:
         #     gal_below25_5 += 1
@@ -227,23 +229,25 @@ for k in range(object_number):
         # Calculate galaxy flux
         gal_flux = exp_time / gain * 10 ** (-0.4 * (galaxies["ST_MAG_GALFIT"][indices[k]] - zp))
 
-
         # Define the galaxy profile (correct here for different pixel sizes of VIS and GEMS)
         gal = galsim.Sersic(galaxies["ST_N_GALFIT"][indices[k]],
-                            half_light_radius=0.03 * galaxies["ST_RE_GALFIT"][indices[k]], flux=gal_flux)
+                            half_light_radius=0.03 * galaxies["ST_RE_GALFIT"][indices[k]] * np.sqrt(q), flux=gal_flux)
 
         gal_list.append(gal.shear(g=ellips[k], beta=betas[k]))
 
         input_shears_compl.append(galsim.Shear(g=ellips[k], beta=betas[k]).g1)
 
-        columns.append([k, galaxies["ST_MAG_GALFIT"][indices[k]], 0.3 * galaxies["ST_RE_GALFIT"][indices[k]], ellips[k], betas[k] / galsim.radians, input_shears_compl[-1], theo_sn])
+        columns.append([k, galaxies["ST_MAG_GALFIT"][indices[k]],
+                        0.3 * np.sqrt(q) * galaxies["ST_RE_GALFIT"][indices[k]], ellips[k],
+                        galaxies["ST_N_GALFIT"][indices[k]], betas[k] / galsim.radians, input_shears_compl[-1],
+                        theo_sn])
 
     #input_catalog.add_row(column)
 
 print(np.average(input_shears_compl))
 # print(gal_below25_5)
 columns = np.array(columns, dtype=float)
-input_catalog = Table([columns[:, i] for i in range(7)], names=('galaxy_id', 'mag', 'hlr', 'e', 'beta', 'intr_g1', 'theo_sn'))
+input_catalog = Table([columns[:, i] for i in range(8)], names=('galaxy_id', 'mag', 'hlr', 'e', 'n', 'beta', 'intr_g1', 'theo_sn'))
 # ------------------------DISTRIBUTE WORK ----------------------------------------------------------------------------
 # Calculate how many images shall be calculated within one worker
 per_process = int(object_number / num_cpu)
