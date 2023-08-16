@@ -143,8 +143,9 @@ def bootstrap_puyol_grid_galaxy(array_1, array_2, n, shear_diff):
 
     return mean, error
 
+
 @ray.remote
-def generate_bootstrap_samples(table, per_worker, shear_diff, num_shears):
+def generate_bootstrap_samples(meas_g1, per_worker, shear_diff, num_shears):
     """
     This function is used to parallelize the generation of bootstrap samples for the grid analysis.
 
@@ -154,7 +155,8 @@ def generate_bootstrap_samples(table, per_worker, shear_diff, num_shears):
     samples_c = []
     for _ in range(per_worker):
         # Generate indices with a step size of 2 times the number of different shears, since always 2 galaxies are related.
-        indices = np.random.choice(np.arange(0, len(table), 2 * num_shears), size=(int(len(table) / (2 * num_shears))))
+        indices = np.random.choice(np.arange(0, len(meas_g1), 2 * num_shears),
+                                   size=(int(len(meas_g1) / (2 * num_shears))))
 
         # Add the indices of the galaxies, which belong to the galaxies drawn before.
         indices_c = np.append(indices, [indices + i for i in range(1, 2 * num_shears)])
@@ -172,10 +174,10 @@ def generate_bootstrap_samples(table, per_worker, shear_diff, num_shears):
             indices_minus = np.append(indices, indices + 2)
 
         # Build the bootstrap arrays by taking from the table at the drawn indices
-        bootstrap_plus = np.take(table["meas_g1"], indices_plus)
-        bootstrap_minus = np.take(table["meas_g1"], indices_minus)
+        bootstrap_plus = np.take(meas_g1, indices_plus)
+        bootstrap_minus = np.take(meas_g1, indices_minus)
 
-        bootstrap_c = np.take(table["meas_g1"], indices_c)
+        bootstrap_c = np.take(meas_g1, indices_c)
 
         # Append the sample lists with the means of the bootstrap samples
         samples_c.append(np.mean(bootstrap_c))
@@ -185,7 +187,7 @@ def generate_bootstrap_samples(table, per_worker, shear_diff, num_shears):
     return samples, samples_c
 
 
-def bootstrap_puyol_grid_galaxy_new(table, n, shear_diff, num_shears, num_cpu):
+def bootstrap_puyol_grid_galaxy_new(meas_g1, n, shear_diff, num_shears, num_cpu):
     """
     This function is the parallelized version of the pujol analysis on the grid.
 
@@ -194,25 +196,70 @@ def bootstrap_puyol_grid_galaxy_new(table, n, shear_diff, num_shears, num_cpu):
     samples = []
     samples_c = []
 
-    ray.init(num_cpus=num_cpu)
+    # Only use multiprocessing when arrays become large
+    if len(meas_g1) > 100000:
 
-    # Put the table in shared memory
-    table_ref = ray.put(table)
-    futures = [generate_bootstrap_samples.remote(table_ref, int(n / num_cpu), shear_diff, num_shears) for _ in range(num_cpu)]
+        ray.init(num_cpus=num_cpu)
 
-    for i in range(num_cpu):
-        ready, not_ready = ray.wait(futures)
+        # Put the table in shared memory
+        table_ref = ray.put(meas_g1)
+        futures = [generate_bootstrap_samples.remote(table_ref, int(n / num_cpu), shear_diff, num_shears)
+                   for _ in range(num_cpu)]
 
-        for x in ray.get(ready):
-            samples.append(x[0])
-            samples_c.append(x[1])
+        for i in range(num_cpu):
+            ready, not_ready = ray.wait(futures)
 
-        futures = not_ready
-        if not futures:
-            break
+            for x in ray.get(ready):
+                samples.append(x[0])
+                samples_c.append(x[1])
 
-    samples = np.concatenate(samples)
-    samples_c = np.concatenate(samples_c)
+            futures = not_ready
+            if not futures:
+                break
+
+        ray.shutdown()
+
+    else:
+        # Generate indices with a step size of 2 times the number of different shears,
+        # since always 2 galaxies are related.
+
+        indices = np.random.choice(np.arange(0, len(meas_g1), 2 * num_shears),
+                                   size=(int(len(meas_g1) / (2 * num_shears)), n))
+
+        # Add the indices of the galaxies, which belong to the galaxies drawn before.
+        indices_c = np.append(indices, np.array([indices + i for i in range(1, 2 * num_shears)]).reshape(-1, n), axis=0)
+        if num_shears > 2:
+            indices_plus = np.append(indices + 1, np.array([indices + i for i in range(2, num_shears)]).reshape(-1, n),
+                                     axis=0)
+
+            indices_plus = np.append(indices_plus, indices_plus + num_shears, axis=0)
+
+            indices_minus = np.append(indices, np.array([indices + i for i in range(1, num_shears - 1)]).reshape(-1, n),
+                                      axis=0)
+
+            indices_minus = np.append(indices_minus, indices_minus + num_shears, axis=0)
+
+        else:
+            indices_plus = np.append(indices + 1, indices + 3, axis=0)
+            indices_minus = np.append(indices, indices + 2, axis=0)
+
+        # Build the bootstrap arrays by taking from the table at the drawn indices
+        bootstrap_plus = np.take(meas_g1, indices_plus, axis=0)
+
+        bootstrap_minus = np.take(meas_g1, indices_minus, axis=0)
+
+        bootstrap_c = np.take(meas_g1, indices_c, axis=0)
+
+        # Append the sample lists with the means of the bootstrap samples
+        samples_c = np.mean(bootstrap_c, axis=0)
+
+        samples = (np.mean(bootstrap_plus, axis=0) - np.mean(bootstrap_minus, axis=0)) / shear_diff - 1
+
+    try:
+        samples = np.concatenate(samples)
+        samples_c = np.concatenate(samples_c)
+    except ValueError:
+        pass
 
     mean = np.mean(samples)
     error = np.std(samples)
@@ -221,9 +268,7 @@ def bootstrap_puyol_grid_galaxy_new(table, n, shear_diff, num_shears, num_cpu):
     # Calculate the uncertainty of the uncertainty by splitting the sample in 10 and using the standard deviation
     error_error = np.std([np.std(np.array_split(samples, 10)[i]) for i in range(10)])
     error_error_c = np.std([np.std(np.array_split(samples_c, 10)[i]) for i in range(10)])
-    mean_as_estimate = np.mean([np.std(np.array_split(samples,10)[i]) for i in range(10)])
-
-    ray.shutdown()
+    mean_as_estimate = np.mean([np.std(np.array_split(samples, 10)[i]) for i in range(10)])
 
     return [mean, error, error_c, error_error / np.sqrt(10), error_error_c / np.sqrt(10), mean_as_estimate]
 
@@ -238,7 +283,6 @@ def bootstrap(array, n):
         bootstrap = np.take(array, indices)
 
         samples.append(np.mean(bootstrap))
-
 
     return np.std(samples)
 
@@ -322,7 +366,6 @@ def generate_psf(lam_min, step_psf, lam_max, data, tel_diam):
     return psf
 
 
-
 @ray.remote
 def multiple_worker(ntimes, indices, ellip_gal, psf, image_sampled_psf, config, argv, input_shears):
     """
@@ -330,7 +373,8 @@ def multiple_worker(ntimes, indices, ellip_gal, psf, image_sampled_psf, config, 
     It calls the function handling individual images n times.
     The return value is a list of all return values from the individual image analysis
     """
-    results = [worker(indices[k], ellip_gal[k], psf, image_sampled_psf, config, argv, input_shears[k]) for k in range(ntimes)]
+    results = [worker(indices[k], ellip_gal[k], psf, image_sampled_psf, config, argv, input_shears[k]) for k in
+               range(ntimes)]
     return results
 
 
@@ -392,7 +436,6 @@ def worker(k, ellip_gal, psf, image_sampled_psf, config, argv, input_shear):
 
     timings = [[], [], []]
 
-
     gal_image = galsim.ImageF(stamp_xsize * nx_tiles - 1, stamp_ysize * ny_tiles - 1, scale=pixel_scale)
     column = ny_tiles
 
@@ -426,7 +469,7 @@ def worker(k, ellip_gal, psf, image_sampled_psf, config, argv, input_shear):
 
     if simulation["g2"] == "ZERO":
         g2 = 0
-        bin_index = int(k / average_num) # np.digitize(g1, binning)
+        bin_index = int(k / average_num)  # np.digitize(g1, binning)
     elif simulation["g2"] == "GAUSS":
         binning = [shear_min + interval * k for k in range(20)]
         # Draw as long as a value between -0.1 and 0.1 is created
@@ -489,13 +532,14 @@ def worker(k, ellip_gal, psf, image_sampled_psf, config, argv, input_shear):
                 # image = final.drawImage(scale=pixel_scale)
                 timings[0].append(timeit.default_timer() - start)
 
-
                 # CCD noise GALAXY
                 if simulation.getboolean("same_noise_and_shift") and ix == 1:
                     if simulation.getboolean("two_in_one"):
-                        noise = galsim.noise.CCDNoiseHenning(rng1, gain=gain, read_noise=read_noise, sky_level=sky_level, inv=True)
+                        noise = galsim.noise.CCDNoiseHenning(rng1, gain=gain, read_noise=read_noise,
+                                                             sky_level=sky_level, inv=True)
                     else:
-                        noise = galsim.noise.CCDNoiseHenning(rng2, gain=gain, read_noise=read_noise, sky_level=sky_level)
+                        noise = galsim.noise.CCDNoiseHenning(rng2, gain=gain, read_noise=read_noise,
+                                                             sky_level=sky_level)
                 else:
                     noise = galsim.noise.CCDNoiseHenning(rng, gain=gain, read_noise=read_noise, sky_level=sky_level)
 
@@ -516,7 +560,6 @@ def worker(k, ellip_gal, psf, image_sampled_psf, config, argv, input_shear):
                 else:
                     noise = galsim.noise.CCDNoiseHenning(rng1, gain=gain, read_noise=read_noise,
                                                          sky_level=sky_level, inv=True)
-
 
                 sub_gal_image.addNoise(noise)
 
@@ -546,11 +589,11 @@ def worker(k, ellip_gal, psf, image_sampled_psf, config, argv, input_shear):
                             gain * sigma_sky) ** 2)
 
                 if not simulation.getboolean("sel_bias"):
-                    #Use this for a normal run
+                    # Use this for a normal run
                     meas_g1[iy][ix] = results.corrected_g1
                     meas_g2[iy][ix] = results.corrected_g2
                 else:
-                    #Use this for selection bias checks
+                    # Use this for selection bias checks
                     meas_g1[iy][ix] = input_shear[0] + g1
                     meas_g2[iy][ix] = input_shear[1] + g2
 
@@ -577,7 +620,8 @@ def worker(k, ellip_gal, psf, image_sampled_psf, config, argv, input_shear):
     if np.sum(meas_g1) != 0:
         # if len(fails) != 0:
         # np.savetxt(sys.stdout,np.reshape(np.array(fails),(-1,2)),fmt="%i")
-        return k, timings, bin_index, gal_mag_inp, meas_mag, meas_SNR, gal_image if simulation.getboolean("output") else "", np.concatenate(fails), meas_g1, meas_g2
+        return k, timings, bin_index, gal_mag_inp, meas_mag, meas_SNR, gal_image if simulation.getboolean(
+            "output") else "", np.concatenate(fails), meas_g1, meas_g2
     else:
         return -1
 
@@ -629,7 +673,7 @@ def one_galaxy(k, input_g1, ellip_gal, image_sampled_psf, psf, config, argv):
 
     # Magnitude of the galaxy
     gal_mag = -2.5 * np.log10(gain / exp_time * ellip_gal.original.flux) + zp
-    #print(k, ellip_gal.original.flux, ellip_gal.original.half_light_radius)
+    # print(k, ellip_gal.original.flux, ellip_gal.original.half_light_radius)
     # How many different shears
     num_shears = int(argv[4])
 
@@ -809,7 +853,6 @@ def one_galaxy(k, input_g1, ellip_gal, image_sampled_psf, psf, config, argv):
                     signal_to_noise = adamflux / np.sqrt(
                         np.pi * (3 * adamsigma * np.sqrt(2 * np.log(2))) ** 2 * sigma_sky ** 2)
 
-
                 meas_g1[m * num_shears + i] = results.corrected_g1
                 # if i == 0:
                 #     meas[0][i] = results.corrected_g1
@@ -843,10 +886,12 @@ def one_galaxy(k, input_g1, ellip_gal, image_sampled_psf, psf, config, argv):
     if len(R_11) != 0:
         return (
             np.average(R_11) - 1, np.std(R_11) / np.sqrt(len(R_11)), len(R_11), np.average(alpha),
-            np.std(alpha) / np.sqrt(len(alpha)), len(alpha), gal_image if simulation.getboolean("output") else "", SNR, k, gal_mag, gal_mag_meas,
+            np.std(alpha) / np.sqrt(len(alpha)), len(alpha), gal_image if simulation.getboolean("output") else "", SNR,
+            k, gal_mag, gal_mag_meas,
             meas_g1)
     else:
-        return 0, 0, 0, 0, 0, 0, gal_image if simulation.getboolean("output") else "", SNR, k, gal_mag, gal_mag_meas,  meas_g1
+        return 0, 0, 0, 0, 0, 0, gal_image if simulation.getboolean(
+            "output") else "", SNR, k, gal_mag, gal_mag_meas, meas_g1
 
 
 @ray.remote
@@ -1097,7 +1142,6 @@ def one_galaxy_whole_matrix(k, input_g1, ellip_gal, image_sampled_psf, psf, conf
             else:
                 count += 1
 
-
     response = [[-1, -1], [-1, -1]]
     if meas_g1[0] != 0 and meas_g1[1] != 0:
         response[0][0] = np.sign(shears_g1[0] - offset) * (meas_g1[0] - meas_g1[1]) / 0.04
@@ -1120,7 +1164,8 @@ def multiple_catalog(ntimes, m, ellip_gal, ellip_gal2, positions, positions_2, p
     It calls the function working on individual images
     n times and returns a list of the individual image results. See one_galaxy function
     """
-    results = [catalog_worker(ellip_gal[k], ellip_gal2[k], positions[k], positions_2[k], m, psf, config, argv) for k in range(ntimes)]
+    results = [catalog_worker(ellip_gal[k], ellip_gal2[k], positions[k], positions_2[k], m, psf, config, argv) for k in
+               range(ntimes)]
     return results
 
 
@@ -1150,7 +1195,7 @@ def catalog_worker(gal, gal2, position, position_2, m, psf, config, argv):
     rng = galsim.UniformDeviate()
     rng1 = rng.duplicate()
 
-    g1 = shear_min + m * (shear_max - shear_min) / (shear_bins-1)
+    g1 = shear_min + m * (shear_max - shear_min) / (shear_bins - 1)
 
     if simulation["g2"] == "ZERO":
         draw = 0
@@ -1201,7 +1246,6 @@ def catalog_worker(gal, gal2, position, position_2, m, psf, config, argv):
         stamp_rotated = rotated_final.drawImage(center=image_pos_2, nx=stamp_xsize, ny=stamp_ysize, scale=pixel_scale)
     except GalSimFFTSizeError:
         return -1
-
 
     if argv[6] == "True":
         stamp_rotated = galsim.Image(np.abs(stamp_rotated.array.copy()), bounds=galsim.BoundsI(
@@ -1256,7 +1300,7 @@ def catalog_worker_pujol(gal, k, position, psf, config, argv, num_shears, run_nu
     simulation = config['SIMULATION']
 
     if simulation.getboolean("same_but_shear"):
-        random_seed = 123+k
+        random_seed = 123 + k
     else:
         random_seed = np.random.randint(1e8)
     rng = galsim.UniformDeviate(seed=random_seed)
@@ -1283,10 +1327,12 @@ def catalog_worker_pujol(gal, k, position, psf, config, argv, num_shears, run_nu
 
     if simulation.getboolean("same_but_shear"):
         if argv[6] == "rand":
-            central_shear = np.random.rand() * float(simulation["variable_field_mag"]) - float(simulation["variable_field_mag"]) / 2
+            central_shear = np.random.rand() * float(simulation["variable_field_mag"]) - float(
+                simulation["variable_field_mag"]) / 2
         elif argv[6] == "zero":
             central_shear = 0
-        shears = [central_shear + k * float(simulation["same_but_shear_diff"]) / 2 for k in [-1, 1]]  # Slightly vary the (random) shear field
+        shears = [central_shear + k * float(simulation["same_but_shear_diff"]) / 2 for k in
+                  [-1, 1]]  # Slightly vary the (random) shear field
 
     if simulation["g2"] == "ZERO":
         draw = 0
@@ -1330,7 +1376,6 @@ def catalog_worker_pujol(gal, k, position, psf, config, argv, num_shears, run_nu
 
 @ray.remote
 def create_catalog_pujol(stamp_none, m, total_scene_count, argv, config, path, index_fits):
-
     """
     This function creates the large scenes from individual stamps for the response method and extracts sources
     with SourceExtractor. The output consists of the Source catalogs and the scenes' fits files.
@@ -1350,10 +1395,7 @@ def create_catalog_pujol(stamp_none, m, total_scene_count, argv, config, path, i
     # Calculate sky level
     sky_level = pixel_scale ** 2 * exp_time / gain * 10 ** (-0.4 * (sky - zp))
 
-
     image_none = galsim.Image(complete_image_size, complete_image_size, scale=pixel_scale)
-
-
 
     for i in range(len(stamp_none[0])):
         # Find the overlapping bounds between the large image and the individual stamp.
@@ -1495,7 +1537,6 @@ def measure_catalog_pujol(m, total_scene_count, argv, config, path, psf, num_she
             meas.append(results.corrected_g1)
             S_N.append(signal_to_noise)
 
-
     return meas, np.dstack((x_pos, y_pos))[0], m, total_scene_count, magnitudes, S_N
 
 
@@ -1519,14 +1560,11 @@ def create_catalog_lf(stamp, index, seed, m, scene, argv, config, path, psf, ind
 
     rng = galsim.UniformDeviate(seed)
 
-
     # Calculate sky level
     sky_level = pixel_scale ** 2 * exp_time / gain * 10 ** (-0.4 * (sky - zp))
 
     # Build the two large images for none and shape and add sky level and Gaussian RON to them
     image = galsim.Image(complete_image_size, complete_image_size, scale=pixel_scale)
-
-
 
     SOURCE_EXTRACTOR_DIR = path + "output/source_extractor"
 
@@ -1566,8 +1604,6 @@ def create_catalog_lf(stamp, index, seed, m, scene, argv, config, path, psf, ind
     sex(IMAGE_DIRECTORY, SOURCE_EXTRACTOR_DIR + f"/{index_fits}/" + f"{scene}_{m}_{index}.cat")
 
 
-
-
 @ray.remote
 def measure_catalog_lf(m, scene, argv, config, path, psf, index_fits):
     """
@@ -1597,7 +1633,7 @@ def measure_catalog_lf(m, scene, argv, config, path, psf, index_fits):
 
     shear_bins = int(simulation['shear_bins'])
 
-    g1 = shear_min + m * (shear_max - shear_min) / (shear_bins-1)
+    g1 = shear_min + m * (shear_max - shear_min) / (shear_bins - 1)
 
     # Filter the PSF with a top hat at pixel scale
     filter_function = galsim.Pixel(scale=pixel_scale)
@@ -1671,7 +1707,6 @@ def measure_catalog_lf(m, scene, argv, config, path, psf, index_fits):
 
         error_specific = bootstrap(measures, int(simulation['bootstrap_repetitions']))
 
-
         measurements.append(
             [g1, np.average(measures), error_specific, len(measures), m, scene, np.dstack((x_pos, y_pos))[0],
              measures, magnitudes, s_n])
@@ -1715,7 +1750,6 @@ def one_shear_analysis_old(m, config, argv, data_complete, input_g1, input_g2, m
                 upper_limit = magnitudes[mag + 1]
                 lower_limit = magnitudes[mag]
 
-
             array_g1 = data_complete[(data_complete["shear_index"] == m)].copy()
             array_g2 = data_complete[(data_complete["shear_index"] == m)].copy()
             input_array_g1 = input_g1[(data_complete["shear_index"] == m)].copy()
@@ -1723,7 +1757,7 @@ def one_shear_analysis_old(m, config, argv, data_complete, input_g1, input_g2, m
 
             # Mask the arrays to include only the wanted magnitude range
             array_g1["meas_g1"].mask = (array_g1["meas_g1"].mask) | (array_g1[bin_type] <= lower_limit) | (
-                        array_g1[bin_type] >= upper_limit)
+                    array_g1[bin_type] >= upper_limit)
             array_g2["meas_g2"].mask = (array_g2["meas_g2"].mask) | (array_g2[bin_type] <= lower_limit) | (
                     array_g2[bin_type] >= upper_limit)
 
@@ -1737,7 +1771,6 @@ def one_shear_analysis_old(m, config, argv, data_complete, input_g1, input_g2, m
             array_g2 = array_g2[0: int(len(array_g2) / (i + 1)) - int((len(array_g2) / (i + 1)) % every)]
             input_array_g1 = input_array_g1[0: int(len(array_g1) / (i + 1)) - int((len(array_g1) / (i + 1)) % every)]
             input_array_g2 = input_array_g2[0: int(len(array_g2) / (i + 1)) - int((len(array_g2) / (i + 1)) % every)]
-
 
             # A few try excepts to handle empty array_g1s occuring for example for the faintest magnitudes
             if len(array_g1) == 0:
@@ -1755,7 +1788,6 @@ def one_shear_analysis_old(m, config, argv, data_complete, input_g1, input_g2, m
 
                 err_g1_mod_err = bootstrap_g1_mod[1]
 
-
             if len(array_g2) == 0:
                 av_g2_mod = 0
                 err_g2_mod = 0
@@ -1771,22 +1803,23 @@ def one_shear_analysis_old(m, config, argv, data_complete, input_g1, input_g2, m
 
             if mag == mag_bins:
                 columns.append([m,
-                    shear_min + (shear_max - shear_min) / ((object_number / average_num) - 1) * m,
-                    shear_min + (shear_max - shear_min) / ((object_number / average_num) - 1) * m,
-                    av_g1_mod, err_g1_mod, err_g1_mod_err, av_g2_mod, err_g2_mod, err_g2_mod_err,
-                    len(array_g1), magnitudes[mag], intrinsic_av_g1, intrinsic_av_g2])
+                                shear_min + (shear_max - shear_min) / ((object_number / average_num) - 1) * m,
+                                shear_min + (shear_max - shear_min) / ((object_number / average_num) - 1) * m,
+                                av_g1_mod, err_g1_mod, err_g1_mod_err, av_g2_mod, err_g2_mod, err_g2_mod_err,
+                                len(array_g1), magnitudes[mag], intrinsic_av_g1, intrinsic_av_g2])
             else:
                 columns.append([m,
-                    shear_min + (shear_max - shear_min) / ((object_number / average_num) - 1) * m,
-                    shear_min + (shear_max - shear_min) / ((object_number / average_num) - 1) * m,
-                    av_g1_mod, err_g1_mod, err_g1_mod_err, av_g2_mod, err_g2_mod, err_g2_mod_err,
-                    len(array_g1), magnitudes[mag + 1], intrinsic_av_g1, intrinsic_av_g2])
+                                shear_min + (shear_max - shear_min) / ((object_number / average_num) - 1) * m,
+                                shear_min + (shear_max - shear_min) / ((object_number / average_num) - 1) * m,
+                                av_g1_mod, err_g1_mod, err_g1_mod_err, av_g2_mod, err_g2_mod, err_g2_mod_err,
+                                len(array_g1), magnitudes[mag + 1], intrinsic_av_g1, intrinsic_av_g2])
 
     return columns
 
 
 @ray.remote
-def one_scene_analysis(data_complete, path, complete_image_size, galaxy_number, scene, min_mag, max_mag, mag_bins, magnitudes_list, bin_type, shear_min, shear_max, shear_bins):
+def one_scene_analysis(data_complete, path, complete_image_size, galaxy_number, scene, min_mag, max_mag, mag_bins,
+                       magnitudes_list, bin_type, shear_min, shear_max, shear_bins):
     """
     This function does the analysis for one scene for the randomly positioned galaxies.
 
@@ -1812,7 +1845,6 @@ def one_scene_analysis(data_complete, path, complete_image_size, galaxy_number, 
 
                     g1 = shear_min + i * (shear_max - shear_min) / (shear_bins - 1)
 
-
                     if len(meas) != 0:
                         file.write("%.4f\t %.6f\t %.6f\t %d\t %.1f\n" %
                                    (g1, np.average(meas), np.std(meas) / np.sqrt(len(meas)),
@@ -1826,13 +1858,14 @@ def one_scene_analysis(data_complete, path, complete_image_size, galaxy_number, 
 
     return columns
 
+
 def bootstrap_new(array, weights, n):
     """
     Takes an array and returns the standard deviation estimated via bootstrap
     """
     samples = []
     for _ in range(n):
-        #print(len(array), np.sum(weights))
+        # print(len(array), np.sum(weights))
         indices = np.random.choice(np.arange(len(array)), size=(len(array)))
         bootstrap = np.take(array, indices)
         bootstrap_weights = np.take(weights, indices)
@@ -1844,9 +1877,10 @@ def bootstrap_new(array, weights, n):
     error_err = np.std([np.std(split[i]) for i in range(10)])
 
     return error, error_err
+
+
 @ray.remote
 def one_shear_analysis(m, config, argv, meas_comp, meas_weights, meas_comp_bs, meas_weights_bs, magnitudes, index):
-
     simulation = config["SIMULATION"]
     mag_bins = int(simulation["bins_mag"])
     BOOTSTRAP_REPETITIONS = int(simulation["bootstrap_repetitions"])
@@ -1880,10 +1914,10 @@ def one_shear_analysis(m, config, argv, meas_comp, meas_weights, meas_comp_bs, m
                 lower_lim = magnitudes[mag]
 
             value = meas_comp["meas_" + shear][(meas_comp[index] == m) & (meas_comp["binned_time"] <= i) & (
-                        meas_comp["binned_mag"] > lower_lim) & (meas_comp["binned_mag"] < upper_lim)].data
+                    meas_comp["binned_mag"] > lower_lim) & (meas_comp["binned_mag"] < upper_lim)].data
             intr = meas_comp["intr_" + shear][
                 (meas_comp[index] == m) & (meas_comp["binned_time"] <= i) & (
-                            meas_comp["binned_mag"] > lower_lim) & (meas_comp["binned_mag"] < upper_lim)].data
+                        meas_comp["binned_mag"] > lower_lim) & (meas_comp["binned_mag"] < upper_lim)].data
             # A few try excepts to handle empty array_g1s occuring for example for the faintest magnitudes
             if len(value) == 0:
                 av_mod = 0
@@ -1895,31 +1929,29 @@ def one_shear_analysis(m, config, argv, meas_comp, meas_weights, meas_comp_bs, m
             else:
                 av_mod = np.average(value, weights=meas_weights["meas_" + shear][
                     (meas_comp[index] == m) & (meas_comp["binned_time"] <= i) & (
-                                meas_comp["binned_mag"] > lower_lim) & (
-                                meas_comp["binned_mag"] < upper_lim)].data)  # np.average(array_g1["meas_g1"])
+                            meas_comp["binned_mag"] > lower_lim) & (
+                            meas_comp["binned_mag"] < upper_lim)].data)  # np.average(array_g1["meas_g1"])
                 length = np.sum(meas_weights["meas_" + shear][
                                     (meas_comp[index] == m) & (meas_comp["binned_time"] <= i) & (
-                                                meas_comp["binned_mag"] > lower_lim) & (
-                                                meas_comp["binned_mag"] < upper_lim)].data)
+                                            meas_comp["binned_mag"] > lower_lim) & (
+                                            meas_comp["binned_mag"] < upper_lim)].data)
                 bootstrap_res = bootstrap_new(meas_comp_bs["meas_" + shear][(meas_comp_bs[index] == m) & (
-                            meas_comp_bs["binned_time"] <= i) & (meas_comp_bs["binned_mag"] > lower_lim) & (
-                                                                              meas_comp_bs[
-                                                                                  "binned_mag"] < upper_lim)].data,
-                                          meas_weights_bs["meas_" + shear][(meas_comp_bs[index] == m) & (
+                        meas_comp_bs["binned_time"] <= i) & (meas_comp_bs["binned_mag"] > lower_lim) & (
+                                                                                    meas_comp_bs[
+                                                                                        "binned_mag"] < upper_lim)].data,
+                                              meas_weights_bs["meas_" + shear][(meas_comp_bs[index] == m) & (
                                                       meas_comp_bs["binned_time"] <= i) & (meas_comp_bs[
                                                                                                "binned_mag"] > lower_lim) & (
-                                                                                 meas_comp_bs[
-                                                                                     "binned_mag"] < upper_lim)].data,
-                                          BOOTSTRAP_REPETITIONS)
-
+                                                                                       meas_comp_bs[
+                                                                                           "binned_mag"] < upper_lim)].data,
+                                              BOOTSTRAP_REPETITIONS)
 
                 err_mod = bootstrap_res[0]
                 err_mod_err = bootstrap_res[1]
                 intrinsic_av = np.average(intr, weights=meas_weights["meas_" + shear][
                     (meas_comp[index] == m) & (meas_comp["binned_time"] <= i) & (
-                                meas_comp["binned_mag"] > lower_lim) & (
-                                meas_comp["binned_mag"] < upper_lim)].data)
-
+                            meas_comp["binned_mag"] > lower_lim) & (
+                            meas_comp["binned_mag"] < upper_lim)].data)
 
             columns.append([m,
                             shear_min + (shear_max - shear_min) / ((object_number / average_num) - 1) * m,

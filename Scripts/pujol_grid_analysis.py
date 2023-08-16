@@ -33,9 +33,9 @@ object_number = int(sys.argv[1])
 noise_repetitions = int(sys.argv[2])
 num_shears = int(sys.argv[3])
 if num_shears == 2:
-    shears = [-0.02, 0.02]
+    shears = np.array([-0.02, 0.02])
 else:
-    shears = [-0.1 + 0.2 / (num_shears - 1) * k for k in range(num_shears)]
+    shears = np.array([-0.1 + 0.2 / (num_shears - 1) * k for k in range(num_shears)])
 
 # Read Config File
 config = configparser.ConfigParser()
@@ -112,41 +112,32 @@ for z in range(time_bins):
         array = data_used[(data_used[bin_type] > lower_limit) & (data_used[bin_type] < upper_limit)]
 
         array = array[0: int(len(array) / (z + 1)) - int(len(array) / (z + 1)) % (num_shears * 2)]
-
-        selection_bias = fct.bootstrap_puyol_grid_galaxy_new(array, BOOTSTRAP_REPETITIONS, shears[1] - shears[0],
+        selection_bias = fct.bootstrap_puyol_grid_galaxy_new(array["meas_g1"], BOOTSTRAP_REPETITIONS, shears[1] - shears[0],
                                                              num_shears,
-                                                             4)  # (average_meas_2 - average_meas_1) / (shears[1] - shears[0]) - 1
+                                                             int(simulation["num_cores"]))
 
         sel_bias_err = selection_bias[5]
         sel_bias_err_err = selection_bias[3]
         c_bias_err_err = selection_bias[4]
 
-        # Mask out the results that only hold raw results
-        results = data_complete[data_complete["R11"] != 0]
-
-        # Build the averages from the concatenated arrays excluding entries with value 0 as this is a placeholder
-        meas = array["meas_g1"]
 
         if bootstrap_fit:
             # ------ BOOTSTRAP THE FIT FOR THE COMPARISON RM - LF ----------------#
-
+            gal_number = len(array["meas_g1"]) / num_shears
             start_fit = timeit.default_timer()
 
             popt_all = []
             for k in range(BOOTSTRAP_REPETITIONS):
-                indices = np.random.choice(np.arange(0, int(len(array["meas_g1"])), 2 * num_shears),
-                                           size=(int(len(array["meas_g1"]) / (2 * num_shears))))
-                indices = np.append(indices, indices + num_shears)
-                output_shears = [np.mean(np.take(array["meas_g1"], indices + i)) for i in range(num_shears)]
-                output_errors = [
-                    np.std(np.take(array["meas_g1"], indices + i)) / np.sqrt(len(array["meas_g1"]) / num_shears) for i
-                    in range(num_shears)]
+                loop_start = timeit.default_timer()
+                tmp = np.arange(0, int(len(array["meas_g1"]))).reshape(-1, 2 * num_shears)
+                indices = tmp[np.random.choice(np.arange(0, len(tmp)), size=len(tmp))].reshape(-1, num_shears)
+
+                output_shears = np.mean(array["meas_g1"][indices], axis=0)
 
                 # Do the fitting
-
-                deviation = np.array(output_shears) - np.array(shears)
-                popt, pcov = curve_fit(linear_function, np.array(shears), \
-                                       deviation, sigma=np.array(output_errors), absolute_sigma=True)
+                deviation = output_shears - shears
+                popt, pcov = curve_fit(linear_function, shears, \
+                                       deviation)
 
                 popt_all.append(popt)
 
@@ -246,7 +237,6 @@ for z in range(time_bins):
                     solo_bias_weight + pair_bias_weight)
 
             print(solo_bias_weight, pair_bias_weight)
-
         text_file = open(path + "/output/grid_simulations/fits.txt", "a")
 
         # Write in the output file depending on the error measurement method. Currently only "PUYOL" works
@@ -259,7 +249,7 @@ for z in range(time_bins):
                  c_bias[1], timeit.default_timer() - start,
                  selection_bias_old_def, sel_bias_err_old_def, sys.argv[3], summed_bias, summed_bias_err,
                  object_number * num_shears * (1 + noise_plus_meas * noise_repetitions) * 1 / (z + 1),
-                 np.average(meas), c_bias_err,
+                 np.average(array["meas_g1"]), c_bias_err,
                  magnitudes[mag], selection_bias, sel_bias_err, sel_bias_err_err, c_bias_err_err, popt[0],
                  error_fit_m_large, popt[1], error_fit_c_large))
         else:
@@ -272,7 +262,7 @@ for z in range(time_bins):
                  c_bias[1], timeit.default_timer() - start,
                  selection_bias_old_def, sel_bias_err_old_def, sys.argv[3], -1, -1,
                  object_number * num_shears * (1 + noise_plus_meas * noise_repetitions) * 1 / (z + 1),
-                 np.average(meas), c_bias_err,
+                 np.average(array["meas_g1"]), c_bias_err,
                  magnitudes[mag], selection_bias, sel_bias_err, sel_bias_err_err, c_bias_err_err, popt[0],
                  error_fit_m_large, popt[1], error_fit_c_large))
 
