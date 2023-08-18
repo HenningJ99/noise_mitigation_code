@@ -30,11 +30,11 @@ if [ $analysis_only == "n" ]
 then
   echo "Starting global cancellation simulations!"
   # -------------------------- CATALOG GENERATION --------------------------------#
-  python3 rp_simulation.py $sim_size $galaxy_num $run_lf $path $shear_interval True
+  python3 rp_simulation.py $sim_size $run_lf $path $shear_interval True
   lf_folder_global=$(ls -td $path/output/rp_simulations/*/ | head -1)
 
   echo "Starting local cancellation simulations!"
-  python3 rp_simulation.py $sim_size $galaxy_num $run_lf $path $shear_interval False
+  python3 rp_simulation.py $sim_size $run_lf $path $shear_interval False
   lf_folder_local=$(ls -td $path/output/rp_simulations/*/ | head -1)
 
   echo "Starting response method simulations!"

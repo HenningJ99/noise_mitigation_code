@@ -60,12 +60,11 @@ def do_kdtree(combined_x_y_arrays, points, k=1):
     # dist, indexes = mytree.query(points, k)
     return mytree.query(points, k=k)
 
-
 # ---------------------------- INITIALIZATION --------------------------------------------------------------------------
 print(psutil.cpu_count())
 
 # Define local paths
-path = sys.argv[4] + "/"
+path = sys.argv[3] + "/"
 
 # Create temporary folder for FITS files
 index_fits = 0
@@ -80,8 +79,6 @@ start = timeit.default_timer()
 # ----------------------------- READ INPUT CATALOG----------------------------------------------------------------------
 
 ''' Just to filter the table '''
-# Read the table
-t = Table.read(path + 'input/gems_20090807.fits')
 
 config = configparser.ConfigParser()
 config.read('config_rp.ini')
@@ -104,20 +101,11 @@ mag_bins = int(simulation["bins_mag"])
 min_mag = float(simulation["min_mag"])
 max_mag = float(simulation["max_mag"])
 
-# Introduce a mask to filter the entries
-mask = (t["GEMS_FLAG"] == 4) & (np.abs(t["ST_MAG_BEST"] - t["ST_MAG_GALFIT"]) < 0.5) & (min_mag < t["ST_MAG_GALFIT"]) & \
-       (t["ST_MAG_GALFIT"] < max_mag) & (0.3 < t["ST_N_GALFIT"]) & (t["ST_N_GALFIT"] < 6.0) & (
-               3.0 < t["ST_RE_GALFIT"]) & \
-       (t["ST_RE_GALFIT"] < 40.0)
-
-galaxies = t[mask]
-
 ''' Build the images '''
 
 logging.basicConfig(format="%(message)s", level=logging.INFO, stream=sys.stdout)
 logger = logging.getLogger("real_galaxies")
 
-logger.info("%d galaxies have been drawn from the fits file", len(galaxies["GEMS_FLAG"]))
 
 # ------------------------------- READ IN THE CONFIG FILE --------------------------------------------------------------
 
@@ -133,6 +121,8 @@ gain = float(image['gain'])
 read_noise = float(image['read_noise'])
 sky = float(image['sky'])
 zp = float(image['zp'])
+ra_min = float(image["ra_min"])
+dec_min = float(image["dec_min"])
 
 lam = float(psf_config['lam_min'])
 step_psf = float(psf_config['step_psf'])
@@ -147,14 +137,13 @@ ssamp_grid = int(image['ssamp_grid'])
 
 shear_bins = int(simulation['shear_bins'])
 
-shear_min = -float(sys.argv[5])
-shear_max = float(sys.argv[5])
+shear_min = -float(sys.argv[4])
+shear_max = float(sys.argv[4])
 
-galaxy_number = int(sys.argv[2])
 
 complete_image_size = int(sys.argv[1])
 
-total_scenes_per_shear = int(sys.argv[3])
+total_scenes_per_shear = int(sys.argv[2])
 
 # Calculate sky level
 sky_level = pixel_scale ** 2 * exp_time / gain * 10 ** (-0.4 * (sky - zp))
@@ -191,6 +180,12 @@ galsim.fits.write(image_sampled_psf, file_name_epsf)
 psf_ref = ray.put(psf)
 config_ref = ray.put(config)
 argv_ref = ray.put(sys.argv)
+
+# ----------- Load the flagship catalog --------------------------------------------------------------------------------
+hdul = fits.open("../Simulations/input/flagship.fits")
+flagship = hdul[1].data
+
+patches = shear_bins * total_scenes_per_shear
 # ----------- Create the catalog ---------------------------------------------------------------------------------------
 none_measures = []
 shape_measures = []
@@ -242,86 +237,95 @@ for scene in range(total_scenes_per_shear):
         gal_list2 = []
         magnitudes = []
 
-        positions = int(sys.argv[1]) * np.random.random_sample((galaxy_number, 2))
-        if sys.argv[6] == "RANDOM_POS" or sys.argv[6] == "RANDOM_GAL":
-            positions_2 = int(sys.argv[1]) * np.random.random_sample((galaxy_number, 2))
+        angular_size = (complete_image_size - 2.*1.5/pixel_scale) * pixel_scale / 3600
+        ra_min = ra_min + (total_scenes_per_shear * m + scene) * angular_size
+        ra_max = ra_min + angular_size
+
+        dec_min = dec_min #+ (total_scenes_per_shear * m + scene) * 0.1
+        dec_max = dec_min + angular_size #+ (total_scenes_per_shear * m + scene + 1) * 0.1
+        print(ra_min, ra_max, dec_min, dec_max)
+        mask = ((flagship["ra_gal"] <= ra_max) & (flagship["ra_gal"] > ra_min) & (flagship["dec_gal"] <= dec_max) &
+                (flagship["dec_gal"] > dec_min))
+
+        flagship_cut = flagship[mask]
+
+        positions = np.vstack([flagship_cut["ra_gal"], flagship_cut["dec_gal"]])
+
+        if sys.argv[5] == "RANDOM_POS" or sys.argv[5] == "RANDOM_GAL":
+            positions_2 = np.array([ra_max - ra_min, dec_max - dec_min]) * np.random.random_sample((galaxy_number, 2))+\
+                          np.array([ra_min, ra_max])
         else:
             positions_2 = positions
-        # print(positions)
+
+        # Convert positions from WCS to image
+        canvas = fct.SimpleCanvas(ra_min, ra_max, dec_min, dec_max, pixel_scale)
+        full_image = canvas.copy()
+        wcs = full_image.wcs
+
+        x_gals, y_gals = wcs.toImage(positions[0], positions[1], units=galsim.degrees)
+        positions = np.vstack([x_gals, y_gals]).T
+
+        x_gals, y_gals = wcs.toImage(positions_2[0], positions_2[1], units=galsim.degrees)
+        positions_2 = np.vstack([x_gals, y_gals]).T
+
+        del full_image, canvas, wcs
+
         input_positions.append(positions)
         input_positions_2.append(positions_2)
-        for i in range(galaxy_number):
+
+        for i in range(positions.shape[0]):
+            index = i
+
             ellips = fct.generate_ellipticity(ellip_rms, ellip_max)
             betas = random.random() * 2 * math.pi * galsim.radians
 
-            index = random.randint(0, len(galaxies["GEMS_FLAG"]) - 1)
-            magnitudes.append(galaxies["ST_MAG_GALFIT"][index])
+            res = fct.generate_gal_from_flagship(flagship_cut, ellips, betas, exp_time, gain, zp, pixel_scale,
+                                                 sky_level, read_noise, index)
 
-            gal_flux = exp_time / gain * 10 ** (-0.4 * (galaxies["ST_MAG_GALFIT"][index] - zp))
+            gal_list.append(res[0])
+            magnitudes.append(res[2])
+            theo_sn = res[1]
 
-            q = galaxies["ST_B_IMAGE"][index] / galaxies["ST_A_IMAGE"][index]
-            # Correct for ellipticty
-            gal = galsim.Sersic(galaxies["ST_N_GALFIT"][index],
-                                half_light_radius=0.03 * galaxies["ST_RE_GALFIT"][index] * np.sqrt(q), flux=gal_flux)
+            if sys.argv[5] == "RANDOM_GAL":
+                index2 = random.randint(0, len(flagship_cut) - 1)
 
-            gal = gal.shear(g=ellips, beta=betas)
+                res = fct.generate_gal_from_flagship(flagship_cut, ellips, betas, exp_time, gain, zp, pixel_scale,
+                                                     sky_level, read_noise, index2)
 
-            gal_list.append(gal)
+                gal_list2.append(res[0])
+                magnitudes.append(res[2])
+                theo_sn2 = res[1]
 
-            theo_sn = exp_time * 10 ** (-0.4 * (galaxies["ST_MAG_GALFIT"][index] - zp)) / \
-                      np.sqrt((exp_time * 10 ** (-0.4 * (galaxies["ST_MAG_GALFIT"][index] - zp)) +
-                               sky_level * gain * math.pi * (3 * 0.3 * np.sqrt(q) * galaxies["ST_RE_GALFIT"][index]) ** 2 +
-                               (read_noise ** 2 + (gain / 2) ** 2) * math.pi * (
-                                           3 * 0.3 * np.sqrt(q) * galaxies["ST_RE_GALFIT"][index]) ** 2))
-
-            if sys.argv[6] == "RANDOM_GAL":
-                index2 = random.randint(0, len(galaxies["GEMS_FLAG"]) - 1)
-                magnitudes.append(galaxies["ST_MAG_GALFIT"][index2])
-
-                gal_flux = exp_time / gain * 10 ** (-0.4 * (galaxies["ST_MAG_GALFIT"][index2] - zp))
-
-                # Correct for ellipticity
-                gal = galsim.Sersic(galaxies["ST_N_GALFIT"][index2],
-                                    half_light_radius=0.03 * galaxies["ST_RE_GALFIT"][index2] * np.sqrt(q), flux=gal_flux)
-
-                gal = gal.shear(g=ellips, beta=betas)
-
-                gal_list2.append(gal)
-
-                theo_sn2 = exp_time * 10 ** (-0.4 * (galaxies["ST_MAG_GALFIT"][index2] - zp)) / \
-                          np.sqrt((exp_time * 10 ** (-0.4 * (galaxies["ST_MAG_GALFIT"][index2] - zp)) +
-                                   sky_level * gain * math.pi * (3 * 0.3 * np.sqrt(q) * galaxies["ST_RE_GALFIT"][index2]) ** 2 +
-                                   (read_noise ** 2 + (gain / 2) ** 2) * math.pi * (
-                                           3 * 0.3 * np.sqrt(q) * galaxies["ST_RE_GALFIT"][index2]) ** 2))
             else:
-                magnitudes.append(galaxies["ST_MAG_GALFIT"][index])
-                index2 = index
+                magnitudes.append(res[2])
+                index2 = i
                 theo_sn2 = theo_sn
 
 
             for k in range(4):
 
                 if k % 2 != 0:
-                    if sys.argv[6] == "True":
-                        columns.append([scene, m, k, positions[i][1], complete_image_size - positions[i][0],
-                                        galaxies["ST_MAG_GALFIT"][index2], ellips,
+                    if sys.argv[5] == "True":
+                        columns.append([scene, m, k, positions[i, 0], complete_image_size - positions[i, 1],
+                                        -2.5 * np.log10(flagship_cut["euclid_vis"][index2]) - 48.6, ellips,
                                         (betas + math.pi / 2 * galsim.radians) / galsim.radians,
-                                        galaxies["ST_N_GALFIT"][index2],
-                                        0.3 * np.sqrt(q) * galaxies["ST_RE_GALFIT"][index2], theo_sn2])
+                                        flagship_cut["bulge_nsersic"][index2],
+                                        flagship_cut["bulge_r50"][index2], theo_sn2])
                     else:
-                        columns.append([scene, m, k, positions_2[i][0], positions_2[i][1],
-                                        galaxies["ST_MAG_GALFIT"][index2], ellips,
+                        columns.append([scene, m, k, positions_2[i, 0], positions_2[i, 1],
+                                        -2.5 * np.log10(flagship_cut["euclid_vis"][index2]) - 48.6, ellips,
                                         (betas + math.pi / 2 * galsim.radians) / galsim.radians,
-                                        galaxies["ST_N_GALFIT"][index2],
-                                        0.3 * np.sqrt(q) * galaxies["ST_RE_GALFIT"][index2], theo_sn2])
+                                        flagship_cut["bulge_nsersic"][index2],
+                                        flagship_cut["bulge_r50"][index2], theo_sn2])
                 else:
-                    columns.append([scene, m, k, positions[i][0], positions[i][1],
-                                    galaxies["ST_MAG_GALFIT"][index], ellips, betas / galsim.radians,
-                                    galaxies["ST_N_GALFIT"][index],
-                                    0.3 * np.sqrt(q) * galaxies["ST_RE_GALFIT"][index], theo_sn])
+                    columns.append([scene, m, k, positions[i, 0], positions[i, 1],
+                                    -2.5 * np.log10(flagship_cut["euclid_vis"][index]) - 48.6, ellips,
+                                    betas / galsim.radians,
+                                    flagship_cut["bulge_nsersic"][index],
+                                    flagship_cut["bulge_r50"][index], theo_sn])
 
 
-        if sys.argv[6] != "RANDOM_GAL":
+        if sys.argv[5] != "RANDOM_GAL":
             gal_list2 = gal_list
 
 
@@ -332,6 +336,8 @@ for scene in range(total_scenes_per_shear):
         start_ray = timeit.default_timer()
 
         # Calculate how many images shall be calculated within one worker
+        galaxy_number = positions.shape[0]
+
         per_process = int(galaxy_number / num_cpu)
 
         rest = galaxy_number - num_cpu * per_process
@@ -373,7 +379,6 @@ for scene in range(total_scenes_per_shear):
         time += timeit.default_timer() - start_conv
         start_catalog_building = timeit.default_timer()
         rng = galsim.UniformDeviate()
-
         seed1 = int(rng() * 1e6)
         seed2 = int(rng() * 1e6)
 
@@ -424,7 +429,7 @@ while ids:
             init_positions = input_positions[x[i][5] * shear_bins + x[i][4]]
             if i % 2 != 0:
                 init_positions = input_positions_2[x[i][5] * shear_bins + x[i][4]]
-                if sys.argv[6] == "True":
+                if sys.argv[5] == "True":
                     init_positions = np.array(init_positions)
                     init_positions[:, [0, 1]] = init_positions[:, [1, 0]]
                     init_positions[:, 1] = complete_image_size - init_positions[:, 1]
@@ -482,11 +487,11 @@ now = datetime.datetime.now()
 current_time = now.strftime("%H-%M-%S")
 date_object = datetime.date.today()
 
-os.system('mkdir ' + path + 'output/rp_simulations/' + f'run_lf_{date_object}_{current_time}_{sys.argv[6]}')
+os.system('mkdir ' + path + 'output/rp_simulations/' + f'run_lf_{date_object}_{current_time}_{sys.argv[5]}')
 
-ascii.write(input_catalog, path + 'output/rp_simulations/' + f'run_lf_{date_object}_{current_time}_{sys.argv[6]}/input_catalog.dat',
+ascii.write(input_catalog, path + 'output/rp_simulations/' + f'run_lf_{date_object}_{current_time}_{sys.argv[5]}/input_catalog.dat',
             overwrite=True)
-ascii.write(shear_results, path + 'output/rp_simulations/' + f'run_lf_{date_object}_{current_time}_{sys.argv[6]}/shear_catalog.dat',
+ascii.write(shear_results, path + 'output/rp_simulations/' + f'run_lf_{date_object}_{current_time}_{sys.argv[5]}/shear_catalog.dat',
             overwrite=True)
 
 
@@ -495,10 +500,10 @@ os.chdir(path + "output")
 os.system(f"rm -r source_extractor/{index_fits}")
 
 if simulation.getboolean("output"):
-    if not os.path.isdir(path + "output/rp_simulations/" + f'run_lf_{date_object}_{current_time}_{sys.argv[6]}/FITS_org'):
-        os.mkdir(path + "output/rp_simulations/" + f"run_lf_{date_object}_{current_time}_{sys.argv[6]}/FITS_org")
+    if not os.path.isdir(path + "output/rp_simulations/" + f'run_lf_{date_object}_{current_time}_{sys.argv[5]}/FITS_org'):
+        os.mkdir(path + "output/rp_simulations/" + f"run_lf_{date_object}_{current_time}_{sys.argv[5]}/FITS_org")
 
-    os.system('mv ' + path + f'output/FITS{index_fits}/*.fits' + ' ' + path + 'output/rp_simulations/' + f'run_lf_{date_object}_{current_time}_{sys.argv[6]}/FITS_org/')
+    os.system('mv ' + path + f'output/FITS{index_fits}/*.fits' + ' ' + path + 'output/rp_simulations/' + f'run_lf_{date_object}_{current_time}_{sys.argv[5]}/FITS_org/')
 
 os.system(f"rm -r FITS{index_fits}")
 

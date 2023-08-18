@@ -396,8 +396,8 @@ def worker(k, ellip_gal, psf, image_sampled_psf, config, argv, input_shear):
 
     shift_radius = float(image['shift_radius'])
 
-    shear_min = -float(argv[5])
-    shear_max = float(argv[5])
+    shear_min = -float(argv[4])
+    shear_max = float(argv[4])
 
     ring_num = int(argv[3])  # int(simulation['ring_num'])
     rotation_angle = 180.0 / ring_num  # How much is the galaxy turned
@@ -1182,8 +1182,8 @@ def catalog_worker(gal, gal2, position, position_2, m, psf, config, argv):
     gain = float(image['gain'])
     pixel_scale = float(image['pixel_scale'])
 
-    shear_min = -float(argv[5])
-    shear_max = float(argv[5])
+    shear_min = -float(argv[4])
+    shear_max = float(argv[4])
 
     stamp_xsize = int(image['stamp_xsize'])
     stamp_ysize = int(image['stamp_ysize'])
@@ -1247,34 +1247,13 @@ def catalog_worker(gal, gal2, position, position_2, m, psf, config, argv):
     except GalSimFFTSizeError:
         return -1
 
-    if argv[6] == "True":
+    if argv[5] == "True":
         stamp_rotated = galsim.Image(np.abs(stamp_rotated.array.copy()), bounds=galsim.BoundsI(
             galsim.PositionI(stamp.bounds.ymin, complete_image_size - stamp.bounds.xmax),
             galsim.PositionI(stamp.bounds.ymax,
                              complete_image_size - stamp.bounds.xmin)))  # Avoid slightly negative values after FFT
     else:
         stamp_rotated = galsim.Image(np.abs(stamp_rotated.array.copy()), bounds=stamp_rotated.bounds)
-    # print(stamp.bounds, stamp_rotated.bounds)
-    # '''
-    # NOISE HANDLING
-    # '''
-    # stamp_none_nonoise = stamp.array.copy()
-    #
-    # stamp.addNoise(galsim.noise.CCDNoiseHenning(rng, gain=gain, read_noise=0., sky_level=0.))
-    #
-    #
-    # # Build the pixel cancellated version of the normal galaxy
-    # stamp_none_pixel = galsim.Image(stamp_none_nonoise, bounds=stamp.bounds)
-    # stamp_none_pixel.addNoise(galsim.noise.CCDNoiseHenning(rng1, gain=gain, read_noise=0, sky_level=0., inv=True))
-    #
-    # stamp_shape_nonoise = stamp_rotated.array.copy()
-    #
-    # stamp_rotated.addNoise(galsim.noise.CCDNoiseHenning(rng, gain=gain, read_noise=0., sky_level=0.))
-    #
-    #
-    # # Build the pixel cancellated version of the rotated galaxy
-    # stamp_shape_pixel = galsim.Image(stamp_shape_nonoise, bounds=stamp_rotated.bounds)
-    # stamp_shape_pixel.addNoise(galsim.noise.CCDNoiseHenning(rng1, gain=gain, read_noise=0, sky_level=0., inv=True))
 
     return stamp, stamp_rotated
 
@@ -1540,6 +1519,38 @@ def measure_catalog_pujol(m, total_scene_count, argv, config, path, psf, num_she
     return meas, np.dstack((x_pos, y_pos))[0], m, total_scene_count, magnitudes, S_N
 
 
+def SimpleCanvas(RA_min, RA_max, DEC_min, DEC_max, pixel_scale, edge_sep=1.5):
+    """
+    Build a simple canvas
+    """
+
+    ## center used as reference point
+    RA0 = (RA_min + RA_max) / 2.
+    DEC0 = (DEC_min + DEC_max) / 2.
+
+    # decide bounds
+    xmax = (RA_max - RA_min) * 3600. / pixel_scale + 2.*edge_sep/pixel_scale # edge_sep in both sides to avoid edge effects
+    ymax = (DEC_max - DEC_min) * 3600. / pixel_scale + 2.*edge_sep/pixel_scale
+    bounds = galsim.BoundsI(xmin=0, xmax=math.ceil(xmax), ymin=0, ymax=math.ceil(ymax))
+
+    # build the wcs
+    ## Linear projection matrix
+    dudx = pixel_scale/3600. # degree
+    dudy = 0.
+    dvdx = 0.
+    dvdy = pixel_scale/3600. # degree
+    ## Reference pixel in image
+    origin_ima = galsim.PositionI(x=int(bounds.getXMax()/2.), y=int(bounds.getYMax()/2.))
+    ## Reference point in wcs
+    world_origin = galsim.CelestialCoord(ra=RA0*galsim.degrees, dec=DEC0*galsim.degrees)
+    ##
+    wcs_affine = galsim.AffineTransform(dudx, dudy, dvdx, dvdy, origin=origin_ima)
+    wcs = galsim.TanWCS(wcs_affine, world_origin, units=galsim.degrees)
+
+    canvas = galsim.ImageF(bounds=bounds, wcs=wcs)
+
+    return canvas
+
 @ray.remote
 def create_catalog_lf(stamp, index, seed, m, scene, argv, config, path, psf, index_fits):
     """
@@ -1549,14 +1560,17 @@ def create_catalog_lf(stamp, index, seed, m, scene, argv, config, path, psf, ind
     The output consists of the source catalogs and the image fits files.
     """
     image = config['IMAGE']
-
+    print(index, m, scene, index_fits)
     complete_image_size = int(argv[1])
+    total_scenes = int(argv[2])
     exp_time = float(image['exp_time'])
     gain = float(image['gain'])
     read_noise = float(image['read_noise'])
     sky = float(image['sky'])
     zp = float(image['zp'])
     pixel_scale = float(image['pixel_scale'])
+    ra_min = float(image["ra_min"])
+    dec_min = float(image["dec_min"])
 
     rng = galsim.UniformDeviate(seed)
 
@@ -1564,7 +1578,15 @@ def create_catalog_lf(stamp, index, seed, m, scene, argv, config, path, psf, ind
     sky_level = pixel_scale ** 2 * exp_time / gain * 10 ** (-0.4 * (sky - zp))
 
     # Build the two large images for none and shape and add sky level and Gaussian RON to them
-    image = galsim.Image(complete_image_size, complete_image_size, scale=pixel_scale)
+    angular_size = (complete_image_size - 2. * 1.5 / pixel_scale) * pixel_scale / 3600
+
+    ra_min = ra_min + (total_scenes * m + scene) * angular_size
+    ra_max = ra_min + angular_size
+
+    dec_min = dec_min
+    dec_max = dec_min + angular_size
+
+    image = SimpleCanvas(ra_min, ra_max, dec_min, dec_max, pixel_scale)
 
     SOURCE_EXTRACTOR_DIR = path + "output/source_extractor"
 
@@ -1594,7 +1616,6 @@ def create_catalog_lf(stamp, index, seed, m, scene, argv, config, path, psf, ind
 
     image.addNoise(galsim.noise.CCDNoiseHenning(rng, gain=gain, read_noise=read_noise, sky_level=sky_level,
                                                 inv=True if index > 1 else False))
-
     image.write(path + f"output/FITS{index_fits}/catalog_" + f"{scene}_{m}_{index}.fits")
 
     # --------------------------- SOURCE EXTRACTOR ----------------------------------------------------------------
@@ -1623,8 +1644,8 @@ def measure_catalog_lf(m, scene, argv, config, path, psf, index_fits):
 
     cut_size = int(image['cut_size'])
 
-    shear_min = -float(argv[5])
-    shear_max = float(argv[5])
+    shear_min = -float(argv[4])
+    shear_max = float(argv[4])
 
     zp = float(image['zp'])
     exp_time = float(image['exp_time'])
@@ -1958,3 +1979,71 @@ def one_shear_analysis(m, config, argv, meas_comp, meas_weights, meas_comp_bs, m
                             av_mod, err_mod, err_mod_err,
                             length, upper_lim, intrinsic_av, i, mag])
     return columns
+
+
+def generate_gal_from_flagship(flagship_cut, ellips, betas, exp_time, gain, zp, pixel_scale, sky_level, read_noise, index):
+
+
+    magnitude = -2.5 * np.log10(flagship_cut["euclid_vis"][index]) - 48.6
+
+    gal_flux = exp_time / gain * 10 ** (-0.4 * (magnitude - zp))
+
+    if flagship_cut['dominant_shape'][index] == 0:
+        n_gal = flagship_cut['bulge_nsersic'][index]
+        re_gal = flagship_cut['bulge_r50'][index]
+        ### sersic profile
+        # allowed sersic index range
+        if (n_gal < 0.3) or (n_gal > 6.2):
+            # print(f'Warning...........n_gal {n_gal} outrange of ({SERSIC_N_MIN}, {SERSIC_N_MAX})!')
+            n_gal = float(np.where(n_gal < 0.3, 0.3, 6.2))
+            # print(f'...........assign {n_gal} for now!')
+        q_gal = flagship_cut['bulge_axis_ratio'][index]
+        if (q_gal < 0.05) or (q_gal > 1.0):
+            # print(f"Warning...........q_gal {q_gal} outrange of ({Q_MIN}, {Q_MAX})!")
+            q_gal = float(np.where(q_gal < 0.05, 0.05, 1.0))
+            # print(f'...........assign {q_gal} for now!')
+
+        galaxy = galsim.Sersic(n=n_gal, half_light_radius=re_gal, flux=gal_flux, trunc=5 * re_gal,
+                               flux_untruncated=True)
+        # intrinsic ellipticity
+        galaxy = galaxy.shear(q=q_gal, beta=betas)
+    else:
+        ### bulge + disk
+        # bulge
+        bulge_fraction = flagship_cut['bulge_fraction'][index]
+        bulge_n = flagship_cut['bulge_nsersic'][index]
+        bulge_q = flagship_cut['bulge_axis_ratio'][index]
+        if (bulge_q < 0.05) or (bulge_q > 1.0):
+            bulge_q = float(np.where(bulge_q < 0.05, 0.05, 1.0))
+        bulge_Re = flagship_cut['bulge_r50'][index]
+        if (abs(bulge_n - 4.) < 1e-2):
+            bulge_gal = galsim.DeVaucouleurs(half_light_radius=bulge_Re, flux=1.0,
+                                             trunc=5 * bulge_Re, flux_untruncated=True)
+        else:
+            bulge_gal = galsim.Sersic(n=bulge_n, half_light_radius=bulge_Re, flux=1.0,
+                                      trunc=5 * bulge_Re, flux_untruncated=True)
+        # intrinsic ellipticity
+        bulge_gal = bulge_gal.shear(q=bulge_q, beta=betas)
+
+        # disk
+        if bulge_fraction < 1:
+            disk_q = flagship_cut['disk_axis_ratio'][index]
+            if (disk_q < 0.05) or (disk_q > 1.0):
+                disk_q = float(np.where(disk_q < 0.05, 0.05, 1))
+            disk_Re = flagship_cut['disk_r50'][index]
+            disk_gal = galsim.Exponential(half_light_radius=disk_Re, flux=1.0)
+            # intrinsic ellipticity
+            disk_gal = disk_gal.shear(q=disk_q, beta=betas)
+
+            galaxy = gal_flux * (bulge_fraction * bulge_gal + (1 - bulge_fraction) * disk_gal)
+
+        else:
+            galaxy = gal_flux * bulge_gal
+
+    theo_sn = exp_time * 10 ** (-0.4 * (-2.5 * np.log10(flagship_cut["euclid_vis"][index]) - 48.6 - zp)) / \
+              np.sqrt((exp_time * 10 ** (-0.4 * (-2.5 * np.log10(flagship_cut["euclid_vis"][index]) - 48.6 - zp)) +
+                       sky_level * gain * math.pi * (3 * flagship_cut["bulge_r50"][index] / pixel_scale) ** 2 +
+                       (read_noise ** 2 + (gain / 2) ** 2) * math.pi * (
+                               3 * flagship_cut["bulge_r50"][index] / pixel_scale) ** 2))
+
+    return galaxy, theo_sn, magnitude
