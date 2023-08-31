@@ -120,8 +120,8 @@ gain = float(image['gain'])
 read_noise = float(image['read_noise'])
 sky = float(image['sky'])
 zp = float(image['zp'])
-ra_min = float(image["ra_min"])
-dec_min = float(image["dec_min"])
+ra_min_org = float(image["ra_min"])
+dec_min_org = float(image["dec_min"])
 
 lam = float(psf_config['lam_min'])
 step_psf = float(psf_config['step_psf'])
@@ -184,6 +184,10 @@ hdul = fits.open("../Simulations/input/flagship.fits")
 flagship = hdul[1].data
 
 patches = shear_bins * total_scenes_per_shear
+
+CATALOG_LIMITS = np.min(flagship["dec_gal"]), np.max(flagship("dec_gal")), np.min(flagship["ra_gal"]), np.max(
+    flagship["ra_gal"])  # DEC_MIN, DEC_MAX, RA_MIN, RA_MAX
+
 # ----------- Create the catalog ---------------------------------------------------------------------------------------
 none_measures = []
 shape_measures = []
@@ -227,6 +231,24 @@ gal_list2 = [[] for _ in range(total_scenes_per_shear * shear_bins)]
 positions = [[] for _ in range(total_scenes_per_shear * shear_bins)]
 positions_2 = [[] for _ in range(total_scenes_per_shear * shear_bins)]
 
+total_scenes = total_scenes_per_shear * shear_bins
+x_scenes = int(np.sqrt(total_scenes))
+y_scenes = math.ceil(total_scenes / x_scenes)
+
+angular_size = (complete_image_size - 2. * 1.5 / pixel_scale) * pixel_scale / 3600
+
+x = np.linspace(ra_min_org, ra_min_org + x_scenes * angular_size, x_scenes)
+y = np.linspace(dec_min_org, dec_min_org + y_scenes * angular_size, y_scenes)
+
+if (np.min(x) <= CATALOG_LIMITS[0]) or (np.max(x) > CATALOG_LIMITS[1]) or (np.min(y) <= CATALOG_LIMITS[2]) or (
+        np.max(y) > CATALOG_LIMITS[3]):
+    raise ValueError("Out of catalog limits")
+
+grid_x, grid_y = np.meshgrid(x, y)
+grid_x = grid_x.flatten()
+grid_y = grid_y.flatten()
+
+grid_counter = 0
 for scene in range(total_scenes_per_shear):
     start_scene = timeit.default_timer()
     failure_counter = 0
@@ -237,13 +259,12 @@ for scene in range(total_scenes_per_shear):
 
         magnitudes = []
 
-        angular_size = (complete_image_size - 2. * 1.5 / pixel_scale) * pixel_scale / 3600
-        ra_min = ra_min + (total_scenes_per_shear * m + scene) * angular_size
+        ra_min = grid_x[grid_counter]
         ra_max = ra_min + angular_size
 
-        dec_min = dec_min  # + (total_scenes_per_shear * m + scene) * 0.1
+        dec_min = grid_y[grid_counter]  # + (total_scenes_per_shear * m + scene) * 0.1
         dec_max = dec_min + angular_size  # + (total_scenes_per_shear * m + scene + 1) * 0.1
-
+        print(ra_min, ra_max, dec_min, dec_max)
         mask = ((flagship["ra_gal"] <= ra_max) & (flagship["ra_gal"] > ra_min) & (flagship["dec_gal"] <= dec_max) &
                 (flagship["dec_gal"] > dec_min))
 
@@ -333,6 +354,7 @@ for scene in range(total_scenes_per_shear):
             gal_list2[scene * shear_bins + m] = gal_list[scene * shear_bins + m]
 
         input_magnitudes.append(magnitudes)
+        grid_counter += 1
 
 columns = np.array(columns, dtype=float)
 
