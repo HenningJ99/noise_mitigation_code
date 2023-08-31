@@ -238,18 +238,20 @@ if simulation.getboolean("same_but_shear"):
     random.seed(123)
     np.random.seed(123)
 
+positions = [[] for _ in range(total_scenes_per_shear)]
+gal_list = [[] for _ in range(total_scenes_per_shear)]
+gal_list_2 = [[] for _ in range(total_scenes_per_shear)]
+
 for total_scene_count in range(total_scenes_per_shear):
     # ------------------------------------ CREATE THE GALAXY LIST RANDOMLY PER SCENE ----------------------------------
     count = 0
 
-    positions = int(sys.argv[1]) * np.random.random_sample((galaxy_number, 2))
-    input_positions.append(positions)
+    positions[total_scene_count] = int(sys.argv[1]) * np.random.random_sample((galaxy_number, 2))
+    input_positions.append(positions[total_scene_count])
     input_shears = []
 
     gal_below24_5 = 0
     if total_scene_count % 2 == 0:
-        gal_list = []
-        gal_list_2 = []
         magnitudes = []
         for i in range(galaxy_number):
             index = random.randint(0, len(galaxies["GEMS_FLAG"]) - 1)
@@ -272,8 +274,8 @@ for total_scene_count in range(total_scenes_per_shear):
 
             gal_2 = gal.shear(g=ellips, beta=betas + math.pi / 2 * galsim.radians)
 
-            gal_list.append(gal_1)
-            gal_list_2.append(gal_2)
+            gal_list[total_scene_count].append(gal_1)
+            gal_list_2[total_scene_count].append(gal_2)
 
             theo_sn = exp_time * 10 ** (-0.4 * (galaxies["ST_MAG_GALFIT"][index] - zp)) / \
                       np.sqrt((exp_time * 10 ** (-0.4 * (galaxies["ST_MAG_GALFIT"][index] - zp)) +
@@ -283,12 +285,12 @@ for total_scene_count in range(total_scenes_per_shear):
 
 
             columns.append(
-                [total_scene_count, positions[i][0], positions[i][1], galaxies["ST_MAG_GALFIT"][index], ellips,
+                [total_scene_count, positions[total_scene_count][i][0], positions[total_scene_count][i][1], galaxies["ST_MAG_GALFIT"][index], ellips,
                  betas / galsim.radians,
                  galaxies["ST_N_GALFIT"][index], 0.3 * np.sqrt(q) * galaxies["ST_RE_GALFIT"][index], theo_sn])
 
             columns.append(
-                [total_scene_count + 1, positions[i][0], positions[i][1], galaxies["ST_MAG_GALFIT"][index], ellips,
+                [total_scene_count + 1, positions[total_scene_count][i][0], positions[total_scene_count][i][1], galaxies["ST_MAG_GALFIT"][index], ellips,
                  (betas + math.pi / 2 * galsim.radians) / galsim.radians,
                  galaxies["ST_N_GALFIT"][index], 0.3 * np.sqrt(q) * galaxies["ST_RE_GALFIT"][index], theo_sn])
 
@@ -296,64 +298,20 @@ for total_scene_count in range(total_scenes_per_shear):
         print(gal_below24_5)
         print(np.average(input_shears))
     else:
-        gal_list = gal_list_2
+        gal_list[total_scene_count] = gal_list_2[total_scene_count]
 
         for i in range(galaxy_number):
-            columns[-1 - 2 * (galaxy_number -1 -i)][1] = positions[i][0]
-            columns[-1 - 2 * (galaxy_number -1 -i)][2] = positions[i][1]
+            columns[-1 - 2 * (galaxy_number -1 -i)][1] = positions[total_scene_count][i][0]
+            columns[-1 - 2 * (galaxy_number -1 -i)][2] = positions[total_scene_count][i][1]
 
 
     input_magnitudes.append(magnitudes)
-
-    # ------------------------------ DISTRIBUTE WORK TO RAY -----------------------------------------------------------
-    # Calculate how many images shall be calculated within one worker
-    per_process = int(galaxy_number / num_cpu)
-
-    rest = galaxy_number - num_cpu * per_process
-    # ------------------------------ STAMP PRODUCTION ------------------------------------------------------------------
-    futures = [fct.multiple_catalog_pujol.remote(per_process, range(k * per_process, (k + 1) * per_process),
-                                                 gal_list[k * per_process:(k + 1) * per_process],
-                                                 positions[k * per_process:(k + 1) * per_process], psf_ref, config_ref,
-                                                 argv_ref, num_shears, total_scene_count, galaxy_number)
-               for k in range(num_cpu)]
-    if rest != 0:
-        futures.append(fct.multiple_catalog_pujol.remote(rest, range(galaxy_number - rest, galaxy_number),
-                                                         gal_list[galaxy_number - rest:galaxy_number],
-                                                         positions[galaxy_number - rest:galaxy_number],
-                                                         psf_ref, config_ref,
-                                                         argv_ref, num_shears, total_scene_count, galaxy_number))
-    failure_counter = 0
-    stamp_none = [[] for _ in range(num_shears)]
-    for i in range(galaxy_number):
-        ready, not_ready = ray.wait(futures)
-
-        for x in ray.get(ready)[0]:
-            if x != -1:
-                for k in range(num_shears):
-                    stamp_none[k].append(x[k])
-            else:
-                failure_counter +=1
-
-        futures = not_ready
-        if not futures:
-            break
-    print(f"Failed FFT's: {failure_counter}")
-    # ----------------------------- CREATE SEXTRACTOR CATALOGS --------------------------------------------------------
-    futures = [fct.create_catalog_pujol.remote(stamp_none, m, total_scene_count, argv_ref, config_ref, path, index_fits) for m in
-               range(num_shears)]
-
-    for i in range(num_shears):
-        ready, not_ready = ray.wait(futures)
-
-        futures = not_ready
-        if not futures:
-            break
 
 # --------------------------------- MEASURE CATALOGS ------------------------------------------------------------------
 ids = []
 for scene in range(total_scenes_per_shear):
     for m in range(num_shears):
-        ids.append(fct.measure_catalog_pujol.remote(m, scene, argv_ref, config_ref, path, psf_ref, num_shears, index_fits))
+        ids.append(fct.one_scene_pujol.remote(m, scene, gal_list[scene], gal_list_2[scene], positions[scene], argv_ref, config_ref, path, psf_ref, num_shears, index_fits))
 
 order = []
 scene_count = []

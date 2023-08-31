@@ -1157,179 +1157,70 @@ def one_galaxy_whole_matrix(k, input_g1, ellip_gal, image_sampled_psf, psf, conf
     return np.concatenate(response), gal_image, signs, meas
 
 
+
 @ray.remote
-def multiple_catalog(ntimes, m, ellip_gal, ellip_gal2, positions, positions_2, psf, config, argv):
-    """
-    This function defines one core for the catalog generation with large scenes.
-    It calls the function working on individual images
-    n times and returns a list of the individual image results. See one_galaxy function
-    """
-    results = [catalog_worker(ellip_gal[k], ellip_gal2[k], positions[k], positions_2[k], m, psf, config, argv) for k in
-               range(ntimes)]
-    return results
+def one_scene_pujol(m, total_scene_count, gal, gal2, positions, argv, config, path, psf, num_shears, index_fits):
 
-
-def catalog_worker(gal, gal2, position, position_2, m, psf, config, argv):
-    """
-    This function places one galaxy anywhere in the larger image
-    """
 
     image = config['IMAGE']
     simulation = config['SIMULATION']
-
-    timings = []
-
-    gain = float(image['gain'])
-    pixel_scale = float(image['pixel_scale'])
-
-    shear_min = -float(argv[4])
-    shear_max = float(argv[4])
-
-    stamp_xsize = int(image['stamp_xsize'])
-    stamp_ysize = int(image['stamp_ysize'])
-
-    shear_bins = int(simulation['shear_bins'])
 
     complete_image_size = int(argv[1])
-
-    rng = galsim.UniformDeviate()
-    rng1 = rng.duplicate()
-
-    g1 = shear_min + m * (shear_max - shear_min) / (shear_bins - 1)
-
-    if simulation["g2"] == "ZERO":
-        draw = 0
-    elif simulation["g2"] == "GAUSS":
-        # Draw as long as a value between -0.1 and 0.1 is created
-        draw = -1
-        while (draw > 0.1) or (draw < -0.1):
-            draw = np.random.normal(loc=0.0, scale=0.03)
-    elif simulation["g2"] == "UNIFORM":
-        draw = -1
-        while (draw > 0.1) or (draw < -0.1):
-            draw = np.random.random() * 0.2 - 0.1
-
-    g2 = draw
-
-    x = position[0]
-    y = position[1]
-
-    image_pos = galsim.PositionD(x, y)
-    image_pos_2 = galsim.PositionD(position_2[0], position_2[1])
-
-    # Add extrinsic shear
-    normal_gal = gal.shear(g1=g1, g2=g2)
-
-    # Convolve the sheared version with the
-    final = galsim.Convolve([normal_gal, psf])
-
-    # Rotate the unsheared galaxy
-    rotated_galaxy = gal2.rotate(90 * galsim.degrees)
-
-    # Add the shear also that rotated galaxy
-    rotated_galaxy = rotated_galaxy.shear(g1=g1, g2=g2)
-
-    # Convolve the rotated version with the PSF
-    rotated_final = galsim.Convolve([rotated_galaxy, psf])
-
-    # Draw the normal version on a stamp
-    # start = timeit.default_timer()
-    try:
-        stamp = final.drawImage(center=image_pos, nx=stamp_xsize, ny=stamp_ysize, scale=pixel_scale)
-    except GalSimFFTSizeError:
-        return -1
-
-    stamp = galsim.Image(np.abs(stamp.array.copy()), bounds=stamp.bounds)  # Avoid slightly negative values after FFT
-    # Draw the rotated version on a stamp
-
-    try:
-        stamp_rotated = rotated_final.drawImage(center=image_pos_2, nx=stamp_xsize, ny=stamp_ysize, scale=pixel_scale)
-    except GalSimFFTSizeError:
-        return -1
-
-    if argv[5] == "True":
-        stamp_rotated = galsim.Image(np.abs(stamp_rotated.array.copy()), bounds=galsim.BoundsI(
-            galsim.PositionI(stamp.bounds.ymin, complete_image_size - stamp.bounds.xmax),
-            galsim.PositionI(stamp.bounds.ymax,
-                             complete_image_size - stamp.bounds.xmin)))  # Avoid slightly negative values after FFT
-    else:
-        stamp_rotated = galsim.Image(np.abs(stamp_rotated.array.copy()), bounds=stamp_rotated.bounds)
-
-    return stamp, stamp_rotated
-
-
-@ray.remote
-def multiple_catalog_pujol(ntimes, indices, ellip_gal, positions, psf, config, argv, num_shears, run_num, gal_num):
-    """
-    This function defines one core for the catalog generation of the response method.
-    It calls the function working on individual images
-    n times and returns a list of the individual image results. See one_galaxy function
-    """
-    results = [
-        catalog_worker_pujol(ellip_gal[k], indices[k], positions[k], psf, config, argv, num_shears, run_num, gal_num)
-        for k in range(ntimes)]
-    return results
-
-
-def catalog_worker_pujol(gal, k, position, psf, config, argv, num_shears, run_num, gal_num):
-    """
-    This function creates the stamps for the response method for one specific galaxy.
-    """
-    image = config['IMAGE']
-    simulation = config['SIMULATION']
-
-    if simulation.getboolean("same_but_shear"):
-        random_seed = 123 + k
-    else:
-        random_seed = np.random.randint(1e8)
-    rng = galsim.UniformDeviate(seed=random_seed)
-
+    random_seed = int(simulation['random_seed'])
+    exp_time = float(image['exp_time'])
     gain = float(image['gain'])
+    read_noise = float(image['read_noise'])
+    sky = float(image['sky'])
+    zp = float(image['zp'])
     pixel_scale = float(image['pixel_scale'])
+    ssamp_grid = int(image['ssamp_grid'])
     stamp_xsize = int(image['stamp_xsize'])
     stamp_ysize = int(image['stamp_ysize'])
+    cut_size = int(image['cut_size'])
+    bin_type = simulation['bin_type']
 
-    if run_num % 2 != 0:
-        run_num -= 1
+    if total_scene_count % 2 != 0:
+        total_scene_count -= 1
 
-    x = position[0]
-    y = position[1]
-
-    image_pos = galsim.PositionD(x, y)
-
+    # ------------------------ Create the stamps ---------------------------------------------------------------------
     stamps = []
+    for i in range(len(positions)):
+        x = positions[i][0]
+        y = positions[i][1]
 
-    if num_shears == 2:
-        shears = [-0.02, 0.02]
-    else:
-        shears = [-0.1 + 0.2 / (num_shears - 1) * k for k in range(num_shears)]
+        image_pos = galsim.PositionD(x, y)
 
-    if simulation.getboolean("same_but_shear"):
-        if argv[6] == "rand":
-            central_shear = np.random.rand() * float(simulation["variable_field_mag"]) - float(
-                simulation["variable_field_mag"]) / 2
-        elif argv[6] == "zero":
-            central_shear = 0
-        shears = [central_shear + k * float(simulation["same_but_shear_diff"]) / 2 for k in
-                  [-1, 1]]  # Slightly vary the (random) shear field
+        if num_shears == 2:
+            shears = [-0.02, 0.02]
+        else:
+            shears = [-0.1 + 0.2 / (num_shears - 1) * k for k in range(num_shears)]
 
-    if simulation["g2"] == "ZERO":
-        draw = 0
-    elif simulation["g2"] == "GAUSS":
-        # Draw as long as a value between -0.1 and 0.1 is created
-        draw = -1
-        while (draw > 0.1) or (draw < -0.1):
-            draw = np.random.normal(loc=0.0, scale=0.03)
-    elif simulation["g2"] == "UNIFORM":
-        draw = -1
-        while (draw > 0.1) or (draw < -0.1):
-            draw = np.random.random() * 0.2 - 0.1
+        if simulation.getboolean("same_but_shear"):
+            if argv[6] == "rand":
+                central_shear = np.random.rand() * float(simulation["variable_field_mag"]) - float(
+                    simulation["variable_field_mag"]) / 2
+            elif argv[6] == "zero":
+                central_shear = 0
+            shears = [central_shear + k * float(simulation["same_but_shear_diff"]) / 2 for k in
+                      [-1, 1]]  # Slightly vary the (random) shear field
 
-    g2 = draw
+        if simulation["g2"] == "ZERO":
+            draw = 0
+        elif simulation["g2"] == "GAUSS":
+            # Draw as long as a value between -0.1 and 0.1 is created
+            draw = -1
+            while (draw > 0.1) or (draw < -0.1):
+                draw = np.random.normal(loc=0.0, scale=0.03)
+        elif simulation["g2"] == "UNIFORM":
+            draw = -1
+            while (draw > 0.1) or (draw < -0.1):
+                draw = np.random.random() * 0.2 - 0.1
 
-    for i in range(num_shears):
+        g2 = draw
+
+
         # Extrinsic shear
-        normal_gal = gal.shear(g1=shears[i], g2=g2)
+        normal_gal = gal[i].shear(g1=shears[m], g2=g2)
 
         # Convolution with the PSF
         final = galsim.Convolve([normal_gal, psf])
@@ -1347,41 +1238,18 @@ def catalog_worker_pujol(gal, k, position, psf, config, argv, num_shears, run_nu
 
         stamps.append(stamp)
 
-        # Reset the seed to generate the same noise for each version
-        rng.reset(random_seed)
-
-    return stamps  # 2 or 11 stamps
-
-
-@ray.remote
-def create_catalog_pujol(stamp_none, m, total_scene_count, argv, config, path, index_fits):
-    """
-    This function creates the large scenes from individual stamps for the response method and extracts sources
-    with SourceExtractor. The output consists of the Source catalogs and the scenes' fits files.
-    """
-    image = config['IMAGE']
-    simulation = config['SIMULATION']
-
-    complete_image_size = int(argv[1])
-    random_seed = int(simulation['random_seed'])
-    exp_time = float(image['exp_time'])
-    gain = float(image['gain'])
-    read_noise = float(image['read_noise'])
-    sky = float(image['sky'])
-    zp = float(image['zp'])
-    pixel_scale = float(image['pixel_scale'])
-
+    # -------------------------------- Create the scene --------------------------------------------------------------
     # Calculate sky level
     sky_level = pixel_scale ** 2 * exp_time / gain * 10 ** (-0.4 * (sky - zp))
 
     image_none = galsim.Image(complete_image_size, complete_image_size, scale=pixel_scale)
 
-    for i in range(len(stamp_none[0])):
+    for i in range(len(stamps)):
         # Find the overlapping bounds between the large image and the individual stamp.
-        bounds = stamp_none[m][i].bounds & image_none.bounds
+        bounds = stamps[i].bounds & image_none.bounds
 
         # Add this to the corresponding location in the large image.
-        image_none[bounds] += stamp_none[m][i][bounds]
+        image_none[bounds] += stamps[i][bounds]
 
     # Ensure the same seed for the versions belonging to one run
     rng = galsim.UniformDeviate(random_seed + 1 + 2 * total_scene_count)
@@ -1412,35 +1280,10 @@ def create_catalog_pujol(stamp_none, m, total_scene_count, argv, config, path, i
 
     sex(IMAGE_DIRECTORY_NONE, SOURCE_EXTRACTOR_DIR + f"/{index_fits}/none_pujol_{total_scene_count}_{m}.cat")
 
-
-@ray.remote
-def measure_catalog_pujol(m, total_scene_count, argv, config, path, psf, num_shears, index_fits):
-    """
-    This function measures the detected sources for the response method using KSB
-
-    It reads in the source catalogs, extracts stamps around the detected centre, and does the measurement.
-    The output consists of the measured ellipticities, the detected positions and the S/N.
-    """
-
+    # ---------------------------- Extract stamps and measure ---------------------------------------------------------
     meas = []
     x_pos = []
     y_pos = []
-
-    image = config['IMAGE']
-    simulation = config['SIMULATION']
-
-    complete_image_size = int(argv[1])
-    gain = float(image['gain'])
-    pixel_scale = float(image['pixel_scale'])
-    exp_time = float(image['exp_time'])
-    ssamp_grid = int(image['ssamp_grid'])
-    stamp_xsize = int(image['stamp_xsize'])
-    stamp_ysize = int(image['stamp_ysize'])
-    zp = float(image['zp'])
-
-    cut_size = int(image['cut_size'])
-
-    bin_type = simulation['bin_type']
 
     # Filter the PSF with a top hat at pixel scale
     filter_function = galsim.Pixel(scale=pixel_scale)
@@ -1552,25 +1395,109 @@ def SimpleCanvas(RA_min, RA_max, DEC_min, DEC_max, pixel_scale, edge_sep=1.5):
     return canvas
 
 @ray.remote
-def create_catalog_lf(stamp, index, seed, m, scene, argv, config, path, psf, index_fits):
-    """
-    This function creates the large scenes for the linear fit method  from individual stamps and detects sources
-    with SourceExtractor.
+def one_scene_lf(m, gal, gal2, positions, positions2, scene, argv, config, path, psf, index, index_fits, seed):
 
-    The output consists of the source catalogs and the image fits files.
-    """
     image = config['IMAGE']
-    print(index, m, scene, index_fits)
+    simulation = config['SIMULATION']
+
+    timings = []
+
     complete_image_size = int(argv[1])
     total_scenes = int(argv[2])
-    exp_time = float(image['exp_time'])
+
     gain = float(image['gain'])
     read_noise = float(image['read_noise'])
     sky = float(image['sky'])
-    zp = float(image['zp'])
+
     pixel_scale = float(image['pixel_scale'])
     ra_min = float(image["ra_min"])
     dec_min = float(image["dec_min"])
+    image = config["IMAGE"]
+    ssamp_grid = int(image['ssamp_grid'])
+    stamp_xsize = int(image['stamp_xsize'])
+    stamp_ysize = int(image['stamp_ysize'])
+    cut_size = int(image['cut_size'])
+    shear_min = -float(argv[4])
+    shear_max = float(argv[4])
+    zp = float(image['zp'])
+    exp_time = float(image['exp_time'])
+    bin_type = simulation['bin_type']
+    shear_bins = int(simulation['shear_bins'])
+
+    rng = galsim.UniformDeviate()
+    rng1 = rng.duplicate()
+
+    # ------------------------------- Create the stamps ---------------------------------------------------------------
+    stamp = []
+
+    for i in range(len(positions)):
+        g1 = shear_min + m * (shear_max - shear_min) / (shear_bins - 1)
+
+        if simulation["g2"] == "ZERO":
+            draw = 0
+        elif simulation["g2"] == "GAUSS":
+            # Draw as long as a value between -0.1 and 0.1 is created
+            draw = -1
+            while (draw > 0.1) or (draw < -0.1):
+                draw = np.random.normal(loc=0.0, scale=0.03)
+        elif simulation["g2"] == "UNIFORM":
+            draw = -1
+            while (draw > 0.1) or (draw < -0.1):
+                draw = np.random.random() * 0.2 - 0.1
+
+        g2 = draw
+
+        x = positions[i][0]
+        y = positions[i][1]
+
+        image_pos = galsim.PositionD(x, y)
+        image_pos_2 = galsim.PositionD(positions2[i][0], positions2[i][1])
+
+        # Add extrinsic shear
+        normal_gal = gal[i].shear(g1=g1, g2=g2)
+
+        # Convolve the sheared version with the
+        final = galsim.Convolve([normal_gal, psf])
+
+        # Rotate the unsheared galaxy
+        rotated_galaxy = gal2[i].rotate(90 * galsim.degrees)
+
+        # Add the shear also that rotated galaxy
+        rotated_galaxy = rotated_galaxy.shear(g1=g1, g2=g2)
+
+        # Convolve the rotated version with the PSF
+        rotated_final = galsim.Convolve([rotated_galaxy, psf])
+
+        if index % 2 == 0:
+            # Draw the normal version on a stamp
+            try:
+                stamp_norm = final.drawImage(center=image_pos, nx=stamp_xsize, ny=stamp_ysize, scale=pixel_scale)
+            except GalSimFFTSizeError:
+                return -1
+
+            stamp_norm = galsim.Image(np.abs(stamp_norm.array.copy()), bounds=stamp_norm.bounds)  # Avoid slightly negative values after FFT
+
+            stamp.append(stamp_norm)
+
+        else:
+            # Draw the rotated version on a stamp
+            try:
+                stamp_rotated = rotated_final.drawImage(center=image_pos_2, nx=stamp_xsize, ny=stamp_ysize, scale=pixel_scale)
+            except GalSimFFTSizeError:
+                return -1
+
+            if argv[5] == "True":
+                stamp_rotated = galsim.Image(np.abs(stamp_rotated.array.copy()), bounds=galsim.BoundsI(
+                    galsim.PositionI(stamp_rotated.bounds.ymin, complete_image_size - stamp_rotated.bounds.xmax),
+                    galsim.PositionI(stamp_rotated.bounds.ymax,
+                                     complete_image_size - stamp_rotated.bounds.xmin)))  # Avoid slightly negative values after FFT
+            else:
+                stamp_rotated = galsim.Image(np.abs(stamp_rotated.array.copy()), bounds=stamp_rotated.bounds)
+
+            stamp.append(stamp_rotated)
+
+    # -------------------------------- Create the scenes -------------------------------------------------------------
+    print(index, m, scene, index_fits)
 
     rng = galsim.UniformDeviate(seed)
 
@@ -1624,36 +1551,6 @@ def create_catalog_lf(stamp, index, seed, m, scene, argv, config, path, psf, ind
 
     sex(IMAGE_DIRECTORY, SOURCE_EXTRACTOR_DIR + f"/{index_fits}/" + f"{scene}_{m}_{index}.cat")
 
-
-@ray.remote
-def measure_catalog_lf(m, scene, argv, config, path, psf, index_fits):
-    """
-    This function does measure the detected sources from SourceExtractor with KSB.
-
-    It returns mainly the measured ellipticities, positions and S/N.
-    """
-    image = config['IMAGE']
-    simulation = config['SIMULATION']
-
-    complete_image_size = int(argv[1])
-    gain = float(image['gain'])
-    pixel_scale = float(image['pixel_scale'])
-    ssamp_grid = int(image['ssamp_grid'])
-    stamp_xsize = int(image['stamp_xsize'])
-    stamp_ysize = int(image['stamp_ysize'])
-
-    cut_size = int(image['cut_size'])
-
-    shear_min = -float(argv[4])
-    shear_max = float(argv[4])
-
-    zp = float(image['zp'])
-    exp_time = float(image['exp_time'])
-
-    bin_type = simulation['bin_type']
-
-    shear_bins = int(simulation['shear_bins'])
-
     g1 = shear_min + m * (shear_max - shear_min) / (shear_bins - 1)
 
     # Filter the PSF with a top hat at pixel scale
@@ -1667,72 +1564,69 @@ def measure_catalog_lf(m, scene, argv, config, path, psf, index_fits):
 
     measurements = []
 
-    index = 0
-    for catalog in ["none", "shape", "none_pixel", "shape_pixel"]:
-        x_pos = []
-        y_pos = []
-        # start = timeit.default_timer()
-        gal_image = galsim.fits.read(path + f"output/FITS{index_fits}/catalog_" + f"{scene}_{m}_{index}.fits")
 
-        data = np.genfromtxt(path + f"output/source_extractor/{index_fits}/" + f"{scene}_{m}_{index}.cat")
+    x_pos = []
+    y_pos = []
+    # start = timeit.default_timer()
+    gal_image = galsim.fits.read(path + f"output/FITS{index_fits}/catalog_" + f"{scene}_{m}_{index}.fits")
 
-        x_cen = data[:, 7][np.where((data[:, 7] > cut_size) & (data[:, 7] < complete_image_size - cut_size) &
-                                    (data[:, 8] > cut_size) & (data[:, 8] < complete_image_size - cut_size))]
-        y_cen = data[:, 8][np.where((data[:, 7] > cut_size) & (data[:, 7] < complete_image_size - cut_size) &
-                                    (data[:, 8] > cut_size) & (data[:, 8] < complete_image_size - cut_size))]
-        mag_auto = data[:, 1][np.where((data[:, 7] > cut_size) & (data[:, 7] < complete_image_size - cut_size) &
-                                       (data[:, 8] > cut_size) & (data[:, 8] < complete_image_size - cut_size))]
+    data = np.genfromtxt(path + f"output/source_extractor/{index_fits}/" + f"{scene}_{m}_{index}.cat")
 
-        measures = []
-        magnitudes = []
-        s_n = []
-        # images = []
+    x_cen = data[:, 7][np.where((data[:, 7] > cut_size) & (data[:, 7] < complete_image_size - cut_size) &
+                                (data[:, 8] > cut_size) & (data[:, 8] < complete_image_size - cut_size))]
+    y_cen = data[:, 8][np.where((data[:, 7] > cut_size) & (data[:, 7] < complete_image_size - cut_size) &
+                                (data[:, 8] > cut_size) & (data[:, 8] < complete_image_size - cut_size))]
+    mag_auto = data[:, 1][np.where((data[:, 7] > cut_size) & (data[:, 7] < complete_image_size - cut_size) &
+                                   (data[:, 8] > cut_size) & (data[:, 8] < complete_image_size - cut_size))]
 
-        edge = list(gal_image.array[0]) + list([i[-1] for i in gal_image.array[1:-1]]) + list(
-            reversed(gal_image.array[-1])) + \
-               list(reversed([i[0] for i in gal_image.array[1:-1]]))
+    measures = []
+    magnitudes = []
+    s_n = []
+    # images = []
 
-        sigma_sky = 1.4826 * np.median(np.abs(edge - np.median(edge)))
+    edge = list(gal_image.array[0]) + list([i[-1] for i in gal_image.array[1:-1]]) + list(
+        reversed(gal_image.array[-1])) + \
+           list(reversed([i[0] for i in gal_image.array[1:-1]]))
 
-        for i in range(len(x_cen)):
+    sigma_sky = 1.4826 * np.median(np.abs(edge - np.median(edge)))
 
-            b = galsim.BoundsI(int(x_cen[i]) - cut_size, int(x_cen[i]) + cut_size, int(y_cen[i]) - cut_size,
-                               int(y_cen[i]) + cut_size)
+    for i in range(len(x_cen)):
 
-            sub_gal_image = gal_image[b & gal_image.bounds]
+        b = galsim.BoundsI(int(x_cen[i]) - cut_size, int(x_cen[i]) + cut_size, int(y_cen[i]) - cut_size,
+                           int(y_cen[i]) + cut_size)
 
-            subsampled_image = sub_gal_image.subsample(ssamp_grid, ssamp_grid)
+        sub_gal_image = gal_image[b & gal_image.bounds]
 
-            # Find S/N and estimated shear
-            results = galsim.hsm.EstimateShear(subsampled_image, image_sampled_psf, shear_est="KSB", strict=False)
+        subsampled_image = sub_gal_image.subsample(ssamp_grid, ssamp_grid)
 
-            if results.error_message == "":
-                adamflux = results.moments_amp
-                adamsigma = results.moments_sigma / ssamp_grid
+        # Find S/N and estimated shear
+        results = galsim.hsm.EstimateShear(subsampled_image, image_sampled_psf, shear_est="KSB", strict=False)
 
-                # pixels = sub_gal_image.array.copy()
-                mag_adamom = zp - 2.5 * np.log10(adamflux * gain / exp_time)
+        if results.error_message == "":
+            adamflux = results.moments_amp
+            adamsigma = results.moments_sigma / ssamp_grid
 
-                signal_to_noise = adamflux * gain / np.sqrt(
-                    gain * adamflux + np.pi * (3 * adamsigma * np.sqrt(2 * np.log(2))) ** 2 * (
-                            gain * sigma_sky) ** 2)
+            # pixels = sub_gal_image.array.copy()
+            mag_adamom = zp - 2.5 * np.log10(adamflux * gain / exp_time)
 
-                measures.append(results.corrected_g1)
-                s_n.append(signal_to_noise)
-                if bin_type == "MAG_ADAMOM":
-                    magnitudes.append(mag_adamom)
-                else:
-                    magnitudes.append(mag_auto[i])
-                x_pos.append(x_cen[i])
-                y_pos.append(y_cen[i])
+            signal_to_noise = adamflux * gain / np.sqrt(
+                gain * adamflux + np.pi * (3 * adamsigma * np.sqrt(2 * np.log(2))) ** 2 * (
+                        gain * sigma_sky) ** 2)
 
-        error_specific = bootstrap(measures, int(simulation['bootstrap_repetitions']))
+            measures.append(results.corrected_g1)
+            s_n.append(signal_to_noise)
+            if bin_type == "MAG_ADAMOM":
+                magnitudes.append(mag_adamom)
+            else:
+                magnitudes.append(mag_auto[i])
+            x_pos.append(x_cen[i])
+            y_pos.append(y_cen[i])
 
-        measurements.append(
-            [g1, np.average(measures), error_specific, len(measures), m, scene, np.dstack((x_pos, y_pos))[0],
-             measures, magnitudes, s_n])
+    error_specific = bootstrap(measures, int(simulation['bootstrap_repetitions']))
 
-        index += 1
+    measurements.append(
+        [g1, np.average(measures), error_specific, len(measures), m, scene, np.dstack((x_pos, y_pos))[0],
+         measures, magnitudes, s_n, index])
 
     return measurements
 
@@ -1982,7 +1876,6 @@ def one_shear_analysis(m, config, argv, meas_comp, meas_weights, meas_comp_bs, m
 
 
 def generate_gal_from_flagship(flagship_cut, ellips, betas, exp_time, gain, zp, pixel_scale, sky_level, read_noise, index):
-
 
     magnitude = -2.5 * np.log10(flagship_cut["euclid_vis"][index]) - 48.6
 
