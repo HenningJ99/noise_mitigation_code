@@ -1875,7 +1875,7 @@ def one_shear_analysis(m, config, argv, meas_comp, meas_weights, meas_comp_bs, m
     return columns
 
 
-def generate_gal_from_flagship(flagship_cut, ellips, betas, exp_time, gain, zp, pixel_scale, sky_level, read_noise, index):
+def generate_gal_from_flagship(flagship_cut, betas, exp_time, gain, zp, pixel_scale, sky_level, read_noise, index):
 
     magnitude = -2.5 * np.log10(flagship_cut["euclid_vis"][index]) - 48.6
 

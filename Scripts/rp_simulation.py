@@ -185,7 +185,7 @@ flagship = hdul[1].data
 
 patches = shear_bins * total_scenes_per_shear
 
-CATALOG_LIMITS = np.min(flagship["dec_gal"]), np.max(flagship("dec_gal")), np.min(flagship["ra_gal"]), np.max(
+CATALOG_LIMITS = np.min(flagship["dec_gal"]), np.max(flagship["dec_gal"]), np.min(flagship["ra_gal"]), np.max(
     flagship["ra_gal"])  # DEC_MIN, DEC_MAX, RA_MIN, RA_MAX
 
 # ----------- Create the catalog ---------------------------------------------------------------------------------------
@@ -240,8 +240,8 @@ angular_size = (complete_image_size - 2. * 1.5 / pixel_scale) * pixel_scale / 36
 x = np.linspace(ra_min_org, ra_min_org + x_scenes * angular_size, x_scenes)
 y = np.linspace(dec_min_org, dec_min_org + y_scenes * angular_size, y_scenes)
 
-if (np.min(x) <= CATALOG_LIMITS[0]) or (np.max(x) > CATALOG_LIMITS[1]) or (np.min(y) <= CATALOG_LIMITS[2]) or (
-        np.max(y) > CATALOG_LIMITS[3]):
+if (np.min(x) < CATALOG_LIMITS[2]) or (np.max(x) > CATALOG_LIMITS[3]) or (np.min(y) < CATALOG_LIMITS[0]) or (
+        np.max(y) > CATALOG_LIMITS[1]):
     raise ValueError("Out of catalog limits")
 
 grid_x, grid_y = np.meshgrid(x, y)
@@ -300,10 +300,10 @@ for scene in range(total_scenes_per_shear):
         for i in range(positions[scene * shear_bins + m].shape[0]):
             index = i
 
-            ellips = fct.generate_ellipticity(ellip_rms, ellip_max)
-            betas = random.random() * 2 * math.pi * galsim.radians
+            ellips = flagship_cut["bulge_axis_ratio"][i]
+            betas = flagship_cut["disk_angle"][i] * galsim.degrees
 
-            res = fct.generate_gal_from_flagship(flagship_cut, ellips, betas, exp_time, gain, zp, pixel_scale,
+            res = fct.generate_gal_from_flagship(flagship_cut, betas, exp_time, gain, zp, pixel_scale,
                                                  sky_level, read_noise, index)
 
             gal_list[scene * shear_bins + m].append(res[0])
@@ -313,7 +313,7 @@ for scene in range(total_scenes_per_shear):
             if sys.argv[5] == "RANDOM_GAL":
                 index2 = random.randint(0, len(flagship_cut) - 1)
 
-                res = fct.generate_gal_from_flagship(flagship_cut, ellips, betas, exp_time, gain, zp, pixel_scale,
+                res = fct.generate_gal_from_flagship(flagship_cut, betas, exp_time, gain, zp, pixel_scale,
                                                      sky_level, read_noise, index2)
 
                 gal_list2[scene * shear_bins + m].append(res[0])
