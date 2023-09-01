@@ -1157,11 +1157,8 @@ def one_galaxy_whole_matrix(k, input_g1, ellip_gal, image_sampled_psf, psf, conf
     return np.concatenate(response), gal_image, signs, meas
 
 
-
 @ray.remote
 def one_scene_pujol(m, total_scene_count, gal, gal2, positions, argv, config, path, psf, num_shears, index_fits):
-
-
     image = config['IMAGE']
     simulation = config['SIMULATION']
 
@@ -1217,7 +1214,6 @@ def one_scene_pujol(m, total_scene_count, gal, gal2, positions, argv, config, pa
                 draw = np.random.random() * 0.2 - 0.1
 
         g2 = draw
-
 
         # Extrinsic shear
         normal_gal = gal[i].shear(g1=shears[m], g2=g2)
@@ -1362,7 +1358,7 @@ def one_scene_pujol(m, total_scene_count, gal, gal2, positions, argv, config, pa
     return meas, np.dstack((x_pos, y_pos))[0], m, total_scene_count, magnitudes, S_N
 
 
-def SimpleCanvas(RA_min, RA_max, DEC_min, DEC_max, pixel_scale, edge_sep=1.5):
+def SimpleCanvas(RA_min, RA_max, DEC_min, DEC_max, pixel_scale, edge_sep=1.5, rotate=False):
     """
     Build a simple canvas
     """
@@ -1372,20 +1368,28 @@ def SimpleCanvas(RA_min, RA_max, DEC_min, DEC_max, pixel_scale, edge_sep=1.5):
     DEC0 = (DEC_min + DEC_max) / 2.
 
     # decide bounds
-    xmax = (RA_max - RA_min) * 3600. / pixel_scale + 2.*edge_sep/pixel_scale # edge_sep in both sides to avoid edge effects
-    ymax = (DEC_max - DEC_min) * 3600. / pixel_scale + 2.*edge_sep/pixel_scale
+    xmax = (
+                       RA_max - RA_min) * 3600. / pixel_scale + 2. * edge_sep / pixel_scale  # edge_sep in both sides to avoid edge effects
+    ymax = (DEC_max - DEC_min) * 3600. / pixel_scale + 2. * edge_sep / pixel_scale
     bounds = galsim.BoundsI(xmin=0, xmax=math.ceil(xmax), ymin=0, ymax=math.ceil(ymax))
 
     # build the wcs
     ## Linear projection matrix
-    dudx = pixel_scale/3600. # degree
-    dudy = 0.
-    dvdx = 0.
-    dvdy = pixel_scale/3600. # degree
+    if rotate:
+        rotation_angle_degrees = 90.0  # Rotate by 90 degrees
+    else:
+        rotation_angle_degrees = 0.0
+
+    # Linear projection matrix components
+    dudx = np.cos(np.radians(rotation_angle_degrees)) * pixel_scale / 3600.0
+    dudy = -np.sin(np.radians(rotation_angle_degrees)) * pixel_scale / 3600.0
+    dvdx = np.sin(np.radians(rotation_angle_degrees)) * pixel_scale / 3600.0
+    dvdy = np.cos(np.radians(rotation_angle_degrees)) * pixel_scale / 3600.0
+
     ## Reference pixel in image
-    origin_ima = galsim.PositionI(x=int(bounds.getXMax()/2.), y=int(bounds.getYMax()/2.))
+    origin_ima = galsim.PositionI(x=int(bounds.getXMax() / 2.), y=int(bounds.getYMax() / 2.))
     ## Reference point in wcs
-    world_origin = galsim.CelestialCoord(ra=RA0*galsim.degrees, dec=DEC0*galsim.degrees)
+    world_origin = galsim.CelestialCoord(ra=RA0 * galsim.degrees, dec=DEC0 * galsim.degrees)
     ##
     wcs_affine = galsim.AffineTransform(dudx, dudy, dvdx, dvdy, origin=origin_ima)
     wcs = galsim.TanWCS(wcs_affine, world_origin, units=galsim.degrees)
@@ -1394,9 +1398,9 @@ def SimpleCanvas(RA_min, RA_max, DEC_min, DEC_max, pixel_scale, edge_sep=1.5):
 
     return canvas
 
+
 @ray.remote
 def one_scene_lf(m, gal, gal2, positions, positions2, scene, argv, config, path, psf, index, index_fits, seed):
-
     image = config['IMAGE']
     simulation = config['SIMULATION']
 
@@ -1475,14 +1479,16 @@ def one_scene_lf(m, gal, gal2, positions, positions2, scene, argv, config, path,
             except GalSimFFTSizeError:
                 return -1
 
-            stamp_norm = galsim.Image(np.abs(stamp_norm.array.copy()), bounds=stamp_norm.bounds)  # Avoid slightly negative values after FFT
+            stamp_norm = galsim.Image(np.abs(stamp_norm.array.copy()),
+                                      bounds=stamp_norm.bounds)  # Avoid slightly negative values after FFT
 
             stamp.append(stamp_norm)
 
         else:
             # Draw the rotated version on a stamp
             try:
-                stamp_rotated = rotated_final.drawImage(center=image_pos_2, nx=stamp_xsize, ny=stamp_ysize, scale=pixel_scale)
+                stamp_rotated = rotated_final.drawImage(center=image_pos_2, nx=stamp_xsize, ny=stamp_ysize,
+                                                        scale=pixel_scale)
             except GalSimFFTSizeError:
                 return -1
 
@@ -1513,7 +1519,8 @@ def one_scene_lf(m, gal, gal2, positions, positions2, scene, argv, config, path,
     dec_min = dec_min
     dec_max = dec_min + angular_size
 
-    image = SimpleCanvas(ra_min, ra_max, dec_min, dec_max, pixel_scale)
+    image = SimpleCanvas(ra_min, ra_max, dec_min, dec_max, pixel_scale,
+                         rotate=True if index % 2 != 0 and argv[5] == "True" else False)
 
     SOURCE_EXTRACTOR_DIR = path + "output/source_extractor"
 
@@ -1563,7 +1570,6 @@ def one_scene_lf(m, gal, gal2, positions, positions2, scene, argv, config, path,
                                         scale=1.0 / ssamp_grid * pixel_scale, method='no_pixel')
 
     measurements = []
-
 
     x_pos = []
     y_pos = []
@@ -1876,7 +1882,6 @@ def one_shear_analysis(m, config, argv, meas_comp, meas_weights, meas_comp_bs, m
 
 
 def generate_gal_from_flagship(flagship_cut, betas, exp_time, gain, zp, pixel_scale, sky_level, read_noise, index):
-
     magnitude = -2.5 * np.log10(flagship_cut["euclid_vis"][index]) - 48.6
 
     gal_flux = exp_time / gain * 10 ** (-0.4 * (magnitude - zp))
