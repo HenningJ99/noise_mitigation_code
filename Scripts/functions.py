@@ -1158,7 +1158,7 @@ def one_galaxy_whole_matrix(k, input_g1, ellip_gal, image_sampled_psf, psf, conf
 
 
 @ray.remote
-def one_scene_pujol(m, total_scene_count, gal, gal2, positions, argv, config, path, psf, num_shears, index_fits):
+def one_scene_pujol(m, total_scene_count, gal, positions, argv, config, path, psf, num_shears, index_fits, ra_min, dec_min):
     image = config['IMAGE']
     simulation = config['SIMULATION']
 
@@ -1175,9 +1175,6 @@ def one_scene_pujol(m, total_scene_count, gal, gal2, positions, argv, config, pa
     stamp_ysize = int(image['stamp_ysize'])
     cut_size = int(image['cut_size'])
     bin_type = simulation['bin_type']
-
-    if total_scene_count % 2 != 0:
-        total_scene_count -= 1
 
     # ------------------------ Create the stamps ---------------------------------------------------------------------
     stamps = []
@@ -1238,7 +1235,14 @@ def one_scene_pujol(m, total_scene_count, gal, gal2, positions, argv, config, pa
     # Calculate sky level
     sky_level = pixel_scale ** 2 * exp_time / gain * 10 ** (-0.4 * (sky - zp))
 
-    image_none = galsim.Image(complete_image_size, complete_image_size, scale=pixel_scale)
+    # Build the two large images for none and shape and add sky level and Gaussian RON to them
+    angular_size = (complete_image_size - 2. * 1.5 / pixel_scale) * pixel_scale / 3600
+
+    ra_max = ra_min + angular_size
+
+    dec_max = dec_min + angular_size
+
+    image_none = SimpleCanvas(ra_min, ra_max, dec_min, dec_max, pixel_scale)
 
     for i in range(len(stamps)):
         # Find the overlapping bounds between the large image and the individual stamp.
@@ -1400,7 +1404,7 @@ def SimpleCanvas(RA_min, RA_max, DEC_min, DEC_max, pixel_scale, edge_sep=1.5, ro
 
 
 @ray.remote
-def one_scene_lf(m, gal, gal2, positions, positions2, scene, argv, config, path, psf, index, index_fits, seed):
+def one_scene_lf(m, gal, gal2, positions, positions2, scene, argv, config, path, psf, index, index_fits, seed, ra_min, dec_min):
     image = config['IMAGE']
     simulation = config['SIMULATION']
 
@@ -1414,8 +1418,6 @@ def one_scene_lf(m, gal, gal2, positions, positions2, scene, argv, config, path,
     sky = float(image['sky'])
 
     pixel_scale = float(image['pixel_scale'])
-    ra_min = float(image["ra_min"])
-    dec_min = float(image["dec_min"])
     image = config["IMAGE"]
     ssamp_grid = int(image['ssamp_grid'])
     stamp_xsize = int(image['stamp_xsize'])
@@ -1513,10 +1515,8 @@ def one_scene_lf(m, gal, gal2, positions, positions2, scene, argv, config, path,
     # Build the two large images for none and shape and add sky level and Gaussian RON to them
     angular_size = (complete_image_size - 2. * 1.5 / pixel_scale) * pixel_scale / 3600
 
-    ra_min = ra_min + (total_scenes * m + scene) * angular_size
     ra_max = ra_min + angular_size
 
-    dec_min = dec_min
     dec_max = dec_min + angular_size
 
     image = SimpleCanvas(ra_min, ra_max, dec_min, dec_max, pixel_scale,

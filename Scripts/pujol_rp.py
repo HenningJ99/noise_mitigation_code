@@ -81,7 +81,6 @@ def do_kdtree(combined_x_y_arrays, points, k=1):
     return mytree.query(points, k=k)
 
 
-
 def bootstrap(array, weights, n):
     indices = np.random.choice(np.arange(len(array)), size=(n, len(array)))
     bootstrap = np.take(array, indices, axis=0).reshape(n, -1)
@@ -164,6 +163,9 @@ stamp_xsize = int(image['stamp_xsize'])
 stamp_ysize = int(image['stamp_ysize'])
 ssamp_grid = int(image['ssamp_grid'])
 
+ra_min_org = float(image["ra_min"])
+dec_min_org = float(image["dec_min"])
+
 galaxy_number = int(sys.argv[2])
 
 num_shears = int(sys.argv[4])
@@ -192,6 +194,16 @@ elif psf_config["psf"] == "GAUSS":
 psf_ref = ray.put(psf)
 config_ref = ray.put(config)
 argv_ref = ray.put(sys.argv)
+
+# ----------- Load the flagship catalog --------------------------------------------------------------------------------
+hdul = fits.open("../Simulations/input/flagship.fits")
+flagship = hdul[1].data
+
+patches = total_scenes_per_shear
+
+CATALOG_LIMITS = np.min(flagship["dec_gal"]), np.max(flagship["dec_gal"]), np.min(flagship["ra_gal"]), np.max(
+    flagship["ra_gal"])  # DEC_MIN, DEC_MAX, RA_MIN, RA_MAX
+
 # ----------- Create the catalog ---------------------------------------------------------------------------------------
 responses = []
 weights = []
@@ -240,84 +252,98 @@ if simulation.getboolean("same_but_shear"):
 
 positions = [[] for _ in range(total_scenes_per_shear)]
 gal_list = [[] for _ in range(total_scenes_per_shear)]
-gal_list_2 = [[] for _ in range(total_scenes_per_shear)]
+
+
+x_scenes = int(np.sqrt(total_scenes_per_shear))
+y_scenes = math.ceil(total_scenes_per_shear / x_scenes)
+
+angular_size = (complete_image_size - 2. * 1.5 / pixel_scale) * pixel_scale / 3600
+
+x = np.linspace(ra_min_org, ra_min_org + x_scenes * angular_size, x_scenes)
+y = np.linspace(dec_min_org, dec_min_org + y_scenes * angular_size, y_scenes)
+
+if (np.min(x) < CATALOG_LIMITS[2]) or (np.max(x) > CATALOG_LIMITS[3]) or (np.min(y) < CATALOG_LIMITS[0]) or (
+        np.max(y) > CATALOG_LIMITS[1]):
+    raise ValueError("Out of catalog limits")
+
+grid_x, grid_y = np.meshgrid(x, y)
+grid_x = grid_x.flatten()
+grid_y = grid_y.flatten()
+
+grid_counter = 0
 
 for total_scene_count in range(total_scenes_per_shear):
     # ------------------------------------ CREATE THE GALAXY LIST RANDOMLY PER SCENE ----------------------------------
     count = 0
 
-    positions[total_scene_count] = int(sys.argv[1]) * np.random.random_sample((galaxy_number, 2))
+    ra_min = grid_x[grid_counter]
+    ra_max = ra_min + angular_size
+
+    dec_min = grid_y[grid_counter]  # + (total_scenes_per_shear * m + scene) * 0.1
+    dec_max = dec_min + angular_size  # + (total_scenes_per_shear * m + scene + 1) * 0.1
+    print(ra_min, ra_max, dec_min, dec_max)
+    mask = ((flagship["ra_gal"] <= ra_max) & (flagship["ra_gal"] > ra_min) & (flagship["dec_gal"] <= dec_max) &
+            (flagship["dec_gal"] > dec_min))
+
+    flagship_cut = flagship[mask]
+
+    positions[total_scene_count] = np.vstack([flagship_cut["ra_gal"], flagship_cut["dec_gal"]])
+
+    # Convert positions from WCS to image
+    canvas = fct.SimpleCanvas(ra_min, ra_max, dec_min, dec_max, pixel_scale)
+    full_image = canvas.copy()
+    wcs = full_image.wcs
+
+    x_gals, y_gals = wcs.toImage(positions[total_scene_count][0], positions[total_scene_count][1],
+                                 units=galsim.degrees)
+    positions[total_scene_count] = np.vstack([x_gals, y_gals]).T
+
     input_positions.append(positions[total_scene_count])
     input_shears = []
 
-    gal_below24_5 = 0
-    if total_scene_count % 2 == 0:
-        magnitudes = []
-        for i in range(galaxy_number):
-            index = random.randint(0, len(galaxies["GEMS_FLAG"]) - 1)
-
-            ellips = fct.generate_ellipticity(ellip_rms, ellip_max, seed=total_scene_count*galaxy_number+ i +1 if simulation.getboolean("same_but_shear") else 0)
-            betas = random.random() * 2 * math.pi * galsim.radians
-            magnitudes.append(galaxies["ST_MAG_GALFIT"][index])
-            gal_flux = exp_time / gain * 10 ** (-0.4 * (galaxies["ST_MAG_GALFIT"][index] - zp))
-
-            q = galaxies["ST_B_IMAGE"][index] / galaxies["ST_A_IMAGE"][index]
-            gal = galsim.Sersic(galaxies["ST_N_GALFIT"][index],
-                                half_light_radius=0.03 * galaxies["ST_RE_GALFIT"][index] * np.sqrt(q), flux=gal_flux)
-
-            if galaxies["ST_MAG_GALFIT"][index] <= 24.5:
-                gal_below24_5 += 1
-            input_shears.append(galsim.Shear(g=ellips, beta=betas).g1)
-            input_shears.append(galsim.Shear(g=ellips, beta=betas + math.pi / 2 * galsim.radians).g1)
-
-            gal_1 = gal.shear(g=ellips, beta=betas)
-
-            gal_2 = gal.shear(g=ellips, beta=betas + math.pi / 2 * galsim.radians)
-
-            gal_list[total_scene_count].append(gal_1)
-            gal_list_2[total_scene_count].append(gal_2)
-
-            theo_sn = exp_time * 10 ** (-0.4 * (galaxies["ST_MAG_GALFIT"][index] - zp)) / \
-                      np.sqrt((exp_time * 10 ** (-0.4 * (galaxies["ST_MAG_GALFIT"][index] - zp)) +
-                               sky_level * gain * math.pi * (3 * 0.3 * np.sqrt(q) * galaxies["ST_RE_GALFIT"][index]) ** 2 +
-                               (read_noise ** 2 + (gain / 2) ** 2) * math.pi * (
-                                       3 * 0.3 * np.sqrt(q) * galaxies["ST_RE_GALFIT"][index]) ** 2))
+    magnitudes = []
+    for i in range(len(positions[total_scene_count])):
 
 
-            columns.append(
-                [total_scene_count, positions[total_scene_count][i][0], positions[total_scene_count][i][1], galaxies["ST_MAG_GALFIT"][index], ellips,
-                 betas / galsim.radians,
-                 galaxies["ST_N_GALFIT"][index], 0.3 * np.sqrt(q) * galaxies["ST_RE_GALFIT"][index], theo_sn])
+        ellips = flagship_cut["bulge_axis_ratio"][i]
+        betas = flagship_cut["disk_angle"][i] * galsim.degrees
 
-            columns.append(
-                [total_scene_count + 1, positions[total_scene_count][i][0], positions[total_scene_count][i][1], galaxies["ST_MAG_GALFIT"][index], ellips,
-                 (betas + math.pi / 2 * galsim.radians) / galsim.radians,
-                 galaxies["ST_N_GALFIT"][index], 0.3 * np.sqrt(q) * galaxies["ST_RE_GALFIT"][index], theo_sn])
+        res = fct.generate_gal_from_flagship(flagship_cut, betas, exp_time, gain, zp, pixel_scale,
+                                             sky_level, read_noise, i)
 
+        gal_list[total_scene_count].append(res[0])
+        magnitudes.append(res[2])
+        theo_sn = res[1]
 
-        print(gal_below24_5)
-        print(np.average(input_shears))
-    else:
-        gal_list[total_scene_count] = gal_list_2[total_scene_count]
+        input_shears.append(galsim.Shear(g=ellips, beta=betas).g1)
 
-        for i in range(galaxy_number):
-            columns[-1 - 2 * (galaxy_number -1 -i)][1] = positions[total_scene_count][i][0]
-            columns[-1 - 2 * (galaxy_number -1 -i)][2] = positions[total_scene_count][i][1]
+        columns.append(
+            [total_scene_count, positions[total_scene_count][i][0], positions[total_scene_count][i][1],
+             -2.5 * np.log10(flagship_cut["euclid_vis"][i]) - 48.6 , ellips,
+             betas / galsim.radians,
+             flagship_cut["bulge_nsersic"][i],
+             flagship_cut["bulge_r50"][i], theo_sn])
 
+    print(np.average(input_shears))
 
     input_magnitudes.append(magnitudes)
 
+    grid_counter += 1
+
 # --------------------------------- MEASURE CATALOGS ------------------------------------------------------------------
 ids = []
+grid_counter = 0
 for scene in range(total_scenes_per_shear):
     for m in range(num_shears):
-        ids.append(fct.one_scene_pujol.remote(m, scene, gal_list[scene], gal_list_2[scene], positions[scene], argv_ref, config_ref, path, psf_ref, num_shears, index_fits))
+        ids.append(fct.one_scene_pujol.remote(m, scene, gal_list[scene], positions[scene], argv_ref,
+                                              config_ref, path, psf_ref, num_shears, index_fits, grid_x[grid_counter],
+                                              grid_y[grid_counter]))
+    grid_counter += 1
 
 order = []
 scene_count = []
 matching = []
 magnitudes = []
-
 
 columns = np.array(columns, dtype=float)
 input_catalog = Table([columns[:, i] for i in range(9)],
@@ -328,6 +354,7 @@ while ids:
     ready, not_ready = ray.wait(ids)
 
     results = ray.get(ready)
+
     # if simulation.getboolean('matching'):
     kd_results = np.array(do_kdtree(input_positions[results[0][3]], results[0][1], k=MAX_NEIGHBORS))
     nearest_positional_neighbors = np.where(kd_results[0] <= MAX_DIST, kd_results[1], -1)
@@ -339,11 +366,14 @@ while ids:
     nearest_positional_neighbors = nearest_positional_neighbors.astype('int32')
 
     # If just no further neighbours are found within MAX_DIST, replace their entries with the nearest neighbour
-    nearest_positional_neighbors = np.where(nearest_positional_neighbors == -1, np.repeat(nearest_positional_neighbors[:, 0], MAX_NEIGHBORS).reshape(nearest_positional_neighbors.shape), nearest_positional_neighbors)
+    nearest_positional_neighbors = np.where(nearest_positional_neighbors == -1,
+                                            np.repeat(nearest_positional_neighbors[:, 0], MAX_NEIGHBORS).reshape(
+                                                nearest_positional_neighbors.shape), nearest_positional_neighbors)
 
     # Catch the case where no neighbour is found within the given distance (noise peaks?)
     if len(nearest_positional_neighbors) != len(results[0][0]):
-        print(f"No neighbour within {MAX_DIST} px found for {len(results[0][0]) - len(nearest_positional_neighbors)} galaxies in scene {results[0][3]} at shear {results[0][2]}!")
+        print(
+            f"No neighbour within {MAX_DIST} px found for {len(results[0][0]) - len(nearest_positional_neighbors)} galaxies in scene {results[0][3]} at shear {results[0][2]}!")
 
     magnitudes_npn = np.array(input_magnitudes[results[0][3]])[nearest_positional_neighbors]
 
@@ -351,19 +381,24 @@ while ids:
         min_deviation = np.argmin(np.abs(np.subtract(magnitudes_npn[m], np.array(results[0][4])[filter][m])))
         gems_magnitude_optimized = np.array(magnitudes_npn[m])[min_deviation]
         matching_index = np.array(nearest_positional_neighbors[m])[min_deviation]
-        columns.append([results[0][3], results[0][2], np.array(results[0][0])[filter][m], np.array(results[0][1])[filter][m][0], np.array(results[0][1])[filter][m][1],
-                        np.array(results[0][4])[filter][m], magnitudes_npn[m][0], gems_magnitude_optimized, np.array(results[0][5])[filter][m],
-                        nearest_positional_neighbors[m][0], matching_index, 0 if len(np.unique(nearest_positional_neighbors[m])) == 1
-                        else 1 if (np.abs(magnitudes_npn[m][0]-magnitudes_npn[m][1]) > 2) and (len(np.unique(nearest_positional_neighbors[m])) == 2)
-                        else 2])
-
+        columns.append(
+            [results[0][3], results[0][2], np.array(results[0][0])[filter][m], np.array(results[0][1])[filter][m][0],
+             np.array(results[0][1])[filter][m][1],
+             np.array(results[0][4])[filter][m], magnitudes_npn[m][0], gems_magnitude_optimized,
+             np.array(results[0][5])[filter][m],
+             nearest_positional_neighbors[m][0], matching_index,
+             0 if len(np.unique(nearest_positional_neighbors[m])) == 1
+             else 1 if (np.abs(magnitudes_npn[m][0] - magnitudes_npn[m][1]) > 2) and (
+                         len(np.unique(nearest_positional_neighbors[m])) == 2)
+             else 2])
 
     ids = not_ready
 
 columns = np.array(columns, dtype=float)
 shear_results = Table([columns[:, i] for i in range(12)],
                       names=('scene_index', 'shear_index', 'meas_g1', 'position_x', 'position_y', 'mag_auto',
-                             'mag_gems', 'mag_gems_optimized', 'S/N', 'matching_index', 'matching_index_optimized', 'blending_flag'))
+                             'mag_gems', 'mag_gems_optimized', 'S/N', 'matching_index', 'matching_index_optimized',
+                             'blending_flag'))
 now = datetime.datetime.now()
 
 current_time = now.strftime("%H-%M-%S")
@@ -388,7 +423,8 @@ if simulation.getboolean("output"):
     if not os.path.isdir(path + "output/rp_simulations/" + f'run_pujol_{date_object}_{current_time}/FITS_org'):
         os.mkdir(path + "output/rp_simulations/" + f'run_pujol_{date_object}_{current_time}/FITS_org')
 
-    os.system('mv ' + path + f'output/FITS{index_fits}/*.fits' + ' ' + path + 'output/rp_simulations/' + f'run_pujol_{date_object}_{current_time}/FITS_org/')
+    os.system(
+        'mv ' + path + f'output/FITS{index_fits}/*.fits' + ' ' + path + 'output/rp_simulations/' + f'run_pujol_{date_object}_{current_time}/FITS_org/')
 
 os.system(f"rm -r FITS{index_fits}")
 

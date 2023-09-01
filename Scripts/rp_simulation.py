@@ -298,13 +298,12 @@ for scene in range(total_scenes_per_shear):
         input_positions_2.append(positions_2[scene * shear_bins + m])
 
         for i in range(positions[scene * shear_bins + m].shape[0]):
-            index = i
 
             ellips = flagship_cut["bulge_axis_ratio"][i]
             betas = flagship_cut["disk_angle"][i] * galsim.degrees
 
             res = fct.generate_gal_from_flagship(flagship_cut, betas, exp_time, gain, zp, pixel_scale,
-                                                 sky_level, read_noise, index)
+                                                 sky_level, read_noise, i)
 
             gal_list[scene * shear_bins + m].append(res[0])
             magnitudes.append(res[2])
@@ -345,10 +344,10 @@ for scene in range(total_scenes_per_shear):
                 else:
                     columns.append(
                         [scene, m, k, positions[scene * shear_bins + m][i, 0], positions[scene * shear_bins + m][i, 1],
-                         -2.5 * np.log10(flagship_cut["euclid_vis"][index]) - 48.6, ellips,
+                         -2.5 * np.log10(flagship_cut["euclid_vis"][i]) - 48.6, ellips,
                          betas / galsim.radians,
-                         flagship_cut["bulge_nsersic"][index],
-                         flagship_cut["bulge_r50"][index], theo_sn])
+                         flagship_cut["bulge_nsersic"][i],
+                         flagship_cut["bulge_r50"][i], theo_sn])
 
         if sys.argv[5] != "RANDOM_GAL":
             gal_list2[scene * shear_bins + m] = gal_list[scene * shear_bins + m]
@@ -363,6 +362,7 @@ input_catalog = Table([columns[:, i] for i in range(11)], names=(
 # -------------------------- DISTRIBUTE WORK TO RAY -------------------------------------------------------------------
 ids = []
 rng = galsim.UniformDeviate()
+grid_counter = 0
 for scene in range(total_scenes_per_shear):
     for m in range(shear_bins):
         seed1 = int(rng() * 1e6)
@@ -372,22 +372,24 @@ for scene in range(total_scenes_per_shear):
             fct.one_scene_lf.remote(m, gal_list[scene * shear_bins + m], gal_list2[scene * shear_bins + m],
                                     positions[scene * shear_bins + m], positions_2[scene * shear_bins + m], scene,
                                     argv_ref, config_ref,
-                                    path, psf_ref, 0, index_fits, seed1))
+                                    path, psf_ref, 0, index_fits, seed1, grid_x[grid_counter], grid_y[grid_counter]))
         ids.append(
             fct.one_scene_lf.remote(m, gal_list[scene * shear_bins + m], gal_list2[scene * shear_bins + m],
                                     positions[scene * shear_bins + m], positions_2[scene * shear_bins + m], scene,
                                     argv_ref, config_ref,
-                                    path, psf_ref, 1, index_fits, seed2))
+                                    path, psf_ref, 1, index_fits, seed2, grid_x[grid_counter], grid_y[grid_counter]))
         ids.append(
             fct.one_scene_lf.remote(m, gal_list[scene * shear_bins + m], gal_list2[scene * shear_bins + m],
                                     positions[scene * shear_bins + m], positions_2[scene * shear_bins + m], scene,
                                     argv_ref, config_ref,
-                                    path, psf_ref, 2, index_fits, seed1))
+                                    path, psf_ref, 2, index_fits, seed1, grid_x[grid_counter], grid_y[grid_counter]))
         ids.append(
             fct.one_scene_lf.remote(m, gal_list[scene * shear_bins + m], gal_list2[scene * shear_bins + m],
                                     positions[scene * shear_bins + m], positions_2[scene * shear_bins + m], scene,
                                     argv_ref, config_ref,
-                                    path, psf_ref, 3, index_fits, seed2))
+                                    path, psf_ref, 3, index_fits, seed2, grid_x[grid_counter], grid_y[grid_counter]))
+
+        grid_counter += 1
 
 names = ["none", "shape", "none_pixel", "shape_pixel"]
 magnitudes = [[] for _ in range(4)]
