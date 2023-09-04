@@ -5,9 +5,9 @@ import sys
 import timeit
 import configparser
 # Define local paths
-path = sys.argv[4]+"/"
+path = sys.argv[3]+"/"
 
-subfolder = sys.argv[6]
+subfolder = sys.argv[5]
 
 config = configparser.ConfigParser()
 config.read('config_rp.ini')
@@ -20,9 +20,9 @@ BOOTSTRAP_REPETITIONS = int(simulation["bootstrap_repetitions"])
 
 mag_bins = int(simulation["bins_mag"])
 
-if sys.argv[7] == "GEMS":
+if sys.argv[6] == "GEMS":
     bin_type = "mag_gems"
-elif sys.argv[7] == "MAG_AUTO":
+elif sys.argv[6] == "MAG_AUTO":
     bin_type = "mag_auto"
 
 min_mag = float(simulation["min_mag"])
@@ -49,14 +49,14 @@ ssamp_grid = int(image['ssamp_grid'])
 
 shear_bins = int(simulation['shear_bins'])
 
-shear_min = -float(sys.argv[5])
-shear_max = float(sys.argv[5])
+shear_min = -float(sys.argv[4])
+shear_max = float(sys.argv[4])
 
-galaxy_number = int(sys.argv[2])
+#galaxy_number = int(sys.argv[2])
 
 complete_image_size = int(sys.argv[1])
 
-total_scenes_per_shear = int(sys.argv[3])
+total_scenes_per_shear = int(sys.argv[2])
 
 magnitudes_list = np.array([min_mag + k*(max_mag-min_mag)/(mag_bins) for k in range(mag_bins+1)])
 mag_auto_bin = magnitudes_list
@@ -96,7 +96,7 @@ columns = []
 for scene in range(total_scenes_per_shear):
     index = 0
     print(f"{scene+1} / {total_scenes_per_shear}")
-    with open(path + f"output/rp_simulations/catalog_results_{complete_image_size}_{galaxy_number}_{scene}.txt", "w") as file:
+    with open(path + f"output/rp_simulations/catalog_results_{complete_image_size}_{scene}.txt", "w") as file:
         for j in range(4):
             for i in range(shear_bins):
                 for mag in range(mag_bins+1):

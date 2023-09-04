@@ -21,7 +21,8 @@ elif sys.argv[1] == "RP":
     config.set('SIMULATION', 'max_mag', sys.argv[4])
     config.set('SIMULATION', 'puj_analyse_every', sys.argv[5])
     config.set('SIMULATION', 'skip_first_lf', sys.argv[6])
-    config.set('SIMULATION', 'reps_for_improvements', sys.argv[7])
+    config.set('SIMULATION', 'skip_first_rm', sys.argv[7])
+    config.set('SIMULATION', 'reps_for_improvements', sys.argv[8])
 
     if (int(sys.argv[6]) < 5) or (int(config['SIMULATION']['skip_first_rm']) < 5):
         raise ValueError("At least first 5 points should be skipped since bootstrapping likely yields NaNs before")

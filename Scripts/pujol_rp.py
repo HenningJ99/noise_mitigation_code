@@ -57,7 +57,7 @@ import scipy
 import datetime
 
 # ---------------------------- INITIALIZATION --------------------------------------------------------------------------
-path = sys.argv[5] + "/"
+path = sys.argv[4] + "/"
 
 # Create temporary folder for FITS files
 index_fits = 0
@@ -166,10 +166,10 @@ ssamp_grid = int(image['ssamp_grid'])
 ra_min_org = float(image["ra_min"])
 dec_min_org = float(image["dec_min"])
 
-galaxy_number = int(sys.argv[2])
+#galaxy_number = int(sys.argv[2])
 
-num_shears = int(sys.argv[4])
-total_scenes_per_shear = int(sys.argv[3])
+num_shears = int(sys.argv[3])
+total_scenes_per_shear = int(sys.argv[2])
 
 complete_image_size = int(sys.argv[1])
 

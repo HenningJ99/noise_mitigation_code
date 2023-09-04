@@ -2,7 +2,6 @@
 
 read -p "Working path: " path
 read -p "Simulation size: " sim_size
-read -p "#Galaxies per scene: " galaxy_num
 read -p "#Shear interval: " shear_interval
 read -p "#Runs LF: " run_lf
 read -p "#Runs RM: " run_rm
@@ -11,6 +10,7 @@ read -p "Smallest magnitude: " min_mag
 read -p "Largest magnitude: " max_mag
 read -p "Reps for improvement error: " reps
 read -p "Analyse every pujol: " analyse_every_pujol
+read -p "Skip first rm points: " skip_first_rm
 read -p "Skip first lf points: " skip_first_lf
 read -p "Generation only? (y/n): " gen_only
 if [ $gen_only == "n" ]
@@ -22,7 +22,7 @@ fi
 # read -p "0 (no pixel noise cancel) or 1: " y_tiles
 
 # -------------------------- MODIFY CONFIG FILE WITH MAG_BINS
-python3 modify_config.py RP $mag_bins $min_mag $max_mag $analyse_every_pujol $skip_first_lf $reps
+python3 modify_config.py RP $mag_bins $min_mag $max_mag $analyse_every_pujol $skip_first_lf $skip_first_rm $reps
 
 compare=`echo | awk "{ print ($shear_interval == 0.02)?1 : 0 }"` #Comparison to decide on shear interval
 
@@ -40,9 +40,9 @@ then
   echo "Starting response method simulations!"
   if [[ $compare -eq 1 ]]
   then
-    python3 pujol_rp.py $sim_size $galaxy_num $run_rm 2 $path
+    python3 pujol_rp.py $sim_size $run_rm 2 $path
   else
-    python3 pujol_rp.py $sim_size $galaxy_num $run_rm 11 $path
+    python3 pujol_rp.py $sim_size $run_rm 11 $path
   fi
 
   puj_folder=$(ls -td $path/output/rp_simulations/*/ | head -1)
@@ -85,10 +85,10 @@ then
       # -------------------------- INITIAL ANALYSIS -------------------------------------#
 
       echo "Fit method analysis ..."
-      python3 rp_analysis.py $sim_size $galaxy_num $run_lf $path $shear_interval $shape_options $binning
+      python3 rp_analysis.py $sim_size $run_lf $path $shear_interval $shape_options $binning
 
       echo "Plotting and bootstrapping ..."
-      python3 catalog_plot.py $run_lf $galaxy_num $path $sim_size $shape_options $binning
+      python3 catalog_plot.py $run_lf $path $sim_size $shape_options $binning
 
       mv $shape_options/analysis.dat $shape_options/analysis_${binning}.dat #Avoid overwriting output
 
@@ -99,9 +99,9 @@ then
       then
         if [[ $compare -eq 1 ]]
         then
-          python3 pujol_rp_analysis.py $sim_size $galaxy_num $run_rm 2 $path $puj_folder $binning
+          python3 pujol_rp_analysis.py $sim_size $run_rm 2 $path $puj_folder $binning
         else
-          python3 pujol_rp_analysis.py $sim_size $galaxy_num $run_rm 11 $path $puj_folder $binning
+          python3 pujol_rp_analysis.py $sim_size $run_rm 11 $path $puj_folder $binning
         fi
         mv $puj_folder/analysis.dat $puj_folder/analysis_${binning}.dat # Avoid overwriting output
       else

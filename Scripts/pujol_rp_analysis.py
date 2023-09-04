@@ -15,14 +15,14 @@ import pickle
 
 bootstrap_fit = True # Takes ages
 
-path = sys.argv[5] + "/"
-subfolder = sys.argv[6]
+path = sys.argv[4] + "/"
+subfolder = sys.argv[5]
 if not os.path.isdir(subfolder + "/plots"):
     os.mkdir(subfolder + "/plots")
 complete_image_size = int(sys.argv[1])
-galaxy_number = int(sys.argv[2])
-num_shears = int(sys.argv[4])
-total_scenes_per_shear = int(sys.argv[3])
+galaxy_number = complete_image_size
+num_shears = int(sys.argv[3])
+total_scenes_per_shear = int(sys.argv[2])
 # Time the program
 start = timeit.default_timer()
 
@@ -64,9 +64,9 @@ scene_creation = float(timings["scene_creation"])
 
 analyse_every = int(simulation["puj_analyse_every"])
 
-if sys.argv[7] == "GEMS":
+if sys.argv[6] == "GEMS":
     bin_type = "mag_gems"
-elif sys.argv[7] == "MAG_AUTO":
+elif sys.argv[6] == "MAG_AUTO":
     bin_type = "mag_auto"
 
 min_mag = float(simulation["min_mag"])

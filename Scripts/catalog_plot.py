@@ -23,9 +23,9 @@ noise_plus_meas = float(timings["noise_plus_meas"])
 scene_creation = float(timings["scene_creation"])
 mag_bins = int(simulation["bins_mag"])
 
-if sys.argv[6] == "GEMS":
+if sys.argv[5] == "GEMS":
     bin_type = "mag_gems"
-elif sys.argv[6] == "MAG_AUTO":
+elif sys.argv[5] == "MAG_AUTO":
     bin_type = "mag_auto"
 
 min_mag = float(simulation["min_mag"])
@@ -71,10 +71,10 @@ def bootstrap(array, weights, n):
 
 
 file_number = int(sys.argv[1])
-galaxy_num = int(sys.argv[2])
-path = sys.argv[3] + "/"
-sim_size = int(sys.argv[4])
-subfolder = sys.argv[5]
+galaxy_num = file_number
+path = sys.argv[2] + "/"
+sim_size = int(sys.argv[3])
+subfolder = sys.argv[4]
 
 data2_compl = []
 magnitudes_list = [min_mag + k * (max_mag - min_mag) / (mag_bins) for k in range(mag_bins + 1)]
