@@ -329,87 +329,84 @@ for reps in range(REPS):
                     names = ["normal", "rotated", "normal pixel", "rotated pixel"]
 
                 # INDIVIDUAL FITS
-                for i in range(4):
-                    if len(np.where((data[:, 1][i * shear_bins:(i + 1) * shear_bins] != -1) & (
-                            data[:, 2][i * shear_bins:(i + 1) * shear_bins] != 0))[0]) > 1:
-                        filter = (data[:, 1][i * shear_bins:(i + 1) * shear_bins] != -1) & (
-                                data[:, 2][i * shear_bins:(i + 1) * shear_bins] != 0)
-                        deviation = data[:, 1][i * shear_bins:(i + 1) * shear_bins][filter] - \
-                                    data[:, 0][i * shear_bins:(i + 1) * shear_bins][filter]
-                        if i == 0 and reps == REPS -1:
-                            ax.errorbar(data[:, 0][i * shear_bins:(i + 1) * shear_bins][filter] + i * 0.001, deviation,
-                                        uncertainties[0:(mag_bins + 1) * 4 * shear_bins][m::(mag_bins + 1)][
-                                        i * shear_bins:(i + 1) * shear_bins][filter], fmt="+", capsize=2, color="C0",
-                                        label="no cancel")
+                i = 0
+                if len(np.where((data[:, 1][i * shear_bins:(i + 1) * shear_bins] != -1) & (
+                        data[:, 2][i * shear_bins:(i + 1) * shear_bins] != 0))[0]) > 1:
+                    filter = (data[:, 1][i * shear_bins:(i + 1) * shear_bins] != -1) & (
+                            data[:, 2][i * shear_bins:(i + 1) * shear_bins] != 0)
+                    deviation = data[:, 1][i * shear_bins:(i + 1) * shear_bins][filter] - \
+                                data[:, 0][i * shear_bins:(i + 1) * shear_bins][filter]
+                    if reps == REPS -1:
+                        ax.errorbar(data[:, 0][i * shear_bins:(i + 1) * shear_bins][filter] + i * 0.001, deviation,
+                                    uncertainties[0:(mag_bins + 1) * 4 * shear_bins][m::(mag_bins + 1)][
+                                    i * shear_bins:(i + 1) * shear_bins][filter], fmt="+", capsize=2, color="C0",
+                                    label="no cancel")
 
-                        try:
-                            popt, pcov = curve_fit(linear_function, data[:, 0][i * shear_bins:(i + 1) * shear_bins][filter],
-                                                   deviation,
-                                                   sigma=uncertainties[0:(mag_bins + 1) * 4 * shear_bins][m::(mag_bins + 1)][
-                                                         i * shear_bins:(i + 1) * shear_bins][filter], absolute_sigma=True)
+                    try:
+                        popt, pcov = curve_fit(linear_function, data[:, 0][i * shear_bins:(i + 1) * shear_bins][filter],
+                                               deviation,
+                                               sigma=uncertainties[0:(mag_bins + 1) * 4 * shear_bins][m::(mag_bins + 1)][
+                                                     i * shear_bins:(i + 1) * shear_bins][filter], absolute_sigma=True)
 
-                            error = np.sqrt(np.diag(pcov))
-                            if i == 0:
-                                errors_m[0][run][m].append(error[0])
-                                errors_c[0][run][m].append(error[1])
-                            popt_plus, pcov_plus = curve_fit(linear_function,
-                                                             data[:, 0][i * shear_bins:(i + 1) * shear_bins][filter], deviation,
-                                                             sigma=
-                                                             uncertainties[0:(mag_bins + 1) * 4 * shear_bins][
-                                                             m::(mag_bins + 1)][i * shear_bins:(i + 1) * shear_bins][
-                                                                 filter] +
-                                                             uncertainties_errors[0:(mag_bins + 1) * 4 * shear_bins][
-                                                             m::(mag_bins + 1)][i * shear_bins:(i + 1) * shear_bins][
-                                                                 filter], absolute_sigma=True)
+                        error = np.sqrt(np.diag(pcov))
 
-                            error_plus = np.sqrt(np.diag(pcov_plus))
+                        errors_m[0][run][m].append(error[0])
+                        errors_c[0][run][m].append(error[1])
+                        popt_plus, pcov_plus = curve_fit(linear_function,
+                                                         data[:, 0][i * shear_bins:(i + 1) * shear_bins][filter], deviation,
+                                                         sigma=
+                                                         uncertainties[0:(mag_bins + 1) * 4 * shear_bins][
+                                                         m::(mag_bins + 1)][i * shear_bins:(i + 1) * shear_bins][
+                                                             filter] +
+                                                         uncertainties_errors[0:(mag_bins + 1) * 4 * shear_bins][
+                                                         m::(mag_bins + 1)][i * shear_bins:(i + 1) * shear_bins][
+                                                             filter], absolute_sigma=True)
 
-                            popt_minus, pcov_minus = curve_fit(linear_function,
-                                                               data[:, 0][i * shear_bins:(i + 1) * shear_bins][filter],
-                                                               deviation,
-                                                               sigma=
-                                                               uncertainties[0:(mag_bins + 1) * 4 * shear_bins][
-                                                               m::(mag_bins + 1)][i * shear_bins:(i + 1) * shear_bins][
-                                                                   filter] -
-                                                               uncertainties_errors[0:(mag_bins + 1) * 4 * shear_bins][
-                                                               m::(mag_bins + 1)][i * shear_bins:(i + 1) * shear_bins][
-                                                                   filter], absolute_sigma=True)
+                        error_plus = np.sqrt(np.diag(pcov_plus))
 
-                            error_minus = np.sqrt(np.diag(pcov_minus))
-                        except RuntimeError:
-                            print(data[:, 0][i * shear_bins:(i + 1) * shear_bins][filter], deviation,
-                                  uncertainties[0:(mag_bins + 1) * 4 * shear_bins][m::(mag_bins + 1)][
-                                  i * shear_bins:(i + 1) * shear_bins][filter])
-                            popt = (1, 1)
-                            error = (1, 1)
-                            error_plus = (1, 1)
-                            error_minus = (-1, -1)
+                        popt_minus, pcov_minus = curve_fit(linear_function,
+                                                           data[:, 0][i * shear_bins:(i + 1) * shear_bins][filter],
+                                                           deviation,
+                                                           sigma=
+                                                           uncertainties[0:(mag_bins + 1) * 4 * shear_bins][
+                                                           m::(mag_bins + 1)][i * shear_bins:(i + 1) * shear_bins][
+                                                               filter] -
+                                                           uncertainties_errors[0:(mag_bins + 1) * 4 * shear_bins][
+                                                           m::(mag_bins + 1)][i * shear_bins:(i + 1) * shear_bins][
+                                                               filter], absolute_sigma=True)
 
-                        if i == 0:
+                        error_minus = np.sqrt(np.diag(pcov_minus))
+                    except RuntimeError:
+                        print(data[:, 0][i * shear_bins:(i + 1) * shear_bins][filter], deviation,
+                              uncertainties[0:(mag_bins + 1) * 4 * shear_bins][m::(mag_bins + 1)][
+                              i * shear_bins:(i + 1) * shear_bins][filter])
+                        popt = (1, 1)
+                        error = (1, 1)
+                        error_plus = (1, 1)
+                        error_minus = (-1, -1)
 
-                            with open(path + "output/rp_simulations/fits.txt", "a") as file:
-                                file.write("%s\t %d\t %d\t %d\t %.7f\t %.7f\t %.7f\t %.7f\t %d\t %.1f\t %.7f\t %.7f\n" %
-                                           ("none", sim_size, galaxy_num, run,
-                                            popt[0], error[0], popt[1], error[1],
-                                            shear_bins * galaxy_num * (run + 1) * (1 + noise_plus_meas)
-                                            + shear_bins * (run + 1) * scene_creation, magnitudes_list[m],
-                                            np.std(errors_m[0][run][m]), np.std(errors_c[0][run][m])))
+                    with open(path + "output/rp_simulations/fits.txt", "a") as file:
+                        file.write("%s\t %d\t %d\t %d\t %.7f\t %.7f\t %.7f\t %.7f\t %d\t %.1f\t %.7f\t %.7f\n" %
+                                   ("none", sim_size, galaxy_num, run,
+                                    popt[0], error[0], popt[1], error[1],
+                                    shear_bins * galaxy_num * (run + 1) * (1 + noise_plus_meas)
+                                    + shear_bins * (run + 1) * scene_creation, magnitudes_list[m],
+                                    np.std(errors_m[0][run][m]), np.std(errors_c[0][run][m])))
 
-                        r = deviation - linear_function(data[:, 0][i * shear_bins:(i + 1) * shear_bins][filter], *popt)
+                    r = deviation - linear_function(data[:, 0][i * shear_bins:(i + 1) * shear_bins][filter], *popt)
 
-                        chisq = np.sum((r / data[:, 2][i * shear_bins:(i + 1) * shear_bins][filter] ** 2))
-                        chisq_red = chisq / (len(r) - 2)
-                        if i == 0 and reps == REPS-1:
-                            ax.plot(data[:, 0][0:shear_bins], linear_function(data[:, 0][0:shear_bins], *popt), color="C0")
+                    chisq = np.sum((r / data[:, 2][i * shear_bins:(i + 1) * shear_bins][filter] ** 2))
+                    chisq_red = chisq / (len(r) - 2)
+                    if reps == REPS-1:
+                        ax.plot(data[:, 0][0:shear_bins], linear_function(data[:, 0][0:shear_bins], *popt), color="C0")
 
-                    else:
-                        if i == 0:
-                            with open(path + "output/rp_simulations/fits.txt", "a") as file:
-                                file.write("%s\t %d\t %d\t %d\t %.7f\t %.7f\t %.7f\t %.7f\t %d\t %.1f\t %.7f\t %.7f\n" %
-                                           ("none", sim_size, galaxy_num, run,
-                                            1, 1, 1, 1,
-                                            shear_bins * galaxy_num * (run + 1) * (1 + noise_plus_meas)
-                                            + shear_bins * (run + 1) * scene_creation, magnitudes_list[m], 0.0, 0.0))
+                else:
+                    with open(path + "output/rp_simulations/fits.txt", "a") as file:
+                        file.write("%s\t %d\t %d\t %d\t %.7f\t %.7f\t %.7f\t %.7f\t %d\t %.1f\t %.7f\t %.7f\n" %
+                                   ("none", sim_size, galaxy_num, run,
+                                    1, 1, 1, 1,
+                                    shear_bins * galaxy_num * (run + 1) * (1 + noise_plus_meas)
+                                    + shear_bins * (run + 1) * scene_creation, magnitudes_list[m], 0.0, 0.0))
 
                 # SHAPE NOISE FITS
                 if len(np.where((shape_noise_err != -1) & (shape_noise_err != 0))[0]) > 1:
