@@ -331,7 +331,7 @@ for reps in range(REPS):
                 # INDIVIDUAL FITS
                 i = 0
                 if len(np.where((data[:, 1][i * shear_bins:(i + 1) * shear_bins] != -1) & (
-                        data[:, 2][i * shear_bins:(i + 1) * shear_bins] != 0))[0]) > 1:
+                        data[:, 2][i * shear_bins:(i + 1) * shear_bins] != 0))[0]) > 3:
                     filter = (data[:, 1][i * shear_bins:(i + 1) * shear_bins] != -1) & (
                             data[:, 2][i * shear_bins:(i + 1) * shear_bins] != 0)
                     deviation = data[:, 1][i * shear_bins:(i + 1) * shear_bins][filter] - \
@@ -409,7 +409,7 @@ for reps in range(REPS):
                                     + shear_bins * (run + 1) * scene_creation, magnitudes_list[m], 0.0, 0.0))
 
                 # SHAPE NOISE FITS
-                if len(np.where((shape_noise_err != -1) & (shape_noise_err != 0))[0]) > 1:
+                if len(np.where((shape_noise_err != -1) & (shape_noise_err != 0))[0]) > 3:
                     popt, pcov = curve_fit(linear_function,
                                            data[:, 0][0:shear_bins][(shape_noise_err != 0) & (shape_noise_err != -1)],
                                            np.delete(shape_noise, np.where((shape_noise_err == -1) | (shape_noise_err == 0))),
@@ -471,7 +471,7 @@ for reps in range(REPS):
                                     + (run + 1) * shear_bins * 2 * scene_creation, magnitudes_list[m], 0.0, 0.0))
 
                 # BOTH NOISE FITS
-                if len(np.where((both_noise_err != -1) & (both_noise_err != 0))[0]) > 1:
+                if len(np.where((both_noise_err != -1) & (both_noise_err != 0))[0]) > 3:
                     popt, pcov = curve_fit(linear_function,
                                            data[:, 0][0:shear_bins][(both_noise_err != 0) & (both_noise_err != -1)],
                                            np.delete(both_noise, np.where((both_noise_err == -1) | (both_noise_err == 0))),
