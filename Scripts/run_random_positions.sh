@@ -152,7 +152,6 @@ then
   rm $path/output/plots/binned_improvement_rp_c.txt
   rm $path/output/rp_simulations/fits.txt
   rm $path/output/plots/bias_comparison_rp.txt
-  rm $path/output/rp_simulations/catalog_results*
 
 fi
 
