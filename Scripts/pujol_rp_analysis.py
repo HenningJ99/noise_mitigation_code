@@ -559,37 +559,27 @@ for reps in range(REPS):
                                        deviation, sigma=np.array(output_err)[filter], absolute_sigma=True)
 
                 error = np.sqrt(np.diag(pcov))
+
+                if reps == REPS - 1:
+                    # Plot the fit
+                    mm = 1 / 25.4
+                    fig, ax = plt.subplots(figsize=(88 * mm, 88 * mm))
+
+                    ax.errorbar(np.array(shears)[filter], deviation, np.array(output_err)[filter], fmt="+--",
+                                markersize=5,
+                                capsize=2, elinewidth=0.5)
+                    ax.plot(np.linspace(-0.1, 0.1, 10), linear_function(np.linspace(-0.1, 0.1, 10), *popt), alpha=0.7)
+
+
+                    ax.hlines(0.0, -0.1, 0.1, linestyle="dashed", alpha=0.8)
+
+                    ax.set_xlabel("$g_1^t$")
+                    ax.set_ylabel("$<g_1^{obs}>-g_1^t$")
+                    fig.savefig(subfolder + f"/plots/{scene}_{mag}.png", dpi=200, bbox_inches="tight")
+                    plt.close()
             else:
                 popt = [-1, -1]
                 error = [-1, -1]
-
-            if reps == REPS-1:
-                # Plot the fit
-                mm = 1 / 25.4
-                fig, ax = plt.subplots(figsize=(88 * mm, 88 * mm))
-
-                ax.errorbar(np.array(shears)[filter], deviation, np.array(output_err)[filter], fmt="+--", markersize=5,
-                            capsize=2, elinewidth=0.5)
-                ax.plot(np.linspace(-0.1, 0.1, 10), linear_function(np.linspace(-0.1, 0.1, 10), *popt), alpha=0.7)
-
-                # # Selection Bias
-                # try:
-                #     popt, pcov = curve_fit(linear_function, np.array(shears),
-                #                            np.average(input_shears[:, :, :scene], weights=input_weights[:, :, :scene], axis=2)[
-                #                            :,
-                #                            mag])
-                #     r = np.average(input_shears[:, :, :scene], weights=input_weights[:, :, :scene], axis=2)[:,
-                #         mag] - linear_function(np.array(shears), *popt)
-                #     ax.plot(np.array(shears), r, "+")
-                # except ZeroDivisionError:
-                #     pass
-
-                ax.hlines(0.0, -0.1, 0.1, linestyle="dashed", alpha=0.8)
-
-                ax.set_xlabel("$g_1^t$")
-                ax.set_ylabel("$<g_1^{obs}>-g_1^t$")
-                fig.savefig(subfolder + f"/plots/{scene}_{mag}.png", dpi=200, bbox_inches="tight")
-                plt.close()
 
             if num_shears == 11:
                 filter = np.where(np.array(output_shear[4:7:2]) != -1)[0]
