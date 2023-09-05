@@ -13,6 +13,17 @@ import timeit
 from galsim.errors import GalSimFFTSizeError
 import matplotlib.pyplot as plt
 
+try:
+    from lensmc import measure_shear
+    from lensmc.galaxy_model import alloc_working_arrays
+    from lensmc.image import Image
+    from lensmc.psf import PSF
+except:
+    print("LensMC not found")
+
+from astropy.io import fits
+from astropy.wcs import WCS
+
 
 def is_outlier(points, thresh=3.5):
     """
@@ -396,8 +407,8 @@ def worker(k, ellip_gal, psf, image_sampled_psf, config, argv, input_shear):
 
     shift_radius = float(image['shift_radius'])
 
-    shear_min = -float(argv[4])
-    shear_max = float(argv[4])
+    shear_min = -float(argv[5])
+    shear_max = float(argv[5])
 
     ring_num = int(argv[3])  # int(simulation['ring_num'])
     rotation_angle = 180.0 / ring_num  # How much is the galaxy turned
@@ -567,48 +578,106 @@ def worker(k, ellip_gal, psf, image_sampled_psf, config, argv, input_shear):
             subsampled_image = sub_gal_image.subsample(ssamp_grid, ssamp_grid)
 
             # Find S/N and estimated shear
-            start = timeit.default_timer()
-            params = galsim.hsm.HSMParams(ksb_sig_factor=1.0)
-            results = galsim.hsm.EstimateShear(subsampled_image, image_sampled_psf, shear_est="KSB", strict=False,
-                                               hsmparams=params)
-            timings[1].append(timeit.default_timer() - start)
 
-            if results.error_message == "":
-                adamflux = results.moments_amp
-                adamsigma = results.moments_sigma / ssamp_grid
-                pixels = sub_gal_image.array.copy()
+            shear_meas = simulation["shear_meas"]
+            if shear_meas == "KSB":
+                start = timeit.default_timer()
+                params = galsim.hsm.HSMParams(ksb_sig_factor=1.0)
+                results = galsim.hsm.EstimateShear(subsampled_image, image_sampled_psf, shear_est="KSB", strict=False,
+                                                   hsmparams=params)
+                timings[1].append(timeit.default_timer() - start)
 
-                # Define the edge of the stamp to measure the sky background there
-                edge = list(pixels[0]) + list([i[-1] for i in pixels[1:-1]]) + list(reversed(pixels[-1])) + \
-                       list(reversed([i[0] for i in pixels[1:-1]]))
+                if results.error_message == "":
+                    adamflux = results.moments_amp
+                    adamsigma = results.moments_sigma / ssamp_grid
+                    pixels = sub_gal_image.array.copy()
 
-                sigma_sky = 1.4826 * np.median(np.abs(edge - np.median(edge)))
+                    # Define the edge of the stamp to measure the sky background there
+                    edge = list(pixels[0]) + list([i[-1] for i in pixels[1:-1]]) + list(reversed(pixels[-1])) + \
+                           list(reversed([i[0] for i in pixels[1:-1]]))
 
-                signal_to_noise = adamflux * gain / np.sqrt(
-                    gain * adamflux + np.pi * (3 * adamsigma * np.sqrt(2 * np.log(2))) ** 2 * (
-                            gain * sigma_sky) ** 2)
+                    sigma_sky = 1.4826 * np.median(np.abs(edge - np.median(edge)))
+
+                    signal_to_noise = adamflux * gain / np.sqrt(
+                        gain * adamflux + np.pi * (3 * adamsigma * np.sqrt(2 * np.log(2))) ** 2 * (
+                                gain * sigma_sky) ** 2)
+
+                    if not simulation.getboolean("sel_bias"):
+                        # Use this for a normal run
+                        meas_g1[iy][ix] = results.corrected_g1
+                        meas_g2[iy][ix] = results.corrected_g2
+                    else:
+                        # Use this for selection bias checks
+                        meas_g1[iy][ix] = input_shear[0] + g1
+                        meas_g2[iy][ix] = input_shear[1] + g2
+
+                    meas_SNR[iy][ix] = signal_to_noise
+                    gal_mag_inp = -2.5 * np.log10(gain / exp_time * ellip_gal.original.flux) + zp  # Input magnitude
+                    if adamflux > 0:
+                        meas_mag[iy][ix] = -2.5 * np.log10(gain / exp_time * adamflux) + zp  # Measured magnitude
+
+                    gal_hlr = ellip_gal.original.half_light_radius
+
+                else:
+                    fails[ix][iy] += 1
+                    if simulation.getboolean("selection"):
+                        meas_g1[iy].clear()
+                        meas_g2[iy].clear()
+
+
+            elif shear_meas == "LENSMC":
+                # Generate a simple WCS for testing
+                rotation_angle_degrees = 0
+                pixel_scale = 0.1
+
+                header = fits.Header()
+                header['NAXIS'] = 2  # Number of axes
+                header['CTYPE1'] = 'RA---TAN'  # Type of coordinate system for axis 1
+                header['CRVAL1'] = 20.0  # RA at the reference pixel
+                header['CRPIX1'] = subsampled_image.center.x  # Reference pixel in X (RA)
+                header['CUNIT1'] = 'deg'  # Units for axis 1 (degrees)
+                header['CTYPE2'] = 'DEC--TAN'  # Type of coordinate system for axis 2
+                header['CRVAL2'] = 50.0  # Dec at the reference pixel
+                header['CRPIX2'] = subsampled_image.center.y  # Reference pixel in Y (Dec)
+                header['CUNIT2'] = 'deg'  # Units for axis 2 (degrees)
+                header['CD1_1'] = -np.cos(np.radians(rotation_angle_degrees)) * pixel_scale / 3600.0
+                header['CD1_2'] = -np.sin(np.radians(rotation_angle_degrees)) * pixel_scale / 3600.0
+                header['CD2_1'] = np.sin(np.radians(rotation_angle_degrees)) * pixel_scale / 3600.0
+                header['CD2_2'] = np.cos(np.radians(rotation_angle_degrees)) * pixel_scale / 3600.0
+
+                wcs = WCS(header)
+
+                subsampled_image.wcs = galsim.AstropyWCS(header=header)
+
+                # allocate working arrays dictionary for fast model generation
+                n_bulge, n_disc = 1., 1.
+                working_arrays = alloc_working_arrays(n_bulge, n_disc, oversampling=1, dtype=np.float32)
+
+                # Generate LencMC image and psf objects
+                lmc_image = Image(subsampled_image.array[1:, 1:], wcs=wcs)
+                lmc_psf = PSF(image_sampled_psf.array)
+
+                start = timeit.default_timer()
+                # Measure shear
+                results = measure_shear(image=lmc_image, id_=1, re=0.3, ra=20, dec=50, psf=lmc_psf,
+                                        working_arrays=working_arrays, return_model=True)
+                timings[1].append(timeit.default_timer() - start)
 
                 if not simulation.getboolean("sel_bias"):
                     # Use this for a normal run
-                    meas_g1[iy][ix] = results.corrected_g1
-                    meas_g2[iy][ix] = results.corrected_g2
+                    meas_g1[iy][ix] = results.e1
+                    meas_g2[iy][ix] = results.e2
                 else:
                     # Use this for selection bias checks
                     meas_g1[iy][ix] = input_shear[0] + g1
                     meas_g2[iy][ix] = input_shear[1] + g2
 
-                meas_SNR[iy][ix] = signal_to_noise
+                meas_SNR[iy][ix] = results.snr
                 gal_mag_inp = -2.5 * np.log10(gain / exp_time * ellip_gal.original.flux) + zp  # Input magnitude
-                if adamflux > 0:
-                    meas_mag[iy][ix] = -2.5 * np.log10(gain / exp_time * adamflux) + zp  # Measured magnitude
+                if results.flux > 0:
+                    meas_mag[iy][ix] = -2.5 * np.log10(gain / exp_time * results.flux) + zp  # Measured magnitude
 
                 gal_hlr = ellip_gal.original.half_light_radius
-
-            else:
-                fails[ix][iy] += 1
-                if simulation.getboolean("selection"):
-                    meas_g1[iy].clear()
-                    meas_g2[iy].clear()
 
     # Flatten the measurement array in the end to make the analysis.
     meas_g1 = np.concatenate(meas_g1)
@@ -825,53 +894,100 @@ def one_galaxy(k, input_g1, ellip_gal, image_sampled_psf, psf, config, argv):
 
             # Measure with KSB
             subsampled_image = sub_gal_image.subsample(ssamp_grid, ssamp_grid)
+            shear_meas = simulation["shear_meas"]
+            if shear_meas == "KSB":
+                # Find S/N and estimated shear
+                params = galsim.hsm.HSMParams(ksb_sig_factor=1.0)  # KSB size 3times half light radius
+                results = galsim.hsm.EstimateShear(subsampled_image, image_sampled_psf, shear_est="KSB", strict=False,
+                                                   hsmparams=params)
 
-            # Find S/N and estimated shear
-            params = galsim.hsm.HSMParams(ksb_sig_factor=1.0)  # KSB size 3times half light radius
-            results = galsim.hsm.EstimateShear(subsampled_image, image_sampled_psf, shear_est="KSB", strict=False,
-                                               hsmparams=params)
+                if results.error_message == "":
+                    adamflux = results.moments_amp
+                    adamsigma = results.moments_sigma / ssamp_grid
 
-            if results.error_message == "":
-                adamflux = results.moments_amp
-                adamsigma = results.moments_sigma / ssamp_grid
+                    pixels = sub_gal_image.array.copy()
 
-                pixels = sub_gal_image.array.copy()
+                    edge = list(pixels[0]) + list([i[-1] for i in pixels[1:-1]]) + list(reversed(pixels[-1])) + \
+                           list(reversed([i[0] for i in pixels[1:-1]]))
 
-                edge = list(pixels[0]) + list([i[-1] for i in pixels[1:-1]]) + list(reversed(pixels[-1])) + \
-                       list(reversed([i[0] for i in pixels[1:-1]]))
+                    sigma_sky = 1.4826 * np.median(np.abs(edge - np.median(edge)))
 
-                sigma_sky = 1.4826 * np.median(np.abs(edge - np.median(edge)))
+                    if noise_type != "GAUSS":
 
-                if noise_type != "GAUSS":
+                        signal_to_noise = adamflux * gain / np.sqrt(
+                            gain * adamflux + np.pi * (3 * adamsigma * np.sqrt(2 * np.log(2))) ** 2 * (
+                                    gain * sigma_sky) ** 2)
 
-                    signal_to_noise = adamflux * gain / np.sqrt(
-                        gain * adamflux + np.pi * (3 * adamsigma * np.sqrt(2 * np.log(2))) ** 2 * (
-                                gain * sigma_sky) ** 2)
+                    elif noise_type == "GAUSS":
 
-                elif noise_type == "GAUSS":
+                        signal_to_noise = adamflux / np.sqrt(
+                            np.pi * (3 * adamsigma * np.sqrt(2 * np.log(2))) ** 2 * sigma_sky ** 2)
 
-                    signal_to_noise = adamflux / np.sqrt(
-                        np.pi * (3 * adamsigma * np.sqrt(2 * np.log(2))) ** 2 * sigma_sky ** 2)
+                    meas_g1[m * num_shears + i] = results.corrected_g1
+                    # if i == 0:
+                    #     meas[0][i] = results.corrected_g1
+                    # elif i == (num_shears - 1):
+                    #     meas[1][i - 1] = results.corrected_g1
+                    # else:
+                    #     meas[0][i] = results.corrected_g1
+                    #     meas[1][i - 1] = results.corrected_g1
+                    SNR[m * num_shears + i] = signal_to_noise
 
-                meas_g1[m * num_shears + i] = results.corrected_g1
-                # if i == 0:
-                #     meas[0][i] = results.corrected_g1
-                # elif i == (num_shears - 1):
-                #     meas[1][i - 1] = results.corrected_g1
-                # else:
-                #     meas[0][i] = results.corrected_g1
-                #     meas[1][i - 1] = results.corrected_g1
-                SNR[m * num_shears + i] = signal_to_noise
+                    if adamflux > 0:
+                        gal_mag_meas = -2.5 * np.log10(gain / exp_time * adamflux) + zp  # Measured magnitude
+                    else:
+                        gal_mag_meas = -1
 
-                if adamflux > 0:
-                    gal_mag_meas = -2.5 * np.log10(gain / exp_time * adamflux) + zp  # Measured magnitude
+                else:
+                    count += 1
+
+                    gal_mag_meas = -1
+
+            elif shear_meas == "LENSMC":
+                # Generate a simple WCS for testing
+                rotation_angle_degrees = 0
+                pixel_scale = 0.1
+
+                header = fits.Header()
+                header['NAXIS'] = 2  # Number of axes
+                header['CTYPE1'] = 'RA---TAN'  # Type of coordinate system for axis 1
+                header['CRVAL1'] = 20.0  # RA at the reference pixel
+                header['CRPIX1'] = subsampled_image.center.x  # Reference pixel in X (RA)
+                header['CUNIT1'] = 'deg'  # Units for axis 1 (degrees)
+                header['CTYPE2'] = 'DEC--TAN'  # Type of coordinate system for axis 2
+                header['CRVAL2'] = 50.0  # Dec at the reference pixel
+                header['CRPIX2'] = subsampled_image.center.y  # Reference pixel in Y (Dec)
+                header['CUNIT2'] = 'deg'  # Units for axis 2 (degrees)
+                header['CD1_1'] = -np.cos(np.radians(rotation_angle_degrees)) * pixel_scale / 3600.0
+                header['CD1_2'] = -np.sin(np.radians(rotation_angle_degrees)) * pixel_scale / 3600.0
+                header['CD2_1'] = np.sin(np.radians(rotation_angle_degrees)) * pixel_scale / 3600.0
+                header['CD2_2'] = np.cos(np.radians(rotation_angle_degrees)) * pixel_scale / 3600.0
+
+                wcs = WCS(header)
+
+                subsampled_image.wcs = galsim.AstropyWCS(header=header)
+
+                # allocate working arrays dictionary for fast model generation
+                n_bulge, n_disc = 1., 1.
+                working_arrays = alloc_working_arrays(n_bulge, n_disc, oversampling=1, dtype=np.float32)
+
+                # Generate LencMC image and psf objects
+                lmc_image = Image(subsampled_image.array[1:, 1:], wcs=wcs)
+                lmc_psf = PSF(image_sampled_psf.array)
+
+                # Measure shear
+                results = measure_shear(image=lmc_image, id_=1, re=0.3, ra=20, dec=50, psf=lmc_psf,
+                                        working_arrays=working_arrays, return_model=True)
+
+                meas_g1[m * num_shears + i] = results.e1
+                SNR[m * num_shears + i] = results.snr
+
+                if results.flux > 0:
+                    gal_mag_meas = -2.5 * np.log10(gain / exp_time * results.flux) + zp  # Measured magnitude
                 else:
                     gal_mag_meas = -1
 
-            else:
-                count += 1
 
-                gal_mag_meas = -1
 
         for i in range(num_shears - 1):
             if meas_g1[m * num_shears + i] != 0 and meas_g1[m * num_shears + i + 1] != 0:
