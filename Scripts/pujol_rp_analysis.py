@@ -20,7 +20,7 @@ subfolder = sys.argv[5]
 if not os.path.isdir(subfolder + "/plots"):
     os.mkdir(subfolder + "/plots")
 complete_image_size = int(sys.argv[1])
-galaxy_number = complete_image_size
+galaxy_number = 1 # Normalise this
 num_shears = int(sys.argv[3])
 total_scenes_per_shear = int(sys.argv[2])
 # Time the program

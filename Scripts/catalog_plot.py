@@ -72,7 +72,7 @@ def bootstrap(array, weights, n):
 
 
 file_number = int(sys.argv[1])
-galaxy_num = file_number
+galaxy_num = 1 # Normalise this
 path = sys.argv[2] + "/"
 sim_size = int(sys.argv[3])
 subfolder = sys.argv[4]
