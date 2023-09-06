@@ -280,7 +280,7 @@ for scene in range(total_scenes_per_shear):
             positions_2[scene * shear_bins + m] = positions[scene * shear_bins + m]
 
         # Convert positions from WCS to image
-        canvas = fct.SimpleCanvas(ra_min, ra_max, dec_min, dec_max, pixel_scale)
+        canvas, wcs_astropy = fct.SimpleCanvas(ra_min, ra_max, dec_min, dec_max, pixel_scale)
         full_image = canvas.copy()
         wcs = full_image.wcs
 

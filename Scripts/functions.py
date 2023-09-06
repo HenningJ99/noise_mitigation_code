@@ -657,7 +657,7 @@ def worker(k, ellip_gal, psf, image_sampled_psf, config, argv, input_shear):
                 start = timeit.default_timer()
                 # Measure shear
                 results = measure_shear(image=lmc_image, id_=1, re=0.3, ra=20, dec=50, psf=lmc_psf,
-                                        working_arrays=working_arrays, return_model=True)
+                                        working_arrays=working_arrays, return_model=False)
                 timings[1].append(timeit.default_timer() - start)
 
                 if not simulation.getboolean("sel_bias"):
@@ -972,7 +972,7 @@ def one_galaxy(k, input_g1, ellip_gal, image_sampled_psf, psf, config, argv):
 
                 # Measure shear
                 results = measure_shear(image=lmc_image, id_=1, re=0.3, ra=20, dec=50, psf=lmc_psf,
-                                        working_arrays=working_arrays, return_model=True)
+                                        working_arrays=working_arrays, return_model=False)
 
                 meas_g1[m * num_shears + i] = results.e1
                 SNR[m * num_shears + i] = results.snr
@@ -1353,7 +1353,7 @@ def one_scene_pujol(m, total_scene_count, gal, positions, argv, config, path, ps
 
     dec_max = dec_min + angular_size
 
-    image_none = SimpleCanvas(ra_min, ra_max, dec_min, dec_max, pixel_scale)
+    image_none, wcs = SimpleCanvas(ra_min, ra_max, dec_min, dec_max, pixel_scale)
 
     for i in range(len(stamps)):
         # Find the overlapping bounds between the large image and the individual stamp.
@@ -1432,45 +1432,82 @@ def one_scene_pujol(m, total_scene_count, gal, positions, argv, config, path, ps
 
     sigma_sky = 1.4826 * np.median(np.abs(edge - np.median(edge)))
 
-    # Loop through all detected positions
-    for i in range(len(x_cen)):
+    if simulation["shear_meas"] == "KSB":
+        # Loop through all detected positions
+        for i in range(len(x_cen)):
 
-        # Determine image boundaris
-        b = galsim.BoundsI(int(x_cen[i]) - cut_size, int(x_cen[i]) + cut_size, int(y_cen[i]) - cut_size,
-                           int(y_cen[i]) + cut_size)
+            # Determine image boundaris
+            b = galsim.BoundsI(int(x_cen[i]) - cut_size, int(x_cen[i]) + cut_size, int(y_cen[i]) - cut_size,
+                               int(y_cen[i]) + cut_size)
 
-        sub_gal_image = gal_image[b & gal_image.bounds]
+            sub_gal_image = gal_image[b & gal_image.bounds]
 
-        # Subsample the image for the measurement again
-        subsampled_image = sub_gal_image.subsample(ssamp_grid, ssamp_grid)
+            # Subsample the image for the measurement again
+            subsampled_image = sub_gal_image.subsample(ssamp_grid, ssamp_grid)
 
-        # Find S/N and estimated shear
-        results = galsim.hsm.EstimateShear(subsampled_image, image_sampled_psf, shear_est="KSB", strict=False)
+            # Find S/N and estimated shear
+            results = galsim.hsm.EstimateShear(subsampled_image, image_sampled_psf, shear_est="KSB", strict=False)
 
-        adamflux = results.moments_amp
-        adamsigma = results.moments_sigma / ssamp_grid
+            adamflux = results.moments_amp
+            adamsigma = results.moments_sigma / ssamp_grid
 
-        # pixels = sub_gal_image.array.copy()
-        mag_adamom = zp - 2.5 * np.log10(adamflux * gain / exp_time)
+            # pixels = sub_gal_image.array.copy()
+            mag_adamom = zp - 2.5 * np.log10(adamflux * gain / exp_time)
 
-        signal_to_noise = adamflux * gain / np.sqrt(
-            gain * adamflux + np.pi * (3 * adamsigma * np.sqrt(2 * np.log(2))) ** 2 * (
-                    gain * sigma_sky) ** 2)
+            signal_to_noise = adamflux * gain / np.sqrt(
+                gain * adamflux + np.pi * (3 * adamsigma * np.sqrt(2 * np.log(2))) ** 2 * (
+                        gain * sigma_sky) ** 2)
 
-        if results.corrected_g1 == -10:
-            signal_to_noise = -1
+            if results.corrected_g1 == -10:
+                signal_to_noise = -1
 
-        measures.append(results.corrected_g1)
-        x_pos.append(x_cen[i])
-        y_pos.append(y_cen[i])
+            measures.append(results.corrected_g1)
+            x_pos.append(x_cen[i])
+            y_pos.append(y_cen[i])
 
-        if bin_type == "MAG_ADAMOM":
-            magnitudes.append(mag_adamom)
+            if bin_type == "MAG_ADAMOM":
+                magnitudes.append(mag_adamom)
+            else:
+                magnitudes.append(mag_auto[i])
+
+            meas.append(results.corrected_g1)
+            S_N.append(signal_to_noise)
+
+    elif simulation["shear_meas"] == "LENSMC":
+        ra_cen = data[:, 9][np.where((data[:, 7] > cut_size) & (data[:, 7] < complete_image_size - cut_size) &
+                                     (data[:, 8] > cut_size) & (data[:, 8] < complete_image_size - cut_size))]
+        dec_cen = data[:, 10][np.where((data[:, 7] > cut_size) & (data[:, 7] < complete_image_size - cut_size) &
+                                       (data[:, 8] > cut_size) & (data[:, 8] < complete_image_size - cut_size))]
+
+        if gal_image.array.shape[0] % 2 != 0:
+            lens_mc_image = Image(gal_image.array[1:, 1:], wcs=wcs)
         else:
-            magnitudes.append(mag_auto[i])
+            lens_mc_image = Image(gal_image.array, wcs=wcs)
+        lens_mc_psf = PSF(image_sampled_psf.array)
 
-        meas.append(results.corrected_g1)
-        S_N.append(signal_to_noise)
+        # allocate working arrays dictionary for fast model generation
+        n_bulge, n_disc = 1., 1.
+        working_arrays = alloc_working_arrays(n_bulge, n_disc, oversampling=1, dtype=np.float32)
+
+        for i in range(len(ra_cen)):
+            results = measure_shear(image=lens_mc_image, id_=i, ra=ra_cen[i], dec=dec_cen[i], psf=lens_mc_psf,
+                                    working_arrays=working_arrays, return_model=False)
+
+            mag_adamom = zp - 2.5 * np.log10(results.flux * gain / exp_time)
+
+            signal_to_noise = results.snr
+
+            measures.append(results.e1)
+            x_pos.append(x_cen[i])
+            y_pos.append(y_cen[i])
+
+            if bin_type == "MAG_ADAMOM":
+                magnitudes.append(mag_adamom)
+            else:
+                magnitudes.append(mag_auto[i])
+
+            meas.append(results.e1)
+            S_N.append(signal_to_noise)
 
     return meas, np.dstack((x_pos, y_pos))[0], m, total_scene_count, magnitudes, S_N
 
@@ -1490,30 +1527,32 @@ def SimpleCanvas(RA_min, RA_max, DEC_min, DEC_max, pixel_scale, edge_sep=1.5, ro
     ymax = (DEC_max - DEC_min) * 3600. / pixel_scale + 2. * edge_sep / pixel_scale
     bounds = galsim.BoundsI(xmin=0, xmax=math.ceil(xmax), ymin=0, ymax=math.ceil(ymax))
 
-    # build the wcs
-    ## Linear projection matrix
-    if rotate:
-        rotation_angle_degrees = 90.0  # Rotate by 90 degrees
-    else:
-        rotation_angle_degrees = 0.0
+    # Generate a simple WCS for testing
+    rotation_angle_degrees = 0
+    pixel_scale = 0.1
 
-    # Linear projection matrix components
-    dudx = np.cos(np.radians(rotation_angle_degrees)) * pixel_scale / 3600.0
-    dudy = -np.sin(np.radians(rotation_angle_degrees)) * pixel_scale / 3600.0
-    dvdx = np.sin(np.radians(rotation_angle_degrees)) * pixel_scale / 3600.0
-    dvdy = np.cos(np.radians(rotation_angle_degrees)) * pixel_scale / 3600.0
+    header = fits.Header()
+    header['NAXIS'] = 2  # Number of axes
+    header['CTYPE1'] = 'RA---TAN'  # Type of coordinate system for axis 1
+    header['CRVAL1'] = RA0  # RA at the reference pixel
+    header['CRPIX1'] = int(bounds.getXMax()) / 2.  # Reference pixel in X (RA)
+    header['CUNIT1'] = 'deg'  # Units for axis 1 (degrees)
+    header['CTYPE2'] = 'DEC--TAN'  # Type of coordinate system for axis 2
+    header['CRVAL2'] = DEC0  # Dec at the reference pixel
+    header['CRPIX2'] = int(bounds.getYMax()) / 2.  # Reference pixel in Y (Dec)
+    header['CUNIT2'] = 'deg'  # Units for axis 2 (degrees)
+    header['CD1_1'] = -np.cos(np.radians(rotation_angle_degrees)) * pixel_scale / 3600.0
+    header['CD1_2'] = -np.sin(np.radians(rotation_angle_degrees)) * pixel_scale / 3600.0
+    header['CD2_1'] = np.sin(np.radians(rotation_angle_degrees)) * pixel_scale / 3600.0
+    header['CD2_2'] = np.cos(np.radians(rotation_angle_degrees)) * pixel_scale / 3600.0
 
-    ## Reference pixel in image
-    origin_ima = galsim.PositionI(x=int(bounds.getXMax() / 2.), y=int(bounds.getYMax() / 2.))
-    ## Reference point in wcs
-    world_origin = galsim.CelestialCoord(ra=RA0 * galsim.degrees, dec=DEC0 * galsim.degrees)
-    ##
-    wcs_affine = galsim.AffineTransform(dudx, dudy, dvdx, dvdy, origin=origin_ima)
-    wcs = galsim.TanWCS(wcs_affine, world_origin, units=galsim.degrees)
+    wcs = WCS(header)
 
-    canvas = galsim.ImageF(bounds=bounds, wcs=wcs)
+    galsim_wcs = galsim.AstropyWCS(header=header)
 
-    return canvas
+    canvas = galsim.ImageF(bounds=bounds, wcs=galsim_wcs)
+
+    return canvas, wcs
 
 
 @ray.remote
@@ -1632,7 +1671,7 @@ def one_scene_lf(m, gal, gal2, positions, positions2, scene, argv, config, path,
 
     dec_max = dec_min + angular_size
 
-    image = SimpleCanvas(ra_min, ra_max, dec_min, dec_max, pixel_scale,
+    image, wcs = SimpleCanvas(ra_min, ra_max, dec_min, dec_max, pixel_scale,
                          rotate=True if index % 2 != 0 and argv[5] == "True" else False)
 
     SOURCE_EXTRACTOR_DIR = path + "output/source_extractor"
@@ -1709,40 +1748,75 @@ def one_scene_lf(m, gal, gal2, positions, positions2, scene, argv, config, path,
 
     sigma_sky = 1.4826 * np.median(np.abs(edge - np.median(edge)))
 
-    for i in range(len(x_cen)):
+    if simulation["shear_meas"] == "KSB":
+        for i in range(len(x_cen)):
 
-        b = galsim.BoundsI(int(x_cen[i]) - cut_size, int(x_cen[i]) + cut_size, int(y_cen[i]) - cut_size,
-                           int(y_cen[i]) + cut_size)
+            b = galsim.BoundsI(int(x_cen[i]) - cut_size, int(x_cen[i]) + cut_size, int(y_cen[i]) - cut_size,
+                               int(y_cen[i]) + cut_size)
 
-        sub_gal_image = gal_image[b & gal_image.bounds]
+            sub_gal_image = gal_image[b & gal_image.bounds]
 
-        subsampled_image = sub_gal_image.subsample(ssamp_grid, ssamp_grid)
+            subsampled_image = sub_gal_image.subsample(ssamp_grid, ssamp_grid)
 
-        # Find S/N and estimated shear
-        results = galsim.hsm.EstimateShear(subsampled_image, image_sampled_psf, shear_est="KSB", strict=False)
+            # Find S/N and estimated shear
+            results = galsim.hsm.EstimateShear(subsampled_image, image_sampled_psf, shear_est="KSB", strict=False)
 
 
-        adamflux = results.moments_amp
-        adamsigma = results.moments_sigma / ssamp_grid
+            adamflux = results.moments_amp
+            adamsigma = results.moments_sigma / ssamp_grid
 
-        # pixels = sub_gal_image.array.copy()
-        mag_adamom = zp - 2.5 * np.log10(adamflux * gain / exp_time)
+            # pixels = sub_gal_image.array.copy()
+            mag_adamom = zp - 2.5 * np.log10(adamflux * gain / exp_time)
 
-        signal_to_noise = adamflux * gain / np.sqrt(
-            gain * adamflux + np.pi * (3 * adamsigma * np.sqrt(2 * np.log(2))) ** 2 * (
-                    gain * sigma_sky) ** 2)
+            signal_to_noise = adamflux * gain / np.sqrt(
+                gain * adamflux + np.pi * (3 * adamsigma * np.sqrt(2 * np.log(2))) ** 2 * (
+                        gain * sigma_sky) ** 2)
 
-        if results.corrected_g1 == -10:
-            signal_to_noise = -1
+            if results.corrected_g1 == -10:
+                signal_to_noise = -1
 
-        measures.append(results.corrected_g1)
-        s_n.append(signal_to_noise)
-        if bin_type == "MAG_ADAMOM":
-            magnitudes.append(mag_adamom)
+            measures.append(results.corrected_g1)
+            s_n.append(signal_to_noise)
+            if bin_type == "MAG_ADAMOM":
+                magnitudes.append(mag_adamom)
+            else:
+                magnitudes.append(mag_auto[i])
+            x_pos.append(x_cen[i])
+            y_pos.append(y_cen[i])
+    elif simulation["shear_meas"] == "LENSMC":
+        ra_cen = data[:, 9][np.where((data[:, 7] > cut_size) & (data[:, 7] < complete_image_size - cut_size) &
+                                    (data[:, 8] > cut_size) & (data[:, 8] < complete_image_size - cut_size))]
+        dec_cen = data[:, 10][np.where((data[:, 7] > cut_size) & (data[:, 7] < complete_image_size - cut_size) &
+                                    (data[:, 8] > cut_size) & (data[:, 8] < complete_image_size - cut_size))]
+
+        if gal_image.array.shape[0] % 2 != 0:
+            lens_mc_image = Image(gal_image.array[1:, 1:], wcs=wcs)
         else:
-            magnitudes.append(mag_auto[i])
-        x_pos.append(x_cen[i])
-        y_pos.append(y_cen[i])
+            lens_mc_image = Image(gal_image.array, wcs=wcs)
+        lens_mc_psf = PSF(image_sampled_psf.array)
+
+        # allocate working arrays dictionary for fast model generation
+        n_bulge, n_disc = 1., 1.
+        working_arrays = alloc_working_arrays(n_bulge, n_disc, oversampling=1, dtype=np.float32)
+
+        for i in range(len(ra_cen)):
+            results = measure_shear(image=lens_mc_image, id_=i, ra=ra_cen[i], dec=dec_cen[i], psf=lens_mc_psf,
+                                    working_arrays=working_arrays, return_model=False)
+
+            # pixels = sub_gal_image.array.copy()
+            mag_adamom = zp - 2.5 * np.log10(results.flux * gain / exp_time)
+
+            signal_to_noise = results.snr
+
+            measures.append(results.e1)
+            s_n.append(signal_to_noise)
+            if bin_type == "MAG_ADAMOM":
+                magnitudes.append(mag_adamom)
+            else:
+                magnitudes.append(mag_auto[i])
+            x_pos.append(x_cen[i])
+            y_pos.append(y_cen[i])
+
 
     error_specific = bootstrap(measures, int(simulation['bootstrap_repetitions']))
 

@@ -290,7 +290,7 @@ for total_scene_count in range(total_scenes_per_shear):
     positions[total_scene_count] = np.vstack([flagship_cut["ra_gal"], flagship_cut["dec_gal"]])
 
     # Convert positions from WCS to image
-    canvas = fct.SimpleCanvas(ra_min, ra_max, dec_min, dec_max, pixel_scale)
+    canvas, wcs_astropy = fct.SimpleCanvas(ra_min, ra_max, dec_min, dec_max, pixel_scale)
     full_image = canvas.copy()
     wcs = full_image.wcs
 
