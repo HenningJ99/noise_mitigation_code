@@ -587,42 +587,36 @@ def worker(k, ellip_gal, psf, image_sampled_psf, config, argv, input_shear):
                                                    hsmparams=params)
                 timings[1].append(timeit.default_timer() - start)
 
-                if results.error_message == "":
-                    adamflux = results.moments_amp
-                    adamsigma = results.moments_sigma / ssamp_grid
-                    pixels = sub_gal_image.array.copy()
+                #if results.error_message == "":
+                adamflux = results.moments_amp
+                adamsigma = results.moments_sigma / ssamp_grid
+                pixels = sub_gal_image.array.copy()
 
-                    # Define the edge of the stamp to measure the sky background there
-                    edge = list(pixels[0]) + list([i[-1] for i in pixels[1:-1]]) + list(reversed(pixels[-1])) + \
-                           list(reversed([i[0] for i in pixels[1:-1]]))
+                # Define the edge of the stamp to measure the sky background there
+                edge = list(pixels[0]) + list([i[-1] for i in pixels[1:-1]]) + list(reversed(pixels[-1])) + \
+                       list(reversed([i[0] for i in pixels[1:-1]]))
 
-                    sigma_sky = 1.4826 * np.median(np.abs(edge - np.median(edge)))
+                sigma_sky = 1.4826 * np.median(np.abs(edge - np.median(edge)))
 
-                    signal_to_noise = adamflux * gain / np.sqrt(
-                        gain * adamflux + np.pi * (3 * adamsigma * np.sqrt(2 * np.log(2))) ** 2 * (
-                                gain * sigma_sky) ** 2)
+                signal_to_noise = adamflux * gain / np.sqrt(
+                    gain * adamflux + np.pi * (3 * adamsigma * np.sqrt(2 * np.log(2))) ** 2 * (
+                            gain * sigma_sky) ** 2)
 
-                    if not simulation.getboolean("sel_bias"):
-                        # Use this for a normal run
-                        meas_g1[iy][ix] = results.corrected_g1
-                        meas_g2[iy][ix] = results.corrected_g2
-                    else:
-                        # Use this for selection bias checks
-                        meas_g1[iy][ix] = input_shear[0] + g1
-                        meas_g2[iy][ix] = input_shear[1] + g2
-
-                    meas_SNR[iy][ix] = signal_to_noise
-                    gal_mag_inp = -2.5 * np.log10(gain / exp_time * ellip_gal.original.flux) + zp  # Input magnitude
-                    if adamflux > 0:
-                        meas_mag[iy][ix] = -2.5 * np.log10(gain / exp_time * adamflux) + zp  # Measured magnitude
-
-                    gal_hlr = ellip_gal.original.half_light_radius
-
+                if not simulation.getboolean("sel_bias"):
+                    # Use this for a normal run
+                    meas_g1[iy][ix] = results.corrected_g1
+                    meas_g2[iy][ix] = results.corrected_g2
                 else:
-                    fails[ix][iy] += 1
-                    if simulation.getboolean("selection"):
-                        meas_g1[iy].clear()
-                        meas_g2[iy].clear()
+                    # Use this for selection bias checks
+                    meas_g1[iy][ix] = input_shear[0] + g1
+                    meas_g2[iy][ix] = input_shear[1] + g2
+
+                meas_SNR[iy][ix] = signal_to_noise
+                gal_mag_inp = -2.5 * np.log10(gain / exp_time * ellip_gal.original.flux) + zp  # Input magnitude
+                if adamflux > 0:
+                    meas_mag[iy][ix] = -2.5 * np.log10(gain / exp_time * adamflux) + zp  # Measured magnitude
+
+                gal_hlr = ellip_gal.original.half_light_radius
 
 
             elif shear_meas == "LENSMC":
@@ -901,47 +895,42 @@ def one_galaxy(k, input_g1, ellip_gal, image_sampled_psf, psf, config, argv):
                 results = galsim.hsm.EstimateShear(subsampled_image, image_sampled_psf, shear_est="KSB", strict=False,
                                                    hsmparams=params)
 
-                if results.error_message == "":
-                    adamflux = results.moments_amp
-                    adamsigma = results.moments_sigma / ssamp_grid
+                adamflux = results.moments_amp
+                adamsigma = results.moments_sigma / ssamp_grid
 
-                    pixels = sub_gal_image.array.copy()
+                pixels = sub_gal_image.array.copy()
 
-                    edge = list(pixels[0]) + list([i[-1] for i in pixels[1:-1]]) + list(reversed(pixels[-1])) + \
-                           list(reversed([i[0] for i in pixels[1:-1]]))
+                edge = list(pixels[0]) + list([i[-1] for i in pixels[1:-1]]) + list(reversed(pixels[-1])) + \
+                       list(reversed([i[0] for i in pixels[1:-1]]))
 
-                    sigma_sky = 1.4826 * np.median(np.abs(edge - np.median(edge)))
+                sigma_sky = 1.4826 * np.median(np.abs(edge - np.median(edge)))
 
-                    if noise_type != "GAUSS":
+                if noise_type != "GAUSS":
 
-                        signal_to_noise = adamflux * gain / np.sqrt(
-                            gain * adamflux + np.pi * (3 * adamsigma * np.sqrt(2 * np.log(2))) ** 2 * (
-                                    gain * sigma_sky) ** 2)
+                    signal_to_noise = adamflux * gain / np.sqrt(
+                        gain * adamflux + np.pi * (3 * adamsigma * np.sqrt(2 * np.log(2))) ** 2 * (
+                                gain * sigma_sky) ** 2)
 
-                    elif noise_type == "GAUSS":
+                elif noise_type == "GAUSS":
 
-                        signal_to_noise = adamflux / np.sqrt(
-                            np.pi * (3 * adamsigma * np.sqrt(2 * np.log(2))) ** 2 * sigma_sky ** 2)
+                    signal_to_noise = adamflux / np.sqrt(
+                        np.pi * (3 * adamsigma * np.sqrt(2 * np.log(2))) ** 2 * sigma_sky ** 2)
 
-                    meas_g1[m * num_shears + i] = results.corrected_g1
-                    # if i == 0:
-                    #     meas[0][i] = results.corrected_g1
-                    # elif i == (num_shears - 1):
-                    #     meas[1][i - 1] = results.corrected_g1
-                    # else:
-                    #     meas[0][i] = results.corrected_g1
-                    #     meas[1][i - 1] = results.corrected_g1
-                    SNR[m * num_shears + i] = signal_to_noise
+                meas_g1[m * num_shears + i] = results.corrected_g1
+                # if i == 0:
+                #     meas[0][i] = results.corrected_g1
+                # elif i == (num_shears - 1):
+                #     meas[1][i - 1] = results.corrected_g1
+                # else:
+                #     meas[0][i] = results.corrected_g1
+                #     meas[1][i - 1] = results.corrected_g1
+                SNR[m * num_shears + i] = signal_to_noise
 
-                    if adamflux > 0:
-                        gal_mag_meas = -2.5 * np.log10(gain / exp_time * adamflux) + zp  # Measured magnitude
-                    else:
-                        gal_mag_meas = -1
-
+                if adamflux > 0:
+                    gal_mag_meas = -2.5 * np.log10(gain / exp_time * adamflux) + zp  # Measured magnitude
                 else:
-                    count += 1
-
                     gal_mag_meas = -1
+
 
             elif shear_meas == "LENSMC":
                 # Generate a simple WCS for testing
@@ -1452,28 +1441,27 @@ def one_scene_pujol(m, total_scene_count, gal, positions, argv, config, path, ps
         # Find S/N and estimated shear
         results = galsim.hsm.EstimateShear(subsampled_image, image_sampled_psf, shear_est="KSB", strict=False)
 
-        if results.error_message == "":
-            adamflux = results.moments_amp
-            adamsigma = results.moments_sigma / ssamp_grid
+        adamflux = results.moments_amp
+        adamsigma = results.moments_sigma / ssamp_grid
 
-            # pixels = sub_gal_image.array.copy()
-            mag_adamom = zp - 2.5 * np.log10(adamflux * gain / exp_time)
+        # pixels = sub_gal_image.array.copy()
+        mag_adamom = zp - 2.5 * np.log10(adamflux * gain / exp_time)
 
-            signal_to_noise = adamflux * gain / np.sqrt(
-                gain * adamflux + np.pi * (3 * adamsigma * np.sqrt(2 * np.log(2))) ** 2 * (
-                        gain * sigma_sky) ** 2)
+        signal_to_noise = adamflux * gain / np.sqrt(
+            gain * adamflux + np.pi * (3 * adamsigma * np.sqrt(2 * np.log(2))) ** 2 * (
+                    gain * sigma_sky) ** 2)
 
-            measures.append(results.corrected_g1)
-            x_pos.append(x_cen[i])
-            y_pos.append(y_cen[i])
+        measures.append(results.corrected_g1)
+        x_pos.append(x_cen[i])
+        y_pos.append(y_cen[i])
 
-            if bin_type == "MAG_ADAMOM":
-                magnitudes.append(mag_adamom)
-            else:
-                magnitudes.append(mag_auto[i])
+        if bin_type == "MAG_ADAMOM":
+            magnitudes.append(mag_adamom)
+        else:
+            magnitudes.append(mag_auto[i])
 
-            meas.append(results.corrected_g1)
-            S_N.append(signal_to_noise)
+        meas.append(results.corrected_g1)
+        S_N.append(signal_to_noise)
 
     return meas, np.dstack((x_pos, y_pos))[0], m, total_scene_count, magnitudes, S_N
 
@@ -1724,25 +1712,25 @@ def one_scene_lf(m, gal, gal2, positions, positions2, scene, argv, config, path,
         # Find S/N and estimated shear
         results = galsim.hsm.EstimateShear(subsampled_image, image_sampled_psf, shear_est="KSB", strict=False)
 
-        if results.error_message == "":
-            adamflux = results.moments_amp
-            adamsigma = results.moments_sigma / ssamp_grid
 
-            # pixels = sub_gal_image.array.copy()
-            mag_adamom = zp - 2.5 * np.log10(adamflux * gain / exp_time)
+        adamflux = results.moments_amp
+        adamsigma = results.moments_sigma / ssamp_grid
 
-            signal_to_noise = adamflux * gain / np.sqrt(
-                gain * adamflux + np.pi * (3 * adamsigma * np.sqrt(2 * np.log(2))) ** 2 * (
-                        gain * sigma_sky) ** 2)
+        # pixels = sub_gal_image.array.copy()
+        mag_adamom = zp - 2.5 * np.log10(adamflux * gain / exp_time)
 
-            measures.append(results.corrected_g1)
-            s_n.append(signal_to_noise)
-            if bin_type == "MAG_ADAMOM":
-                magnitudes.append(mag_adamom)
-            else:
-                magnitudes.append(mag_auto[i])
-            x_pos.append(x_cen[i])
-            y_pos.append(y_cen[i])
+        signal_to_noise = adamflux * gain / np.sqrt(
+            gain * adamflux + np.pi * (3 * adamsigma * np.sqrt(2 * np.log(2))) ** 2 * (
+                    gain * sigma_sky) ** 2)
+
+        measures.append(results.corrected_g1)
+        s_n.append(signal_to_noise)
+        if bin_type == "MAG_ADAMOM":
+            magnitudes.append(mag_adamom)
+        else:
+            magnitudes.append(mag_auto[i])
+        x_pos.append(x_cen[i])
+        y_pos.append(y_cen[i])
 
     error_specific = bootstrap(measures, int(simulation['bootstrap_repetitions']))
 
