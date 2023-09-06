@@ -442,22 +442,46 @@ while ids:
             min_deviation = np.argmin(np.abs(np.subtract(magnitudes_npn[gal], np.array(x[8])[filter][gal])))
             gems_magnitude_optimized = np.array(magnitudes_npn[gal])[min_deviation]
             matching_index = np.array(nearest_positional_neighbors[gal])[min_deviation]
-            columns.append(
-                [x[5], x[4], x[10], x[0], np.array(x[6])[filter][gal][0], np.array(x[6])[filter][gal][1],
-                 np.array(x[7])[filter][gal], np.array(x[8])[filter][gal],
-                 magnitudes_npn[gal][0], gems_magnitude_optimized, np.array(x[9])[filter][gal],
-                 nearest_positional_neighbors[gal][0], matching_index,
-                 0 if len(np.unique(nearest_positional_neighbors[gal])) == 1
-                 else 1 if (np.abs(magnitudes_npn[gal][0] - magnitudes_npn[gal][1]) > 2) and (
-                         len(np.unique(nearest_positional_neighbors[gal])) == 2)
-                 else 2])
+
+            if simulation.getboolean("source_extractor_morph"):
+                columns.append(
+                    [x[5], x[4], x[10], x[0], np.array(x[6])[filter][gal][0], np.array(x[6])[filter][gal][1],
+                     np.array(x[7])[filter][gal], np.array(x[8])[filter][gal],
+                     magnitudes_npn[gal][0], gems_magnitude_optimized, np.array(x[9])[filter][gal],
+                     nearest_positional_neighbors[gal][0], matching_index,
+                     0 if len(np.unique(nearest_positional_neighbors[gal])) == 1
+                     else 1 if (np.abs(magnitudes_npn[gal][0] - magnitudes_npn[gal][1]) > 2) and (
+                             len(np.unique(nearest_positional_neighbors[gal])) == 2)
+                     else 2, np.array(x[11])[filter][gal], np.array(x[12])[filter][gal], np.array(x[13])[filter][gal]])
+            else:
+                columns.append(
+                    [x[5], x[4], x[10], x[0], np.array(x[6])[filter][gal][0], np.array(x[6])[filter][gal][1],
+                     np.array(x[7])[filter][gal], np.array(x[8])[filter][gal],
+                     magnitudes_npn[gal][0], gems_magnitude_optimized, np.array(x[9])[filter][gal],
+                     nearest_positional_neighbors[gal][0], matching_index,
+                     0 if len(np.unique(nearest_positional_neighbors[gal])) == 1
+                     else 1 if (np.abs(magnitudes_npn[gal][0] - magnitudes_npn[gal][1]) > 2) and (
+                             len(np.unique(nearest_positional_neighbors[gal])) == 2)
+                     else 2])
+
 
     ids = not_ready
 
 columns = np.array(columns, dtype=float)
-shear_results = Table([columns[:, i] for i in range(14)], names=(
-    'scene_index', 'shear_index', 'cancel_index', 'input_g1', 'position_x', 'position_y', 'meas_g1', 'mag_auto',
-    'mag_gems', 'mag_gems_optimized', 'S/N', 'matching_index', 'matching_index_optimized', 'blending_flag'))
+
+if simulation.getboolean("source_extractor_morph"):
+    length = 17
+    shear_results = Table([columns[:, i] for i in range(length)], names=(
+        'scene_index', 'shear_index', 'cancel_index', 'input_g1', 'position_x', 'position_y', 'meas_g1', 'mag_auto',
+        'mag_gems', 'mag_gems_optimized', 'S/N', 'matching_index', 'matching_index_optimized', 'blending_flag',
+        'sersic_n',
+        'sersic_re', 'sersic_e'))
+else:
+    length = 14
+    shear_results = Table([columns[:, i] for i in range(length)], names=(
+        'scene_index', 'shear_index', 'cancel_index', 'input_g1', 'position_x', 'position_y', 'meas_g1', 'mag_auto',
+        'mag_gems', 'mag_gems_optimized', 'S/N', 'matching_index', 'matching_index_optimized', 'blending_flag'))
+
 
 now = datetime.datetime.now()
 
