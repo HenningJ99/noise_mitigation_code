@@ -1530,7 +1530,12 @@ def one_scene_pujol(m, total_scene_count, gal, positions, argv, config, path, ps
                                        (data[:, 8] > cut_size) & (data[:, 8] < complete_image_size - cut_size))]
 
         if gal_image.array.shape[0] % 2 != 0:
-            lens_mc_image = Image(gal_image.array[1:, 1:], wcs=wcs)
+            if gal_image.shape[1] % 2 != 0:
+                lens_mc_image = Image(gal_image.array[1:, 1:], wcs=wcs)
+            else:
+                lens_mc_image = Image(gal_image.array[1:, :], wcs=wcs)
+        elif gal_image.array.shape[1] % 2 != 0:
+            lens_mc_image = Image(gal_image.array[:, 1:], wcs=wcs)
         else:
             lens_mc_image = Image(gal_image.array, wcs=wcs)
         lens_mc_psf = PSF(image_sampled_psf.array)
@@ -1895,7 +1900,12 @@ def one_scene_lf(m, gal, gal2, positions, positions2, scene, argv, config, path,
                                        (data[:, 8] > cut_size) & (data[:, 8] < complete_image_size - cut_size))]
 
         if gal_image.array.shape[0] % 2 != 0:
-            lens_mc_image = Image(gal_image.array[1:, 1:], wcs=wcs)
+            if gal_image.shape[1] % 2 != 0:
+                lens_mc_image = Image(gal_image.array[1:, 1:], wcs=wcs)
+            else:
+                lens_mc_image = Image(gal_image.array[1:, :], wcs=wcs)
+        elif gal_image.array.shape[1] % 2 != 0:
+            lens_mc_image = Image(gal_image.array[:, 1:], wcs=wcs)
         else:
             lens_mc_image = Image(gal_image.array, wcs=wcs)
         lens_mc_psf = PSF(image_sampled_psf.array)
