@@ -598,9 +598,12 @@ def worker(k, ellip_gal, psf, image_sampled_psf, config, argv, input_shear):
 
                 sigma_sky = 1.4826 * np.median(np.abs(edge - np.median(edge)))
 
-                signal_to_noise = adamflux * gain / np.sqrt(
-                    gain * adamflux + np.pi * (3 * adamsigma * np.sqrt(2 * np.log(2))) ** 2 * (
-                            gain * sigma_sky) ** 2)
+                if results.corrected_g1 != -10:
+                    signal_to_noise = adamflux * gain / np.sqrt(
+                        gain * adamflux + np.pi * (3 * adamsigma * np.sqrt(2 * np.log(2))) ** 2 * (
+                                gain * sigma_sky) ** 2)
+                else:
+                    signal_to_noise = -1
 
                 if not simulation.getboolean("sel_bias"):
                     # Use this for a normal run
@@ -915,6 +918,9 @@ def one_galaxy(k, input_g1, ellip_gal, image_sampled_psf, psf, config, argv):
 
                     signal_to_noise = adamflux / np.sqrt(
                         np.pi * (3 * adamsigma * np.sqrt(2 * np.log(2))) ** 2 * sigma_sky ** 2)
+
+                if results.corrected_g1 == -10:
+                    signal_to_noise = -1
 
                 meas_g1[m * num_shears + i] = results.corrected_g1
                 # if i == 0:
@@ -1451,6 +1457,9 @@ def one_scene_pujol(m, total_scene_count, gal, positions, argv, config, path, ps
             gain * adamflux + np.pi * (3 * adamsigma * np.sqrt(2 * np.log(2))) ** 2 * (
                     gain * sigma_sky) ** 2)
 
+        if results.corrected_g1 == -10:
+            signal_to_noise = -1
+
         measures.append(results.corrected_g1)
         x_pos.append(x_cen[i])
         y_pos.append(y_cen[i])
@@ -1722,6 +1731,9 @@ def one_scene_lf(m, gal, gal2, positions, positions2, scene, argv, config, path,
         signal_to_noise = adamflux * gain / np.sqrt(
             gain * adamflux + np.pi * (3 * adamsigma * np.sqrt(2 * np.log(2))) ** 2 * (
                     gain * sigma_sky) ** 2)
+
+        if results.corrected_g1 == -10:
+            signal_to_noise = -1
 
         measures.append(results.corrected_g1)
         s_n.append(signal_to_noise)
