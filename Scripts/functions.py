@@ -1368,6 +1368,28 @@ def one_scene_pujol(m, total_scene_count, gal, positions, argv, config, path, ps
     # Write the image to the output directory
     image_none.write(path + f"output/FITS{index_fits}/catalog_none_pujol_{total_scene_count}_{m}.fits")
 
+    n_stars = 30
+    positions = complete_image_size * np.random.random_sample((n_stars, 2))
+
+    with open(path + f"output/source_extractor/star_positions_{total_scene_count}_{m}.txt",
+              "w") as file:
+        for i in range(n_stars):
+            file.write("%.4f %.4f\n" % (positions[i][0], positions[i][1]))
+
+    for i in range(n_stars):
+        try:
+            psf_stamp = psf.withFlux(exp_time / gain * 10 ** (-0.4 * (np.random.random() * 3 + 21 - zp))).drawImage(
+                center=positions[i], nx=64, ny=64, scale=pixel_scale)
+        except GalSimFFTSizeError:
+            return -1
+
+        psf_stamp = galsim.Image(np.abs(psf_stamp.array.copy()),
+                                 bounds=psf_stamp.bounds)  # Avoid slightly negative values after FFT
+
+        bounds = psf_stamp.bounds & image.bounds
+
+        image[bounds] += psf_stamp[bounds]
+
     # --------------------------------- SOURCE EXTRACTOR --------------------------------------------------------------
 
     IMAGE_DIRECTORY_NONE = path + f"output/FITS{index_fits}/catalog_none_pujol_{total_scene_count}_{m}.fits"
@@ -1377,15 +1399,29 @@ def one_scene_pujol(m, total_scene_count, gal, positions, argv, config, path, ps
         """Construct a sextractor command and run it."""
         # creates a sextractor line e.g sex img.fits -catalog_name -checkimage_name
         os.chdir(SOURCE_EXTRACTOR_DIR)
-        if "vol" in path:
-            com = "sextractor " + image + " -c " + SOURCE_EXTRACTOR_DIR + "/default.sex" + " -CATALOG_NAME " + output
-            # print(com)
-            res = os.system(com)
+
+        if simulation.getboolean("source_extractor_morph"):
+            com = "source-extractor " + image + " -c " + "default_mysims.sex" + \
+                  " -CATALOG_NAME " + f"{output.split('.cat')[-2]}.fits" + " -ASSOC_NAME " + SOURCE_EXTRACTOR_DIR + f"/star_positions_{total_scene_count}_{m}.txt -CATALOG_TYPE FITS_LDAC -PARAMETERS_NAME mysims_psf_final.param"
+            os.system(com)
+
+            com = "psfex " + f"{output.split('.cat')[-2]}.fits" + " -c default.psfex -XML_NAME psfex_PSF_UDF.xml"
+            os.system(com)
+
+            com = "source-extractor -c default_mysims.sex " + image + " -CATALOG_NAME " + output + " -PARAMETERS_NAME sersic.param -PSF_NAME " + f"{output.split('.cat')[-2]}.psf -CATALOG_TYPE ASCII"
+
+            os.system(com)
+
+            os.system(f"rm star_positions_{total_scene_count}_{m}.txt")
+
         else:
             com = "source-extractor " + image + " -c " + SOURCE_EXTRACTOR_DIR + "/default.sex" + \
                   " -CATALOG_NAME " + output
-            # print(com)
-            res = os.system(com)
+
+            os.system(f"rm star_positions_{total_scene_count}_{m}.txt")
+
+        res = os.system(com)
+
         return res
 
     sex(IMAGE_DIRECTORY_NONE, SOURCE_EXTRACTOR_DIR + f"/{index_fits}/none_pujol_{total_scene_count}_{m}.cat")
@@ -1419,6 +1455,21 @@ def one_scene_pujol(m, total_scene_count, gal, positions, argv, config, path, ps
     mag_auto = data[:, 1][
         np.where((data[:, 7] > cut_size) & (data[:, 7] < complete_image_size - cut_size) & (data[:, 8] > cut_size) & (
                 data[:, 8] < complete_image_size - cut_size))]
+
+    if simulation.getboolean("source_extractor_morph"):
+        sersic_index = data[:, 14][np.where((data[:, 7] > cut_size) & (data[:, 7] < complete_image_size - cut_size) &
+                                            (data[:, 8] > cut_size) & (data[:, 8] < complete_image_size - cut_size))]
+
+        effective_radius = data[:, 16][np.where((data[:, 7] > cut_size) & (data[:, 7] < complete_image_size - cut_size) &
+                                                (data[:, 8] > cut_size) & (data[:, 8] < complete_image_size - cut_size))]
+
+        ellipticity_sextractor = np.sqrt(
+            data[:, 18][np.where((data[:, 7] > cut_size) & (data[:, 7] < complete_image_size - cut_size) &
+                                 (data[:, 8] > cut_size) & (data[:, 8] < complete_image_size - cut_size))] ** 2 +
+            data[:, 20][
+                np.where((data[:, 7] > cut_size) & (data[:, 7] < complete_image_size - cut_size) &
+                         (data[:, 8] > cut_size) & (data[:, 8] < complete_image_size - cut_size))] ** 2)
+
 
     measures = []
     images = []
@@ -1508,7 +1559,12 @@ def one_scene_pujol(m, total_scene_count, gal, positions, argv, config, path, ps
             meas.append(results.e1)
             S_N.append(signal_to_noise)
 
-    return meas, np.dstack((x_pos, y_pos))[0], m, total_scene_count, magnitudes, S_N
+    if simulation.getboolean("source_extractor_morph"):
+        return meas, np.dstack((x_pos, y_pos))[0], m, total_scene_count, magnitudes, S_N, sersic_index, effective_radius, ellipticity_sextractor
+    else:
+        return meas, np.dstack((x_pos, y_pos))[
+            0], m, total_scene_count, magnitudes, S_N
+
 
 
 def SimpleCanvas(RA_min, RA_max, DEC_min, DEC_max, pixel_scale, edge_sep=1.5, rotate=False):
