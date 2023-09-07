@@ -220,6 +220,7 @@ else:
 
 input_positions = []
 input_magnitudes = []
+input_redshifts = []
 
 columns = []
 # ------- DETERMINATION OF SKY BACKGROUND FOR THEORETICAL S/N ------------------------------------------------------#
@@ -302,6 +303,7 @@ for total_scene_count in range(total_scenes_per_shear):
     input_shears = []
 
     magnitudes = []
+    redshifts = []
     for i in range(len(positions[total_scene_count])):
 
 
@@ -313,6 +315,7 @@ for total_scene_count in range(total_scenes_per_shear):
 
         gal_list[total_scene_count].append(res[0])
         magnitudes.append(res[2])
+        redshifts.append(flagship_cut["observed_redshift_gal"][i])
         theo_sn = res[1]
 
         input_shears.append(galsim.Shear(g=ellips, beta=betas).g1)
@@ -322,11 +325,13 @@ for total_scene_count in range(total_scenes_per_shear):
              -2.5 * np.log10(flagship_cut["euclid_vis"][i]) - 48.6 , ellips,
              betas / galsim.radians,
              flagship_cut["bulge_nsersic"][i],
-             flagship_cut["bulge_r50"][i], theo_sn])
+             flagship_cut["bulge_r50"][i], flagship_cut["disk_nsersic"][i], flagship_cut["disk_r50"][i],
+             flagship_cut["bulge_fraction"][i], flagship_cut["observed_redshift_gal"][i], theo_sn])
 
     print(np.average(input_shears))
 
     input_magnitudes.append(magnitudes)
+    input_redshifts.append(redshifts)
 
     grid_counter += 1
 
@@ -346,8 +351,9 @@ matching = []
 magnitudes = []
 
 columns = np.array(columns, dtype=float)
-input_catalog = Table([columns[:, i] for i in range(9)],
-                      names=('scene_index', 'position_x', 'position_y', 'mag', 'e', 'beta', 'n', 'hlr', 's/n'))
+input_catalog = Table([columns[:, i] for i in range(13)],
+                      names=('scene_index', 'position_x', 'position_y', 'mag', 'e', 'beta', 'bulge_n', 'bulge_hlr',
+                             'disk_n', 'disk_hlr', 'bulge_fraction', 'z_obs', 's/n'))
 
 columns = []
 while ids:
@@ -376,6 +382,7 @@ while ids:
             f"No neighbour within {MAX_DIST} px found for {len(results[0][0]) - len(nearest_positional_neighbors)} galaxies in scene {results[0][3]} at shear {results[0][2]}!")
 
     magnitudes_npn = np.array(input_magnitudes[results[0][3]])[nearest_positional_neighbors]
+    redshifts_npn = np.array(input_redshifts[results[0][3]])[nearest_positional_neighbors]
 
     for m in range(len(np.array(results[0][0])[filter])):
         min_deviation = np.argmin(np.abs(np.subtract(magnitudes_npn[m], np.array(results[0][4])[filter][m])))
@@ -391,7 +398,8 @@ while ids:
                  0 if len(np.unique(nearest_positional_neighbors[m])) == 1
                  else 1 if (np.abs(magnitudes_npn[m][0] - magnitudes_npn[m][1]) > 2) and (
                              len(np.unique(nearest_positional_neighbors[m])) == 2)
-                 else 2, np.array(results[0][6])[filter][m], np.array(results[0][7])[filter][m], np.array(results[0][8])[filter][m]])
+                 else 2, np.array(results[0][6])[filter][m], np.array(results[0][7])[filter][m],
+                 np.array(results[0][8])[filter][m], redshifts_npn[m][0], np.array(results[0][9])[filter][m]])
         else:
             columns.append(
                 [results[0][3], results[0][2], np.array(results[0][0])[filter][m],
@@ -403,7 +411,7 @@ while ids:
                  0 if len(np.unique(nearest_positional_neighbors[m])) == 1
                  else 1 if (np.abs(magnitudes_npn[m][0] - magnitudes_npn[m][1]) > 2) and (
                          len(np.unique(nearest_positional_neighbors[m])) == 2)
-                 else 2])
+                 else 2, redshifts_npn[m][0]])
 
 
     ids = not_ready
@@ -411,15 +419,15 @@ while ids:
 columns = np.array(columns, dtype=float)
 
 if simulation.getboolean("source_extractor_morph"):
-    shear_results = Table([columns[:, i] for i in range(15)],
+    shear_results = Table([columns[:, i] for i in range(17)],
                           names=('scene_index', 'shear_index', 'meas_g1', 'position_x', 'position_y', 'mag_auto',
                                  'mag_gems', 'mag_gems_optimized', 'S/N', 'matching_index', 'matching_index_optimized',
-                                 'blending_flag', 'sersic_n', 'sersic_re', 'sersic_e'))
+                                 'blending_flag', 'sersic_n', 'sersic_re', 'sersic_e', 'matched_z', 'class_star'))
 else:
-    shear_results = Table([columns[:, i] for i in range(12)],
+    shear_results = Table([columns[:, i] for i in range(13)],
                           names=('scene_index', 'shear_index', 'meas_g1', 'position_x', 'position_y', 'mag_auto',
                                  'mag_gems', 'mag_gems_optimized', 'S/N', 'matching_index', 'matching_index_optimized',
-                                 'blending_flag', 'sersic_n', 'sersic_re', 'sersic_e'))
+                                 'blending_flag', 'matched_z'))
 
 now = datetime.datetime.now()
 

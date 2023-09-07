@@ -197,6 +197,7 @@ input_positions = []
 input_positions_2 = []
 
 input_magnitudes = []
+input_redshifts = []
 
 time = 0
 
@@ -258,6 +259,7 @@ for scene in range(total_scenes_per_shear):
         count = 0
 
         magnitudes = []
+        redshifts = []
 
         ra_min = grid_x[grid_counter]
         ra_max = ra_min + angular_size
@@ -307,6 +309,7 @@ for scene in range(total_scenes_per_shear):
 
             gal_list[scene * shear_bins + m].append(res[0])
             magnitudes.append(res[2])
+            redshifts.append(flagship_cut["observed_redshift_gal"][i])
             theo_sn = res[1]
 
             if sys.argv[5] == "RANDOM_GAL":
@@ -317,10 +320,12 @@ for scene in range(total_scenes_per_shear):
 
                 gal_list2[scene * shear_bins + m].append(res[0])
                 magnitudes.append(res[2])
+                redshifts.append(flagship_cut["observed_redshift_gal"][index2])
                 theo_sn2 = res[1]
 
             else:
                 magnitudes.append(res[2])
+                redshifts.append(flagship_cut["observed_redshift_gal"][i])
                 index2 = i
                 theo_sn2 = theo_sn
 
@@ -333,32 +338,38 @@ for scene in range(total_scenes_per_shear):
                                         -2.5 * np.log10(flagship_cut["euclid_vis"][index2]) - 48.6, ellips,
                                         (betas + math.pi / 2 * galsim.radians) / galsim.radians,
                                         flagship_cut["bulge_nsersic"][index2],
-                                        flagship_cut["bulge_r50"][index2], theo_sn2])
+                                        flagship_cut["bulge_r50"][index2], flagship_cut["disk_nsersic"][index2],
+                                        flagship_cut["disk_r50"][index2], flagship_cut["bulge_fraction"][index2],
+                                        flagship_cut["observed_redshift_gal"][index2], theo_sn2])
                     else:
                         columns.append([scene, m, k, positions_2[scene * shear_bins + m][i, 0],
                                         positions_2[scene * shear_bins + m][i, 1],
                                         -2.5 * np.log10(flagship_cut["euclid_vis"][index2]) - 48.6, ellips,
                                         (betas + math.pi / 2 * galsim.radians) / galsim.radians,
                                         flagship_cut["bulge_nsersic"][index2],
-                                        flagship_cut["bulge_r50"][index2], theo_sn2])
+                                        flagship_cut["bulge_r50"][index2], flagship_cut["disk_nsersic"][index2],
+                                        flagship_cut["disk_r50"][index2], flagship_cut["bulge_fraction"][index2],
+                                        flagship_cut["observed_redshift_gal"][index2], theo_sn2])
                 else:
                     columns.append(
                         [scene, m, k, positions[scene * shear_bins + m][i, 0], positions[scene * shear_bins + m][i, 1],
                          -2.5 * np.log10(flagship_cut["euclid_vis"][i]) - 48.6, ellips,
                          betas / galsim.radians,
                          flagship_cut["bulge_nsersic"][i],
-                         flagship_cut["bulge_r50"][i], theo_sn])
+                         flagship_cut["bulge_r50"][i], flagship_cut["disk_nsersic"][i], flagship_cut["disk_r50"][i],
+                         flagship_cut["bulge_fraction"][i], flagship_cut["observed_redshift_gal"][i], theo_sn])
 
         if sys.argv[5] != "RANDOM_GAL":
             gal_list2[scene * shear_bins + m] = gal_list[scene * shear_bins + m]
 
         input_magnitudes.append(magnitudes)
+        input_redshifts.append(redshifts)
         grid_counter += 1
 
 columns = np.array(columns, dtype=float)
 
-input_catalog = Table([columns[:, i] for i in range(11)], names=(
-    'scene_index', 'shear_index', 'cancel_index', 'position_x', 'position_y', 'mag', 'e', 'beta', 'n', 'hlr', 's/n'))
+input_catalog = Table([columns[:, i] for i in range(15)], names=(
+    'scene_index', 'shear_index', 'cancel_index', 'position_x', 'position_y', 'mag', 'e', 'beta', 'bulge_n', 'bulge_hlr', 'disk_n', 'disk_hlr', 'bulge_fraction', 'z_obs', 's/n'))
 # -------------------------- DISTRIBUTE WORK TO RAY -------------------------------------------------------------------
 ids = []
 rng = galsim.UniformDeviate()
@@ -434,8 +445,12 @@ while ids:
         if x[10] % 2 != 0:
             magnitudes_npn = np.array(input_magnitudes[x[5] * shear_bins + x[4]][1::2])[
                 nearest_positional_neighbors]
+            redshifts_npn = np.array(input_redshifts[x[5] * shear_bins + x[4]][1::2])[
+                nearest_positional_neighbors]
         else:
             magnitudes_npn = np.array(input_magnitudes[x[5] * shear_bins + x[4]][::2])[
+                nearest_positional_neighbors]
+            redshifts_npn = np.array(input_redshifts[x[5] * shear_bins + x[4]][::2])[
                 nearest_positional_neighbors]
 
         for gal in range(len(np.array(x[6])[filter])):
@@ -452,7 +467,8 @@ while ids:
                      0 if len(np.unique(nearest_positional_neighbors[gal])) == 1
                      else 1 if (np.abs(magnitudes_npn[gal][0] - magnitudes_npn[gal][1]) > 2) and (
                              len(np.unique(nearest_positional_neighbors[gal])) == 2)
-                     else 2, np.array(x[11])[filter][gal], np.array(x[12])[filter][gal], np.array(x[13])[filter][gal]])
+                     else 2, np.array(x[11])[filter][gal], np.array(x[12])[filter][gal], np.array(x[13])[filter][gal],
+                     redshifts_npn[gal][0], np.array(x[14])[filter][gal]])
             else:
                 columns.append(
                     [x[5], x[4], x[10], x[0], np.array(x[6])[filter][gal][0], np.array(x[6])[filter][gal][1],
@@ -462,7 +478,7 @@ while ids:
                      0 if len(np.unique(nearest_positional_neighbors[gal])) == 1
                      else 1 if (np.abs(magnitudes_npn[gal][0] - magnitudes_npn[gal][1]) > 2) and (
                              len(np.unique(nearest_positional_neighbors[gal])) == 2)
-                     else 2])
+                     else 2, redshifts_npn[gal][0]])
 
 
     ids = not_ready
@@ -470,17 +486,17 @@ while ids:
 columns = np.array(columns, dtype=float)
 
 if simulation.getboolean("source_extractor_morph"):
-    length = 17
+    length = 19
     shear_results = Table([columns[:, i] for i in range(length)], names=(
         'scene_index', 'shear_index', 'cancel_index', 'input_g1', 'position_x', 'position_y', 'meas_g1', 'mag_auto',
         'mag_gems', 'mag_gems_optimized', 'S/N', 'matching_index', 'matching_index_optimized', 'blending_flag',
         'sersic_n',
-        'sersic_re', 'sersic_e'))
+        'sersic_re', 'sersic_e', 'matched_z', 'class_star'))
 else:
-    length = 14
+    length = 15
     shear_results = Table([columns[:, i] for i in range(length)], names=(
         'scene_index', 'shear_index', 'cancel_index', 'input_g1', 'position_x', 'position_y', 'meas_g1', 'mag_auto',
-        'mag_gems', 'mag_gems_optimized', 'S/N', 'matching_index', 'matching_index_optimized', 'blending_flag'))
+        'mag_gems', 'mag_gems_optimized', 'S/N', 'matching_index', 'matching_index_optimized', 'blending_flag', 'matched_z'))
 
 
 now = datetime.datetime.now()

@@ -1361,27 +1361,29 @@ def one_scene_pujol(m, total_scene_count, gal, positions, argv, config, path, ps
         # Add this to the corresponding location in the large image.
         image_none[bounds] += stamps[i][bounds]
 
-    n_stars = 30
-    positions = complete_image_size * np.random.random_sample((n_stars, 2))
+    if simulation.getboolean("source_extractor_morph"):
+        # Add stars
+        n_stars = 30
+        positions = complete_image_size * np.random.random_sample((n_stars, 2))
 
-    with open(path + f"output/source_extractor/star_positions_{total_scene_count}_{m}.txt",
-              "w") as file:
+        with open(path + f"output/source_extractor/star_positions_{total_scene_count}_{m}.txt",
+                  "w") as file:
+            for i in range(n_stars):
+                file.write("%.4f %.4f\n" % (positions[i][0], positions[i][1]))
+
         for i in range(n_stars):
-            file.write("%.4f %.4f\n" % (positions[i][0], positions[i][1]))
+            try:
+                psf_stamp = psf.withFlux(exp_time / gain * 10 ** (-0.4 * (np.random.random() * 3 + 21 - zp))).drawImage(
+                    center=positions[i], nx=64, ny=64, scale=pixel_scale)
+            except GalSimFFTSizeError:
+                return -1
 
-    for i in range(n_stars):
-        try:
-            psf_stamp = psf.withFlux(exp_time / gain * 10 ** (-0.4 * (np.random.random() * 3 + 21 - zp))).drawImage(
-                center=positions[i], nx=64, ny=64, scale=pixel_scale)
-        except GalSimFFTSizeError:
-            return -1
+            psf_stamp = galsim.Image(np.abs(psf_stamp.array.copy()),
+                                     bounds=psf_stamp.bounds)  # Avoid slightly negative values after FFT
 
-        psf_stamp = galsim.Image(np.abs(psf_stamp.array.copy()),
-                                 bounds=psf_stamp.bounds)  # Avoid slightly negative values after FFT
+            bounds = psf_stamp.bounds & image_none.bounds
 
-        bounds = psf_stamp.bounds & image_none.bounds
-
-        image_none[bounds] += psf_stamp[bounds]
+            image_none[bounds] += psf_stamp[bounds]
 
     # Ensure the same seed for the versions belonging to one run
     rng = galsim.UniformDeviate(random_seed + 1 + 2 * total_scene_count)
@@ -1466,9 +1468,12 @@ def one_scene_pujol(m, total_scene_count, gal, positions, argv, config, path, ps
         ellipticity_sextractor = np.sqrt(
             data[:, 18][np.where((data[:, 7] > cut_size) & (data[:, 7] < complete_image_size - cut_size) &
                                  (data[:, 8] > cut_size) & (data[:, 8] < complete_image_size - cut_size))] ** 2 +
-            data[:, 20][
+            data[:, 19][
                 np.where((data[:, 7] > cut_size) & (data[:, 7] < complete_image_size - cut_size) &
                          (data[:, 8] > cut_size) & (data[:, 8] < complete_image_size - cut_size))] ** 2)
+
+        class_star = data[:, 25][np.where((data[:, 7] > cut_size) & (data[:, 7] < complete_image_size - cut_size) &
+                                            (data[:, 8] > cut_size) & (data[:, 8] < complete_image_size - cut_size))]
 
 
     measures = []
@@ -1565,7 +1570,7 @@ def one_scene_pujol(m, total_scene_count, gal, positions, argv, config, path, ps
             S_N.append(signal_to_noise)
 
     if simulation.getboolean("source_extractor_morph"):
-        return meas, np.dstack((x_pos, y_pos))[0], m, total_scene_count, magnitudes, S_N, sersic_index, effective_radius, ellipticity_sextractor
+        return meas, np.dstack((x_pos, y_pos))[0], m, total_scene_count, magnitudes, S_N, sersic_index, effective_radius, ellipticity_sextractor, class_star
     else:
         return meas, np.dstack((x_pos, y_pos))[
             0], m, total_scene_count, magnitudes, S_N
@@ -1735,27 +1740,29 @@ def one_scene_lf(m, gal, gal2, positions, positions2, scene, argv, config, path,
     image, wcs = SimpleCanvas(ra_min, ra_max, dec_min, dec_max, pixel_scale,
                               rotate=True if index % 2 != 0 and argv[5] == "True" else False)
 
-    n_stars = 30
-    positions = complete_image_size * np.random.random_sample((n_stars, 2))
+    if simulation.getboolean("source_extractor_morph"):
+        # Add stars
+        n_stars = 30
+        positions = complete_image_size * np.random.random_sample((n_stars, 2))
 
-    with open(path + f"output/source_extractor/star_positions_{scene}_{m}_{index}.txt",
-              "w") as file:
+        with open(path + f"output/source_extractor/star_positions_{scene}_{m}_{index}.txt",
+                  "w") as file:
+            for i in range(n_stars):
+                file.write("%.4f %.4f\n" % (positions[i][0], positions[i][1]))
+
         for i in range(n_stars):
-            file.write("%.4f %.4f\n" % (positions[i][0], positions[i][1]))
+            try:
+                psf_stamp = psf.withFlux(exp_time / gain * 10 ** (-0.4 * (np.random.random() * 3 + 21 - zp))).drawImage(
+                    center=positions[i], nx=64, ny=64, scale=pixel_scale)
+            except GalSimFFTSizeError:
+                return -1
 
-    for i in range(n_stars):
-        try:
-            psf_stamp = psf.withFlux(exp_time / gain * 10 ** (-0.4 * (np.random.random() * 3 + 21 - zp))).drawImage(
-                center=positions[i], nx=64, ny=64, scale=pixel_scale)
-        except GalSimFFTSizeError:
-            return -1
+            psf_stamp = galsim.Image(np.abs(psf_stamp.array.copy()),
+                                     bounds=psf_stamp.bounds)  # Avoid slightly negative values after FFT
 
-        psf_stamp = galsim.Image(np.abs(psf_stamp.array.copy()),
-                                 bounds=psf_stamp.bounds)  # Avoid slightly negative values after FFT
+            bounds = psf_stamp.bounds & image.bounds
 
-        bounds = psf_stamp.bounds & image.bounds
-
-        image[bounds] += psf_stamp[bounds]
+            image[bounds] += psf_stamp[bounds]
 
     SOURCE_EXTRACTOR_DIR = path + "output/source_extractor"
 
@@ -1843,9 +1850,12 @@ def one_scene_lf(m, gal, gal2, positions, positions2, scene, argv, config, path,
         ellipticity_sextractor = np.sqrt(
             data[:, 18][np.where((data[:, 7] > cut_size) & (data[:, 7] < complete_image_size - cut_size) &
                                  (data[:, 8] > cut_size) & (data[:, 8] < complete_image_size - cut_size))] ** 2 +
-            data[:, 20][
+            data[:, 19][
                 np.where((data[:, 7] > cut_size) & (data[:, 7] < complete_image_size - cut_size) &
                          (data[:, 8] > cut_size) & (data[:, 8] < complete_image_size - cut_size))] ** 2)
+
+        class_star = data[:, 25][np.where((data[:, 7] > cut_size) & (data[:, 7] < complete_image_size - cut_size) &
+                                            (data[:, 8] > cut_size) & (data[:, 8] < complete_image_size - cut_size))]
 
 
     measures = []
@@ -1937,7 +1947,7 @@ def one_scene_lf(m, gal, gal2, positions, positions2, scene, argv, config, path,
     if simulation.getboolean("source_extractor_morph"):
         measurements.append(
             [g1, np.average(measures), error_specific, len(measures), m, scene, np.dstack((x_pos, y_pos))[0],
-             measures, magnitudes, s_n, index, sersic_index, effective_radius, ellipticity_sextractor])
+             measures, magnitudes, s_n, index, sersic_index, effective_radius, ellipticity_sextractor, class_star])
     else:
         measurements.append(
             [g1, np.average(measures), error_specific, len(measures), m, scene, np.dstack((x_pos, y_pos))[0],
