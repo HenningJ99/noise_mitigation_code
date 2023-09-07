@@ -1361,13 +1361,6 @@ def one_scene_pujol(m, total_scene_count, gal, positions, argv, config, path, ps
         # Add this to the corresponding location in the large image.
         image_none[bounds] += stamps[i][bounds]
 
-    # Ensure the same seed for the versions belonging to one run
-    rng = galsim.UniformDeviate(random_seed + 1 + 2 * total_scene_count)
-    image_none.addNoise(galsim.noise.CCDNoiseHenning(rng, gain=gain, read_noise=read_noise, sky_level=sky_level))
-
-    # Write the image to the output directory
-    image_none.write(path + f"output/FITS{index_fits}/catalog_none_pujol_{total_scene_count}_{m}.fits")
-
     n_stars = 30
     positions = complete_image_size * np.random.random_sample((n_stars, 2))
 
@@ -1389,6 +1382,13 @@ def one_scene_pujol(m, total_scene_count, gal, positions, argv, config, path, ps
         bounds = psf_stamp.bounds & image_none.bounds
 
         image_none[bounds] += psf_stamp[bounds]
+
+    # Ensure the same seed for the versions belonging to one run
+    rng = galsim.UniformDeviate(random_seed + 1 + 2 * total_scene_count)
+    image_none.addNoise(galsim.noise.CCDNoiseHenning(rng, gain=gain, read_noise=read_noise, sky_level=sky_level))
+
+    # Write the image to the output directory
+    image_none.write(path + f"output/FITS{index_fits}/catalog_none_pujol_{total_scene_count}_{m}.fits")
 
     # --------------------------------- SOURCE EXTRACTOR --------------------------------------------------------------
 
