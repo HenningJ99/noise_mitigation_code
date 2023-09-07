@@ -1420,7 +1420,6 @@ def one_scene_pujol(m, total_scene_count, gal, positions, argv, config, path, ps
             com = "source-extractor " + image + " -c " + SOURCE_EXTRACTOR_DIR + "/default.sex" + \
                   " -CATALOG_NAME " + output
 
-            os.system(f"rm star_positions_{total_scene_count}_{m}.txt")
 
         res = os.system(com)
 
@@ -1792,7 +1791,6 @@ def one_scene_lf(m, gal, gal2, positions, positions2, scene, argv, config, path,
             com = "source-extractor " + image + " -c " + SOURCE_EXTRACTOR_DIR + "/default.sex" + \
                   " -CATALOG_NAME " + output
 
-            os.system(f"rm star_positions_{scene}_{m}_{index}.txt")
 
         res = os.system(com)
 
