@@ -1433,14 +1433,17 @@ def one_scene_pujol(m, total_scene_count, gal, positions, argv, config, path, ps
     x_pos = []
     y_pos = []
 
-    # Filter the PSF with a top hat at pixel scale
-    filter_function = galsim.Pixel(scale=pixel_scale)
+    if simulation["shear_meas"] == "KSB":
+        # Filter the PSF with a top hat at pixel scale
+        filter_function = galsim.Pixel(scale=pixel_scale)
 
-    psf_1 = galsim.Convolve([psf, filter_function])
+        psf_1 = galsim.Convolve([psf, filter_function])
 
-    # Draw the convolution on a finer pixel grid for KSB
-    image_sampled_psf = psf_1.drawImage(nx=ssamp_grid * stamp_xsize, ny=ssamp_grid * stamp_ysize,
-                                        scale=1.0 / ssamp_grid * pixel_scale, method='no_pixel')
+        # Draw the convolution on a finer pixel grid for KSB
+        image_sampled_psf = psf_1.drawImage(nx=ssamp_grid * stamp_xsize, ny=ssamp_grid * stamp_ysize,
+                                            scale=1.0 / ssamp_grid * pixel_scale, method='no_pixel')
+    else:
+        image_sampled_psf = psf.drawImage(nx=stamp_xsize, ny=stamp_ysize, scale=pixel_scale)
 
     # ----------------- ANALYSE THE CATALOGS --------------------------------------------------------------------------
     gal_image = galsim.fits.read(path + f"output/FITS{index_fits}/catalog_none_pujol_{total_scene_count}_{m}.fits")
@@ -1815,14 +1818,18 @@ def one_scene_lf(m, gal, gal2, positions, positions2, scene, argv, config, path,
 
     g1 = shear_min + m * (shear_max - shear_min) / (shear_bins - 1)
 
-    # Filter the PSF with a top hat at pixel scale
-    filter_function = galsim.Pixel(scale=pixel_scale)
+    if simulation["shear_meas"] == "KSB":
 
-    psf_1 = galsim.Convolve([psf, filter_function])
+        # Filter the PSF with a top hat at pixel scale
+        filter_function = galsim.Pixel(scale=pixel_scale)
 
-    # Draw the convolution on a finer pixel grid for KSB
-    image_sampled_psf = psf_1.drawImage(nx=ssamp_grid * stamp_xsize, ny=ssamp_grid * stamp_ysize,
-                                        scale=1.0 / ssamp_grid * pixel_scale, method='no_pixel')
+        psf_1 = galsim.Convolve([psf, filter_function])
+
+        # Draw the convolution on a finer pixel grid for KSB
+        image_sampled_psf = psf_1.drawImage(nx=ssamp_grid * stamp_xsize, ny=ssamp_grid * stamp_ysize,
+                                            scale=1.0 / ssamp_grid * pixel_scale, method='no_pixel')
+    else:
+        image_sampled_psf = psf.drawImage(nx=stamp_xsize, ny=stamp_ysize, scale=pixel_scale)
 
     measurements = []
 
