@@ -290,6 +290,11 @@ for scene in range(total_scenes_per_shear):
                                      units=galsim.degrees)
         positions[scene * shear_bins + m] = np.vstack([x_gals, y_gals]).T
 
+        if sys.argv[5] == "True":
+            canvas, wcs_astropy = fct.SimpleCanvas(ra_min, ra_max, dec_min, dec_max, pixel_scale, rotate=True)
+            full_image = canvas.copy()
+            wcs = full_image.wcs
+
         x_gals, y_gals = wcs.toImage(positions_2[scene * shear_bins + m][0], positions_2[scene * shear_bins + m][1],
                                      units=galsim.degrees)
         positions_2[scene * shear_bins + m] = np.vstack([x_gals, y_gals]).T
@@ -332,24 +337,14 @@ for scene in range(total_scenes_per_shear):
             for k in range(4):
 
                 if k % 2 != 0:
-                    if sys.argv[5] == "True":
-                        columns.append([scene, m, k, positions[scene * shear_bins + m][i, 0],
-                                        complete_image_size - positions[scene * shear_bins + m][i, 1],
-                                        -2.5 * np.log10(flagship_cut["euclid_vis"][index2]) - 48.6, ellips,
-                                        (betas + math.pi / 2 * galsim.radians) / galsim.radians,
-                                        flagship_cut["bulge_nsersic"][index2],
-                                        flagship_cut["bulge_r50"][index2], flagship_cut["disk_nsersic"][index2],
-                                        flagship_cut["disk_r50"][index2], flagship_cut["bulge_fraction"][index2],
-                                        flagship_cut["observed_redshift_gal"][index2], theo_sn2])
-                    else:
-                        columns.append([scene, m, k, positions_2[scene * shear_bins + m][i, 0],
-                                        positions_2[scene * shear_bins + m][i, 1],
-                                        -2.5 * np.log10(flagship_cut["euclid_vis"][index2]) - 48.6, ellips,
-                                        (betas + math.pi / 2 * galsim.radians) / galsim.radians,
-                                        flagship_cut["bulge_nsersic"][index2],
-                                        flagship_cut["bulge_r50"][index2], flagship_cut["disk_nsersic"][index2],
-                                        flagship_cut["disk_r50"][index2], flagship_cut["bulge_fraction"][index2],
-                                        flagship_cut["observed_redshift_gal"][index2], theo_sn2])
+                    columns.append([scene, m, k, positions_2[scene * shear_bins + m][i, 0],
+                                    positions_2[scene * shear_bins + m][i, 1],
+                                    -2.5 * np.log10(flagship_cut["euclid_vis"][index2]) - 48.6, ellips,
+                                    (betas + math.pi / 2 * galsim.radians) / galsim.radians,
+                                    flagship_cut["bulge_nsersic"][index2],
+                                    flagship_cut["bulge_r50"][index2], flagship_cut["disk_nsersic"][index2],
+                                    flagship_cut["disk_r50"][index2], flagship_cut["bulge_fraction"][index2],
+                                    flagship_cut["observed_redshift_gal"][index2], theo_sn2])
                 else:
                     columns.append(
                         [scene, m, k, positions[scene * shear_bins + m][i, 0], positions[scene * shear_bins + m][i, 1],
@@ -416,10 +411,6 @@ while ids:
         init_positions = input_positions[x[5] * shear_bins + x[4]]
         if x[10] % 2 != 0:
             init_positions = input_positions_2[x[5] * shear_bins + x[4]]
-            if sys.argv[5] == "True":
-                init_positions = np.array(init_positions)
-                init_positions[:, [0, 1]] = init_positions[:, [1, 0]]
-                init_positions[:, 1] = complete_image_size - init_positions[:, 1]
 
         kd_results = np.array(do_kdtree(init_positions, x[6], k=MAX_NEIGHBORS))
         nearest_positional_neighbors = np.where(kd_results[0] <= MAX_DIST, kd_results[1], -1)

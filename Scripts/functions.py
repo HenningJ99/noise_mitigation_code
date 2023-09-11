@@ -1404,13 +1404,16 @@ def one_scene_pujol(m, total_scene_count, gal, positions, argv, config, path, ps
 
         if simulation.getboolean("source_extractor_morph"):
             com = "source-extractor " + image + " -c " + "default_mysims.sex" + \
-                  " -CATALOG_NAME " + f"{output.split('.cat')[-2]}.fits" + " -ASSOC_NAME " + SOURCE_EXTRACTOR_DIR + f"/star_positions_{total_scene_count}_{m}.txt -CATALOG_TYPE FITS_LDAC -PARAMETERS_NAME mysims_psf_final.param"
+                  " -CATALOG_NAME " + f"{output.split('.cat')[-2]}.fits" + " -ASSOC_NAME " + SOURCE_EXTRACTOR_DIR + \
+                  f"/star_positions_{total_scene_count}_{m}.txt -CATALOG_TYPE FITS_LDAC -PARAMETERS_NAME mysims_psf_final.param"
             os.system(com)
 
             com = "psfex " + f"{output.split('.cat')[-2]}.fits" + " -c default.psfex -XML_NAME psfex_PSF_UDF.xml"
             os.system(com)
 
-            com = "source-extractor -c default_mysims.sex " + image + " -CATALOG_NAME " + output + " -PARAMETERS_NAME sersic.param -PSF_NAME " + f"{output.split('.cat')[-2]}.psf -CATALOG_TYPE ASCII"
+            com = "source-extractor -c default_mysims.sex " + image + " -CATALOG_NAME " + output + \
+                  " -PARAMETERS_NAME sersic.param -PSF_NAME " + f"{output.split('.cat')[-2]}.psf -CATALOG_TYPE ASCII" + \
+                  " -CHECKIMAGE_TYPE SEGMENTATION -CHECKIMAGE_NAME " + f"seg_{total_scene_count}_{m}.fits"
 
             os.system(com)
 
@@ -1418,7 +1421,7 @@ def one_scene_pujol(m, total_scene_count, gal, positions, argv, config, path, ps
 
         else:
             com = "source-extractor " + image + " -c " + SOURCE_EXTRACTOR_DIR + "/default.sex" + \
-                  " -CATALOG_NAME " + output
+                  " -CATALOG_NAME " + output + " -CHECKIMAGE_TYPE SEGMENTATION -CHECKIMAGE_NAME " + f"seg_{total_scene_count}_{m}.fits"
 
 
         res = os.system(com)
@@ -1447,35 +1450,27 @@ def one_scene_pujol(m, total_scene_count, gal, positions, argv, config, path, ps
     # ----------------- ANALYSE THE CATALOGS --------------------------------------------------------------------------
     gal_image = galsim.fits.read(path + f"output/FITS{index_fits}/catalog_none_pujol_{total_scene_count}_{m}.fits")
 
+    seg_map = galsim.fits.read(path + f"output/source_extractor/seg_{total_scene_count}_{m}.fits")
+
     data = np.genfromtxt(path + f"output/source_extractor/{index_fits}/" + f"none_pujol_{total_scene_count}_{m}.cat")
 
     # Exclude the outer pixels of each large scenes because the stamps would be incomplete
-    x_cen = data[:, 7][
-        np.where((data[:, 7] > cut_size) & (data[:, 7] < complete_image_size - cut_size) & (data[:, 8] > cut_size) & (
-                data[:, 8] < complete_image_size - cut_size))]
-    y_cen = data[:, 8][
-        np.where((data[:, 7] > cut_size) & (data[:, 7] < complete_image_size - cut_size) & (data[:, 8] > cut_size) & (
-                data[:, 8] < complete_image_size - cut_size))]
-    mag_auto = data[:, 1][
-        np.where((data[:, 7] > cut_size) & (data[:, 7] < complete_image_size - cut_size) & (data[:, 8] > cut_size) & (
-                data[:, 8] < complete_image_size - cut_size))]
+    filter = np.where((data[:, 7] > cut_size) & (data[:, 7] < complete_image_size - cut_size) & (data[:, 8] > cut_size) & (
+                data[:, 8] < complete_image_size - cut_size))
+    ids = data[:, 0][filter]
+    x_cen = data[:, 7][filter]
+    y_cen = data[:, 8][filter]
+    mag_auto = data[:, 1][filter]
 
     if simulation.getboolean("source_extractor_morph"):
-        sersic_index = data[:, 14][np.where((data[:, 7] > cut_size) & (data[:, 7] < complete_image_size - cut_size) &
-                                            (data[:, 8] > cut_size) & (data[:, 8] < complete_image_size - cut_size))]
+        sersic_index = data[:, 14][filter]
 
-        effective_radius = data[:, 16][np.where((data[:, 7] > cut_size) & (data[:, 7] < complete_image_size - cut_size) &
-                                                (data[:, 8] > cut_size) & (data[:, 8] < complete_image_size - cut_size))]
+        effective_radius = data[:, 16][filter]
 
         ellipticity_sextractor = np.sqrt(
-            data[:, 18][np.where((data[:, 7] > cut_size) & (data[:, 7] < complete_image_size - cut_size) &
-                                 (data[:, 8] > cut_size) & (data[:, 8] < complete_image_size - cut_size))] ** 2 +
-            data[:, 19][
-                np.where((data[:, 7] > cut_size) & (data[:, 7] < complete_image_size - cut_size) &
-                         (data[:, 8] > cut_size) & (data[:, 8] < complete_image_size - cut_size))] ** 2)
+            data[:, 18][filter] ** 2 + data[:, 19][filter] ** 2)
 
-        class_star = data[:, 25][np.where((data[:, 7] > cut_size) & (data[:, 7] < complete_image_size - cut_size) &
-                                            (data[:, 8] > cut_size) & (data[:, 8] < complete_image_size - cut_size))]
+        class_star = data[:, 25][filter]
 
 
     measures = []
@@ -1491,7 +1486,7 @@ def one_scene_pujol(m, total_scene_count, gal, positions, argv, config, path, ps
 
     if simulation["shear_meas"] == "KSB":
         # Loop through all detected positions
-        for i in range(len(x_cen)):
+        for i, id in enumerate(ids):
 
             # Determine image boundaris
             b = galsim.BoundsI(int(x_cen[i]) - cut_size, int(x_cen[i]) + cut_size, int(y_cen[i]) - cut_size,
@@ -1531,29 +1526,20 @@ def one_scene_pujol(m, total_scene_count, gal, positions, argv, config, path, ps
             S_N.append(signal_to_noise)
 
     elif simulation["shear_meas"] == "LENSMC":
-        ra_cen = data[:, 9][np.where((data[:, 7] > cut_size) & (data[:, 7] < complete_image_size - cut_size) &
-                                     (data[:, 8] > cut_size) & (data[:, 8] < complete_image_size - cut_size))]
-        dec_cen = data[:, 10][np.where((data[:, 7] > cut_size) & (data[:, 7] < complete_image_size - cut_size) &
-                                       (data[:, 8] > cut_size) & (data[:, 8] < complete_image_size - cut_size))]
+        ra_cen = data[:, 9][filter]
+        dec_cen = data[:, 10][filter]
 
-        if gal_image.array.shape[0] % 2 != 0:
-            if gal_image.array.shape[1] % 2 != 0:
-                lens_mc_image = Image(gal_image.array[1:, 1:], wcs=wcs)
-            else:
-                lens_mc_image = Image(gal_image.array[1:, :], wcs=wcs)
-        elif gal_image.array.shape[1] % 2 != 0:
-            lens_mc_image = Image(gal_image.array[:, 1:], wcs=wcs)
-        else:
-            lens_mc_image = Image(gal_image.array, wcs=wcs)
+
+        lens_mc_image = Image(gal_image.array, wcs=wcs, seg=seg_map.array)
         lens_mc_psf = PSF(image_sampled_psf.array)
 
         # allocate working arrays dictionary for fast model generation
         n_bulge, n_disc = 1., 1.
         working_arrays = alloc_working_arrays(n_bulge, n_disc, oversampling=1, dtype=np.float32)
-
-        for i in range(len(ra_cen)):
-            results = measure_shear(image=lens_mc_image, id_=i, ra=ra_cen[i], dec=dec_cen[i], psf=lens_mc_psf,
-                                    working_arrays=working_arrays, return_model=False)
+        start_lens_mc = timeit.default_timer()
+        for i, id in enumerate(ids):
+            results = measure_shear(image=lens_mc_image, id_=int(id), ra=ra_cen[i], dec=dec_cen[i], psf=lens_mc_psf,
+                                    working_arrays=working_arrays, return_model=False, postage_stamp=384)
 
             mag_adamom = zp - 2.5 * np.log10(results.flux * gain / exp_time)
 
@@ -1570,6 +1556,8 @@ def one_scene_pujol(m, total_scene_count, gal, positions, argv, config, path, ps
 
             meas.append(results.e1)
             S_N.append(signal_to_noise)
+        print(f"LensMC: {timeit.default_timer() - start_lens_mc}")
+    os.system(f"rm {SOURCE_EXTRACTOR_DIR}/seg_{total_scene_count}_{m}.fits")
 
     if simulation.getboolean("source_extractor_morph"):
         return meas, np.dstack((x_pos, y_pos))[0], m, total_scene_count, magnitudes, S_N, sersic_index, effective_radius, ellipticity_sextractor, class_star
@@ -1589,13 +1577,21 @@ def SimpleCanvas(RA_min, RA_max, DEC_min, DEC_max, pixel_scale, edge_sep=1.5, ro
     DEC0 = (DEC_min + DEC_max) / 2.
 
     # decide bounds
-    xmax = (
-                   RA_max - RA_min) * 3600. / pixel_scale + 2. * edge_sep / pixel_scale  # edge_sep in both sides to avoid edge effects
+    xmax = (RA_max - RA_min) * 3600. / pixel_scale + 2. * edge_sep / pixel_scale  # edge_sep in both sides to avoid edge effects
     ymax = (DEC_max - DEC_min) * 3600. / pixel_scale + 2. * edge_sep / pixel_scale
-    bounds = galsim.BoundsI(xmin=0, xmax=math.ceil(xmax), ymin=0, ymax=math.ceil(ymax))
 
+    if math.ceil(xmax) % 2 == 0:
+        xmax += 1
+
+    if math.ceil(ymax) % 2 == 0:
+        ymax += 1
+
+    bounds = galsim.BoundsI(xmin=0, xmax=math.ceil(xmax), ymin=0, ymax=math.ceil(ymax))
     # Generate a simple WCS for testing
-    rotation_angle_degrees = 0
+    if rotate:
+        rotation_angle_degrees = 90
+    else:
+        rotation_angle_degrees = 0
     pixel_scale = 0.1
 
     header = fits.Header()
@@ -1610,7 +1606,7 @@ def SimpleCanvas(RA_min, RA_max, DEC_min, DEC_max, pixel_scale, edge_sep=1.5, ro
     header['CUNIT2'] = 'deg'  # Units for axis 2 (degrees)
     header['CD1_1'] = -np.cos(np.radians(rotation_angle_degrees)) * pixel_scale / 3600.0
     header['CD1_2'] = -np.sin(np.radians(rotation_angle_degrees)) * pixel_scale / 3600.0
-    header['CD2_1'] = np.sin(np.radians(rotation_angle_degrees)) * pixel_scale / 3600.0
+    header['CD2_1'] = -np.sin(np.radians(rotation_angle_degrees)) * pixel_scale / 3600.0
     header['CD2_2'] = np.cos(np.radians(rotation_angle_degrees)) * pixel_scale / 3600.0
 
     wcs = WCS(header)
@@ -1714,13 +1710,7 @@ def one_scene_lf(m, gal, gal2, positions, positions2, scene, argv, config, path,
             except GalSimFFTSizeError:
                 return -1
 
-            if argv[5] == "True":
-                stamp_rotated = galsim.Image(np.abs(stamp_rotated.array.copy()), bounds=galsim.BoundsI(
-                    galsim.PositionI(stamp_rotated.bounds.ymin, complete_image_size - stamp_rotated.bounds.xmax),
-                    galsim.PositionI(stamp_rotated.bounds.ymax,
-                                     complete_image_size - stamp_rotated.bounds.xmin)))  # Avoid slightly negative values after FFT
-            else:
-                stamp_rotated = galsim.Image(np.abs(stamp_rotated.array.copy()), bounds=stamp_rotated.bounds)
+            stamp_rotated = galsim.Image(np.abs(stamp_rotated.array.copy()), bounds=stamp_rotated.bounds)
 
             stamp.append(stamp_rotated)
 
@@ -1741,7 +1731,6 @@ def one_scene_lf(m, gal, gal2, positions, positions2, scene, argv, config, path,
 
     image, wcs = SimpleCanvas(ra_min, ra_max, dec_min, dec_max, pixel_scale,
                               rotate=True if index % 2 != 0 and argv[5] == "True" else False)
-
     if simulation.getboolean("source_extractor_morph"):
         # Add stars
         n_stars = 30
@@ -1775,21 +1764,28 @@ def one_scene_lf(m, gal, gal2, positions, positions2, scene, argv, config, path,
 
         if simulation.getboolean("source_extractor_morph"):
             com = "source-extractor " + image + " -c " + "default_mysims.sex" + \
-                  " -CATALOG_NAME " + f"{output.split('.cat')[-2]}.fits" + " -ASSOC_NAME " + SOURCE_EXTRACTOR_DIR + f"/star_positions_{scene}_{m}_{index}.txt -CATALOG_TYPE FITS_LDAC -PARAMETERS_NAME mysims_psf_final.param"
+                  " -CATALOG_NAME " + f"{output.split('.cat')[-2]}.fits" + " -ASSOC_NAME " + SOURCE_EXTRACTOR_DIR + \
+                  f"/star_positions_{scene}_{m}_{index}.txt -CATALOG_TYPE FITS_LDAC -PARAMETERS_NAME mysims_psf_final.param"
+
             os.system(com)
 
             com = "psfex " + f"{output.split('.cat')[-2]}.fits" + " -c default.psfex -XML_NAME psfex_PSF_UDF.xml"
             os.system(com)
 
-            com = "source-extractor -c default_mysims.sex " + image + " -CATALOG_NAME " + output + " -PARAMETERS_NAME sersic.param -PSF_NAME " + f"{output.split('.cat')[-2]}.psf -CATALOG_TYPE ASCII"
+            com = "source-extractor -c default_mysims.sex " + image + " -CATALOG_NAME " + output + \
+                  " -PARAMETERS_NAME sersic.param -PSF_NAME " + f"{output.split('.cat')[-2]}.psf -CATALOG_TYPE ASCII" + \
+                  " -CHECKIMAGE_TYPE SEGMENTATION -CHECKIMAGE_NAME " + f"seg_{scene}_{m}_{index}.fits"
 
             os.system(com)
 
             os.system(f"rm star_positions_{scene}_{m}_{index}.txt")
 
+
         else:
             com = "source-extractor " + image + " -c " + SOURCE_EXTRACTOR_DIR + "/default.sex" + \
-                  " -CATALOG_NAME " + output
+                  " -CATALOG_NAME " + output + " -CHECKIMAGE_TYPE SEGMENTATION -CHECKIMAGE_NAME " + f"seg_{scene}_{m}_{index}.fits"
+
+
 
 
         res = os.system(com)
@@ -1836,31 +1832,34 @@ def one_scene_lf(m, gal, gal2, positions, positions2, scene, argv, config, path,
     # start = timeit.default_timer()
     gal_image = galsim.fits.read(path + f"output/FITS{index_fits}/catalog_" + f"{scene}_{m}_{index}.fits")
 
+    seg_map = galsim.fits.read(path + f"output/source_extractor/seg_{scene}_{m}_{index}.fits")
+
     data = np.genfromtxt(path + f"output/source_extractor/{index_fits}/" + f"{scene}_{m}_{index}.cat")
 
-    x_cen = data[:, 7][np.where((data[:, 7] > cut_size) & (data[:, 7] < complete_image_size - cut_size) &
-                                (data[:, 8] > cut_size) & (data[:, 8] < complete_image_size - cut_size))]
-    y_cen = data[:, 8][np.where((data[:, 7] > cut_size) & (data[:, 7] < complete_image_size - cut_size) &
-                                (data[:, 8] > cut_size) & (data[:, 8] < complete_image_size - cut_size))]
-    mag_auto = data[:, 1][np.where((data[:, 7] > cut_size) & (data[:, 7] < complete_image_size - cut_size) &
-                                   (data[:, 8] > cut_size) & (data[:, 8] < complete_image_size - cut_size))]
+    filter = np.where((data[:, 7] > cut_size) & (data[:, 7] < complete_image_size - cut_size) &
+                                (data[:, 8] > cut_size) & (data[:, 8] < complete_image_size - cut_size))
+    ids = data[:, 0][filter]
+
+    #elements_to_remove = seg_map.array[~filter]  # [3, 4, 7]
+
+    #mask = np.isin(seg_map, elements_to_remove)
+
+    # Set the pixels with specified IDs to 0
+    #seg_map.array[mask] = 0
+
+    x_cen = data[:, 7][filter]
+    y_cen = data[:, 8][filter]
+    mag_auto = data[:, 1][filter]
 
     if simulation.getboolean("source_extractor_morph"):
-        sersic_index = data[:, 14][np.where((data[:, 7] > cut_size) & (data[:, 7] < complete_image_size - cut_size) &
-                                            (data[:, 8] > cut_size) & (data[:, 8] < complete_image_size - cut_size))]
+        sersic_index = data[:, 14][filter]
 
-        effective_radius = data[:, 16][np.where((data[:, 7] > cut_size) & (data[:, 7] < complete_image_size - cut_size) &
-                                                (data[:, 8] > cut_size) & (data[:, 8] < complete_image_size - cut_size))]
+        effective_radius = data[:, 16][filter]
 
         ellipticity_sextractor = np.sqrt(
-            data[:, 18][np.where((data[:, 7] > cut_size) & (data[:, 7] < complete_image_size - cut_size) &
-                                 (data[:, 8] > cut_size) & (data[:, 8] < complete_image_size - cut_size))] ** 2 +
-            data[:, 19][
-                np.where((data[:, 7] > cut_size) & (data[:, 7] < complete_image_size - cut_size) &
-                         (data[:, 8] > cut_size) & (data[:, 8] < complete_image_size - cut_size))] ** 2)
+            data[:, 18][filter] ** 2 + data[:, 19][filter] ** 2)
 
-        class_star = data[:, 25][np.where((data[:, 7] > cut_size) & (data[:, 7] < complete_image_size - cut_size) &
-                                            (data[:, 8] > cut_size) & (data[:, 8] < complete_image_size - cut_size))]
+        class_star = data[:, 25][filter]
 
 
     measures = []
@@ -1875,7 +1874,7 @@ def one_scene_lf(m, gal, gal2, positions, positions2, scene, argv, config, path,
     sigma_sky = 1.4826 * np.median(np.abs(edge - np.median(edge)))
 
     if simulation["shear_meas"] == "KSB":
-        for i in range(len(x_cen)):
+        for i, id in enumerate(ids):
 
             b = galsim.BoundsI(int(x_cen[i]) - cut_size, int(x_cen[i]) + cut_size, int(y_cen[i]) - cut_size,
                                int(y_cen[i]) + cut_size)
@@ -1914,24 +1913,17 @@ def one_scene_lf(m, gal, gal2, positions, positions2, scene, argv, config, path,
         dec_cen = data[:, 10][np.where((data[:, 7] > cut_size) & (data[:, 7] < complete_image_size - cut_size) &
                                        (data[:, 8] > cut_size) & (data[:, 8] < complete_image_size - cut_size))]
 
-        if gal_image.array.shape[0] % 2 != 0:
-            if gal_image.array.shape[1] % 2 != 0:
-                lens_mc_image = Image(gal_image.array[1:, 1:], wcs=wcs)
-            else:
-                lens_mc_image = Image(gal_image.array[1:, :], wcs=wcs)
-        elif gal_image.array.shape[1] % 2 != 0:
-            lens_mc_image = Image(gal_image.array[:, 1:], wcs=wcs)
-        else:
-            lens_mc_image = Image(gal_image.array, wcs=wcs)
+
+        lens_mc_image = Image(gal_image.array, wcs=wcs, seg=seg_map.array)
         lens_mc_psf = PSF(image_sampled_psf.array)
 
         # allocate working arrays dictionary for fast model generation
         n_bulge, n_disc = 1., 1.
         working_arrays = alloc_working_arrays(n_bulge, n_disc, oversampling=1, dtype=np.float32)
-
-        for i in range(len(ra_cen)):
-            results = measure_shear(image=lens_mc_image, id_=i, ra=ra_cen[i], dec=dec_cen[i], psf=lens_mc_psf,
-                                    working_arrays=working_arrays, return_model=False)
+        start_lens_mc = timeit.default_timer()
+        for i, id in enumerate(ids):
+            results = measure_shear(image=lens_mc_image, id_=int(id), ra=ra_cen[i], dec=dec_cen[i], psf=lens_mc_psf,
+                                    working_arrays=working_arrays, return_model=False, postage_stamp=384)
 
             # pixels = sub_gal_image.array.copy()
             mag_adamom = zp - 2.5 * np.log10(results.flux * gain / exp_time)
@@ -1946,7 +1938,7 @@ def one_scene_lf(m, gal, gal2, positions, positions2, scene, argv, config, path,
                 magnitudes.append(mag_auto[i])
             x_pos.append(x_cen[i])
             y_pos.append(y_cen[i])
-
+        print(f"LensMC: {timeit.default_timer() - start_lens_mc}")
     error_specific = bootstrap(measures, int(simulation['bootstrap_repetitions']))
 
     if simulation.getboolean("source_extractor_morph"):
@@ -1958,6 +1950,7 @@ def one_scene_lf(m, gal, gal2, positions, positions2, scene, argv, config, path,
             [g1, np.average(measures), error_specific, len(measures), m, scene, np.dstack((x_pos, y_pos))[0],
              measures, magnitudes, s_n, index])
 
+    os.system(f"rm {SOURCE_EXTRACTOR_DIR}/seg_{scene}_{m}_{index}.fits")
     return measurements
 
 
