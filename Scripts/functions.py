@@ -1623,7 +1623,7 @@ def SimpleCanvas(RA_min, RA_max, DEC_min, DEC_max, pixel_scale, edge_sep=1.5, ro
     bounds = galsim.BoundsI(xmin=0, xmax=math.ceil(xmax), ymin=0, ymax=math.ceil(ymax))
     # Generate a simple WCS for testing
     if rotate:
-        rotation_angle_degrees = 90
+        rotation_angle_degrees = -90
     else:
         rotation_angle_degrees = 0
     pixel_scale = 0.1
@@ -1962,6 +1962,8 @@ def one_scene_lf(m, gal, gal2, positions, positions2, scene, argv, config, path,
                 snr = results.snr
                 flux = results.flux
                 e1 = results.e1
+                if index % 2 != 0 and argv[5] == "True":
+                    e1 = results.e2
 
             except LensMCError:
                 snr = -1
