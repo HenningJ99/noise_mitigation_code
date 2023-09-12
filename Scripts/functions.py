@@ -1574,7 +1574,6 @@ def one_scene_pujol(m, total_scene_count, gal, positions, argv, config, path, ps
                 snr = -1
                 flux = -1
                 e1 = -10
-                continue
 
             mag_adamom = zp - 2.5 * np.log10(flux * gain / exp_time)
 
@@ -1968,7 +1967,6 @@ def one_scene_lf(m, gal, gal2, positions, positions2, scene, argv, config, path,
                 snr = -1
                 flux = -1
                 e1 = -10
-                continue
 
             # pixels = sub_gal_image.array.copy()
             mag_adamom = zp - 2.5 * np.log10(flux * gain / exp_time)
