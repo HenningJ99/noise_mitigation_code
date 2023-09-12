@@ -1963,7 +1963,7 @@ def one_scene_lf(m, gal, gal2, positions, positions2, scene, argv, config, path,
                 flux = results.flux
                 e1 = results.e1
                 if index % 2 != 0 and argv[5] == "True":
-                    e1 = results.e2
+                    e1 = -results.e2
 
             except LensMCError:
                 snr = -1
