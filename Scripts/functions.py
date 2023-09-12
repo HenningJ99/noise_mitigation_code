@@ -12,7 +12,10 @@ import os
 import timeit
 from galsim.errors import GalSimFFTSizeError
 import matplotlib.pyplot as plt
-import ksb_distort as ksb_h
+try:
+    import ksb_distort as ksb_h
+except:
+    print("Request KSB code from Henk Hoekstra")
 
 try:
     from lensmc import measure_shear
