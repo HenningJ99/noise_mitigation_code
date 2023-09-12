@@ -12,12 +12,14 @@ import os
 import timeit
 from galsim.errors import GalSimFFTSizeError
 import matplotlib.pyplot as plt
+import ksb_distort as ksb_h
 
 try:
     from lensmc import measure_shear
     from lensmc.galaxy_model import alloc_working_arrays
     from lensmc.image import Image
     from lensmc.psf import PSF
+    from lensmc.utils import LensMCError
 except:
     print("LensMC not found")
 
@@ -450,8 +452,12 @@ def worker(k, ellip_gal, psf, image_sampled_psf, config, argv, input_shear):
     gal_image = galsim.ImageF(stamp_xsize * nx_tiles - 1, stamp_ysize * ny_tiles - 1, scale=pixel_scale)
     column = ny_tiles
 
+    psf_par = ksb_h.ksb_moments(image_sampled_psf.array, xc=None, yc=None, sigw=3)
+    #psf_par['Psm11'] = 25. * psf_par['Psm11']
+    #psf_par['Psm22'] = 25. * psf_par['Psm22']
+
     ''' These arrays store the KSB measurements for each of the stamps. The lists are 2 dimensional in order to select 
-    shape noise pairs or don't do depending on what shall be tested. '''
+        shape noise pairs or don't do depending on what shall be tested. '''
 
     meas_g1 = [[0 for _ in range(nx_tiles)] for _ in range(column)]
     meas_g2 = [[0 for _ in range(nx_tiles)] for _ in range(column)]
@@ -580,7 +586,7 @@ def worker(k, ellip_gal, psf, image_sampled_psf, config, argv, input_shear):
             # Find S/N and estimated shear
 
             shear_meas = simulation["shear_meas"]
-            if shear_meas == "KSB":
+            if shear_meas == "KSB" or shear_meas == "KSB_HENK":
                 start = timeit.default_timer()
                 params = galsim.hsm.HSMParams(ksb_sig_factor=1.0)
                 results = galsim.hsm.EstimateShear(subsampled_image, image_sampled_psf, shear_est="KSB", strict=False,
@@ -598,7 +604,24 @@ def worker(k, ellip_gal, psf, image_sampled_psf, config, argv, input_shear):
 
                 sigma_sky = 1.4826 * np.median(np.abs(edge - np.median(edge)))
 
-                if results.corrected_g1 != -10:
+                if shear_meas == "KSB_HENK":
+                    ksb_par = ksb_h.ksb_moments(subsampled_image.array)
+
+                    e1_raw = round(ksb_par['e1'], 4)
+                    e2_raw = round(ksb_par['e2'], 4)
+                    e1_cor = round(ksb_par['e1'] - ksb_par['Psm11'] * (psf_par['e1'] / psf_par['Psm11']), 4)
+                    e2_cor = round(ksb_par['e2'] - ksb_par['Psm22'] * (psf_par['e2'] / psf_par['Psm22']), 4)
+                    pg1 = round(ksb_par['Psh11'] - ksb_par['Psm11'] * (psf_par['Psh11'] / psf_par['Psm11']), 4)
+                    pg2 = round(ksb_par['Psh22'] - ksb_par['Psm22'] * (psf_par['Psh22'] / psf_par['Psm22']), 4)
+                    e1_cor = e1_cor / pg1
+                    e2_cor = e2_cor / pg2
+
+                else:
+
+                    e1_cor = results.corrected_g1
+                    e2_cor = results.corrected_g2
+
+                if e1_cor != -10:
                     signal_to_noise = adamflux * gain / np.sqrt(
                         gain * adamflux + np.pi * (3 * adamsigma * np.sqrt(2 * np.log(2))) ** 2 * (
                                 gain * sigma_sky) ** 2)
@@ -607,8 +630,8 @@ def worker(k, ellip_gal, psf, image_sampled_psf, config, argv, input_shear):
 
                 if not simulation.getboolean("sel_bias"):
                     # Use this for a normal run
-                    meas_g1[iy][ix] = results.corrected_g1
-                    meas_g2[iy][ix] = results.corrected_g2
+                    meas_g1[iy][ix] = e1_cor
+                    meas_g2[iy][ix] = e2_cor
                 else:
                     # Use this for selection bias checks
                     meas_g1[iy][ix] = input_shear[0] + g1
@@ -1538,8 +1561,11 @@ def one_scene_pujol(m, total_scene_count, gal, positions, argv, config, path, ps
         working_arrays = alloc_working_arrays(n_bulge, n_disc, oversampling=1, dtype=np.float32)
         start_lens_mc = timeit.default_timer()
         for i, id in enumerate(ids):
-            results = measure_shear(image=lens_mc_image, id_=int(id), ra=ra_cen[i], dec=dec_cen[i], psf=lens_mc_psf,
+            try:
+                results = measure_shear(image=lens_mc_image, id_=int(id), ra=ra_cen[i], dec=dec_cen[i], psf=lens_mc_psf,
                                     working_arrays=working_arrays, return_model=False, postage_stamp=384)
+            except LensMCError:
+                continue
 
             mag_adamom = zp - 2.5 * np.log10(results.flux * gain / exp_time)
 
@@ -1922,8 +1948,11 @@ def one_scene_lf(m, gal, gal2, positions, positions2, scene, argv, config, path,
         working_arrays = alloc_working_arrays(n_bulge, n_disc, oversampling=1, dtype=np.float32)
         start_lens_mc = timeit.default_timer()
         for i, id in enumerate(ids):
-            results = measure_shear(image=lens_mc_image, id_=int(id), ra=ra_cen[i], dec=dec_cen[i], psf=lens_mc_psf,
+            try:
+                results = measure_shear(image=lens_mc_image, id_=int(id), ra=ra_cen[i], dec=dec_cen[i], psf=lens_mc_psf,
                                     working_arrays=working_arrays, return_model=False, postage_stamp=384)
+            except LensMCError:
+                continue
 
             # pixels = sub_gal_image.array.copy()
             mag_adamom = zp - 2.5 * np.log10(results.flux * gain / exp_time)
