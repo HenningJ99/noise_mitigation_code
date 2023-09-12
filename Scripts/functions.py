@@ -1567,14 +1567,20 @@ def one_scene_pujol(m, total_scene_count, gal, positions, argv, config, path, ps
             try:
                 results = measure_shear(image=lens_mc_image, id_=int(id), ra=ra_cen[i], dec=dec_cen[i], psf=lens_mc_psf,
                                     working_arrays=working_arrays, return_model=False, postage_stamp=384)
+                snr = results.snr
+                flux = results.flux
+                e1 = results.e1
             except LensMCError:
+                snr = -1
+                flux = -1
+                e1 = -10
                 continue
 
-            mag_adamom = zp - 2.5 * np.log10(results.flux * gain / exp_time)
+            mag_adamom = zp - 2.5 * np.log10(flux * gain / exp_time)
 
-            signal_to_noise = results.snr
+            signal_to_noise = snr
 
-            measures.append(results.e1)
+            measures.append(e1)
             x_pos.append(x_cen[i])
             y_pos.append(y_cen[i])
 
@@ -1583,7 +1589,7 @@ def one_scene_pujol(m, total_scene_count, gal, positions, argv, config, path, ps
             else:
                 magnitudes.append(mag_auto[i])
 
-            meas.append(results.e1)
+            meas.append(e1)
             S_N.append(signal_to_noise)
         print(f"LensMC: {timeit.default_timer() - start_lens_mc}")
     os.system(f"rm {SOURCE_EXTRACTOR_DIR}/seg_{total_scene_count}_{m}.fits")
@@ -1954,15 +1960,22 @@ def one_scene_lf(m, gal, gal2, positions, positions2, scene, argv, config, path,
             try:
                 results = measure_shear(image=lens_mc_image, id_=int(id), ra=ra_cen[i], dec=dec_cen[i], psf=lens_mc_psf,
                                     working_arrays=working_arrays, return_model=False, postage_stamp=384)
+                snr = results.snr
+                flux = results.flux
+                e1 = results.e1
+
             except LensMCError:
+                snr = -1
+                flux = -1
+                e1 = -10
                 continue
 
             # pixels = sub_gal_image.array.copy()
-            mag_adamom = zp - 2.5 * np.log10(results.flux * gain / exp_time)
+            mag_adamom = zp - 2.5 * np.log10(flux * gain / exp_time)
 
-            signal_to_noise = results.snr
+            signal_to_noise = snr
 
-            measures.append(results.e1)
+            measures.append(e1)
             s_n.append(signal_to_noise)
             if bin_type == "MAG_ADAMOM":
                 magnitudes.append(mag_adamom)
