@@ -672,7 +672,7 @@ def worker(k, ellip_gal, psf, image_sampled_psf, config, argv, input_shear):
                     raise Exception("LensMC is not available on this machine")
                 # Generate a simple WCS for testing
                 rotation_angle_degrees = 0
-                pixel_scale = 0.1
+                pixel_scale = pixel_scale
 
                 header = fits.Header()
                 header['NAXIS'] = 2  # Number of axes
@@ -1026,7 +1026,7 @@ def one_galaxy(k, input_g1, ellip_gal, image_sampled_psf, psf, config, argv):
                     raise Exception("LensMC is not available on this machine")
                 # Generate a simple WCS for testing
                 rotation_angle_degrees = 0
-                pixel_scale = 0.1
+                pixel_scale = pixel_scale
 
                 header = fits.Header()
                 header['NAXIS'] = 2  # Number of axes
@@ -1726,7 +1726,7 @@ def SimpleCanvas(RA_min, RA_max, DEC_min, DEC_max, pixel_scale, edge_sep=1.5, ro
         rotation_angle_degrees = -90
     else:
         rotation_angle_degrees = 0
-    pixel_scale = 0.1
+    pixel_scale = pixel_scale
 
     header = fits.Header()
     header['NAXIS'] = 2  # Number of axes
