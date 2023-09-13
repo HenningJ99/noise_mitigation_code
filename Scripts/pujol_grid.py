@@ -152,6 +152,9 @@ filter_function = galsim.Pixel(scale=pixel_scale)
 psf_1 = galsim.Convolve([psf, filter_function])
 
 # Draw the convolution on a finer pixel grid for KSB
+if simulation["shear_meas"] == "KSB_HENK":
+    ssamp_grid = 5
+
 image_sampled_psf = psf_1.drawImage(nx=ssamp_grid * stamp_xsize, ny=ssamp_grid * stamp_ysize,
                                     scale=1.0 / ssamp_grid * pixel_scale, method='no_pixel')
 image_epsf = galsim.ImageF(stamp_xsize, stamp_ysize, scale=pixel_scale)

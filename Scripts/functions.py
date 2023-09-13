@@ -459,9 +459,9 @@ def worker(k, ellip_gal, psf, image_sampled_psf, config, argv, input_shear):
     gal_image = galsim.ImageF(stamp_xsize * nx_tiles - 1, stamp_ysize * ny_tiles - 1, scale=pixel_scale)
     column = ny_tiles
 
-    psf_par = ksb_h.ksb_moments(image_sampled_psf.array, xc=None, yc=None, sigw=3)
-    #psf_par['Psm11'] = 25. * psf_par['Psm11']
-    #psf_par['Psm22'] = 25. * psf_par['Psm22']
+    psf_par = ksb_h.ksb_moments(image_sampled_psf.array, xc=None, yc=None, sigw=5*3)
+    psf_par['Psm11'] = 25. * psf_par['Psm11']
+    psf_par['Psm22'] = 25. * psf_par['Psm22']
 
     ''' These arrays store the KSB measurements for each of the stamps. The lists are 2 dimensional in order to select 
         shape noise pairs or don't do depending on what shall be tested. '''
@@ -613,16 +613,28 @@ def worker(k, ellip_gal, psf, image_sampled_psf, config, argv, input_shear):
 
                 if shear_meas == "KSB_HENK":
                     if ksb_henk_avai:
-                        ksb_par = ksb_h.ksb_moments(subsampled_image.array)
+                        try:
+                            ksb_par = ksb_h.ksb_moments(subsampled_image.array, sigw=3)
 
-                        e1_raw = round(ksb_par['e1'], 4)
-                        e2_raw = round(ksb_par['e2'], 4)
-                        e1_cor = round(ksb_par['e1'] - ksb_par['Psm11'] * (psf_par['e1'] / psf_par['Psm11']), 4)
-                        e2_cor = round(ksb_par['e2'] - ksb_par['Psm22'] * (psf_par['e2'] / psf_par['Psm22']), 4)
-                        pg1 = round(ksb_par['Psh11'] - ksb_par['Psm11'] * (psf_par['Psh11'] / psf_par['Psm11']), 4)
-                        pg2 = round(ksb_par['Psh22'] - ksb_par['Psm22'] * (psf_par['Psh22'] / psf_par['Psm22']), 4)
-                        e1_cor = e1_cor / pg1
-                        e2_cor = e2_cor / pg2
+                            e1_raw = round(ksb_par['e1'], 4)
+                            e2_raw = round(ksb_par['e2'], 4)
+                            e1_cor = round(ksb_par['e1'] - ksb_par['Psm11'] * (psf_par['e1'] / psf_par['Psm11']), 4)
+                            e2_cor = round(ksb_par['e2'] - ksb_par['Psm22'] * (psf_par['e2'] / psf_par['Psm22']), 4)
+                            pg1 = round(ksb_par['Psh11'] - ksb_par['Psm11'] * (psf_par['Psh11'] / psf_par['Psm11']), 4)
+                            pg2 = round(ksb_par['Psh22'] - ksb_par['Psm22'] * (psf_par['Psh22'] / psf_par['Psm22']), 4)
+
+                            if pg1 > 0.1:
+                                e1_cor = e1_cor / pg1
+                            else:
+                                e1_cor = -10
+
+                            if pg2 > 0.1:
+                                e2_cor = e2_cor / pg2
+                            else:
+                                e2_cor = -10
+                        except:
+                            e1_cor = -10
+                            e2_cor = -10
                     else:
                         raise Exception("KSB code from Henk Hoekstra is not available")
 
@@ -805,6 +817,10 @@ def one_galaxy(k, input_g1, ellip_gal, image_sampled_psf, psf, config, argv):
     gal_image = galsim.ImageF(stamp_xsize * num_shears - 1, stamp_ysize * noise_repetitions - 1,
                               scale=pixel_scale)
 
+    psf_par = ksb_h.ksb_moments(image_sampled_psf.array, xc=None, yc=None, sigw=3*5)
+    psf_par['Psm11'] = 25. * psf_par['Psm11']
+    psf_par['Psm22'] = 25. * psf_par['Psm22']
+
     count = 0
 
     # meas = [[0 for _ in range(num_shears - 1)] for _ in range(2)]
@@ -927,7 +943,7 @@ def one_galaxy(k, input_g1, ellip_gal, image_sampled_psf, psf, config, argv):
             # Measure with KSB
             subsampled_image = sub_gal_image.subsample(ssamp_grid, ssamp_grid)
             shear_meas = simulation["shear_meas"]
-            if shear_meas == "KSB":
+            if shear_meas == "KSB" or shear_meas == "KSB_HENK":
                 # Find S/N and estimated shear
                 params = galsim.hsm.HSMParams(ksb_sig_factor=1.0)  # KSB size 3times half light radius
                 results = galsim.hsm.EstimateShear(subsampled_image, image_sampled_psf, shear_est="KSB", strict=False,
@@ -943,6 +959,38 @@ def one_galaxy(k, input_g1, ellip_gal, image_sampled_psf, psf, config, argv):
 
                 sigma_sky = 1.4826 * np.median(np.abs(edge - np.median(edge)))
 
+                if shear_meas == "KSB_HENK":
+                    if ksb_henk_avai:
+                        try:
+                            ksb_par = ksb_h.ksb_moments(subsampled_image.array, sigw=3)
+
+                            e1_raw = round(ksb_par['e1'], 4)
+                            e2_raw = round(ksb_par['e2'], 4)
+                            e1_cor = round(ksb_par['e1'] - ksb_par['Psm11'] * (psf_par['e1'] / psf_par['Psm11']), 4)
+                            e2_cor = round(ksb_par['e2'] - ksb_par['Psm22'] * (psf_par['e2'] / psf_par['Psm22']), 4)
+                            pg1 = round(ksb_par['Psh11'] - ksb_par['Psm11'] * (psf_par['Psh11'] / psf_par['Psm11']), 4)
+                            pg2 = round(ksb_par['Psh22'] - ksb_par['Psm22'] * (psf_par['Psh22'] / psf_par['Psm22']), 4)
+
+                            if pg1 > 0.1:
+                                e1_cor = e1_cor / pg1
+                            else:
+                                e1_cor = -10
+
+                            if pg2 > 0.1:
+                                e2_cor = e2_cor / pg2
+                            else:
+                                e2_cor = -10
+                        except:
+                            e1_cor = -10
+                            e2_cor = -10
+                    else:
+                        raise Exception("KSB code from Henk Hoekstra is not available")
+
+                else:
+
+                    e1_cor = results.corrected_g1
+                    e2_cor = results.corrected_g2
+
                 if noise_type != "GAUSS":
 
                     signal_to_noise = adamflux * gain / np.sqrt(
@@ -954,10 +1002,10 @@ def one_galaxy(k, input_g1, ellip_gal, image_sampled_psf, psf, config, argv):
                     signal_to_noise = adamflux / np.sqrt(
                         np.pi * (3 * adamsigma * np.sqrt(2 * np.log(2))) ** 2 * sigma_sky ** 2)
 
-                if results.corrected_g1 == -10:
+                if e1_cor == -10:
                     signal_to_noise = -1
 
-                meas_g1[m * num_shears + i] = results.corrected_g1
+                meas_g1[m * num_shears + i] = e1_cor
                 # if i == 0:
                 #     meas[0][i] = results.corrected_g1
                 # elif i == (num_shears - 1):
@@ -1472,13 +1520,16 @@ def one_scene_pujol(m, total_scene_count, gal, positions, argv, config, path, ps
     x_pos = []
     y_pos = []
 
-    if simulation["shear_meas"] == "KSB":
+    if simulation["shear_meas"] == "KSB" or simulation["shear_meas"] == "KSB_HENK":
         # Filter the PSF with a top hat at pixel scale
         filter_function = galsim.Pixel(scale=pixel_scale)
 
         psf_1 = galsim.Convolve([psf, filter_function])
 
         # Draw the convolution on a finer pixel grid for KSB
+        if simulation["shear_meas"] == "KSB_HENK":
+            ssamp_grid = 5
+
         image_sampled_psf = psf_1.drawImage(nx=ssamp_grid * stamp_xsize, ny=ssamp_grid * stamp_ysize,
                                             scale=1.0 / ssamp_grid * pixel_scale, method='no_pixel')
     else:
@@ -1488,6 +1539,10 @@ def one_scene_pujol(m, total_scene_count, gal, positions, argv, config, path, ps
     gal_image = galsim.fits.read(path + f"output/FITS{index_fits}/catalog_none_pujol_{total_scene_count}_{m}.fits")
 
     seg_map = galsim.fits.read(path + f"output/source_extractor/seg_{total_scene_count}_{m}.fits")
+
+    psf_par = ksb_h.ksb_moments(image_sampled_psf.array, xc=None, yc=None, sigw=3*5)
+    psf_par['Psm11'] = 25. * psf_par['Psm11']
+    psf_par['Psm22'] = 25. * psf_par['Psm22']
 
     data = np.genfromtxt(path + f"output/source_extractor/{index_fits}/" + f"none_pujol_{total_scene_count}_{m}.cat")
 
@@ -1521,7 +1576,7 @@ def one_scene_pujol(m, total_scene_count, gal, positions, argv, config, path, ps
 
     sigma_sky = 1.4826 * np.median(np.abs(edge - np.median(edge)))
 
-    if simulation["shear_meas"] == "KSB":
+    if simulation["shear_meas"] == "KSB" or simulation["shear_meas"] == "KSB_HENK":
         # Loop through all detected positions
         for i, id in enumerate(ids):
 
@@ -1547,10 +1602,41 @@ def one_scene_pujol(m, total_scene_count, gal, positions, argv, config, path, ps
                 gain * adamflux + np.pi * (3 * adamsigma * np.sqrt(2 * np.log(2))) ** 2 * (
                         gain * sigma_sky) ** 2)
 
-            if results.corrected_g1 == -10:
+            if simulation["shear_meas"] == "KSB_HENK":
+                if ksb_henk_avai:
+                    try:
+                        ksb_par = ksb_h.ksb_moments(subsampled_image.array, sigw=3)
+
+                        e1_raw = round(ksb_par['e1'], 4)
+                        e2_raw = round(ksb_par['e2'], 4)
+                        e1_cor = round(ksb_par['e1'] - ksb_par['Psm11'] * (psf_par['e1'] / psf_par['Psm11']), 4)
+                        e2_cor = round(ksb_par['e2'] - ksb_par['Psm22'] * (psf_par['e2'] / psf_par['Psm22']), 4)
+                        pg1 = round(ksb_par['Psh11'] - ksb_par['Psm11'] * (psf_par['Psh11'] / psf_par['Psm11']), 4)
+                        pg2 = round(ksb_par['Psh22'] - ksb_par['Psm22'] * (psf_par['Psh22'] / psf_par['Psm22']), 4)
+
+                        if pg1 > 0.1:
+                            e1_cor = e1_cor / pg1
+                        else:
+                            e1_cor = -10
+
+                        if pg2 > 0.1:
+                            e2_cor = e2_cor / pg2
+                        else:
+                            e2_cor = -10
+
+                    except:
+                        e1_cor = -10
+                        e2_cor = -10
+                else:
+                    raise Exception("KSB code from Henk Hoekstra is not available")
+
+            else:
+                e1_cor = results.corrected_g1
+
+            if e1_cor == -10:
                 signal_to_noise = -1
 
-            measures.append(results.corrected_g1)
+            measures.append(e1_cor)
             x_pos.append(x_cen[i])
             y_pos.append(y_cen[i])
 
@@ -1559,7 +1645,7 @@ def one_scene_pujol(m, total_scene_count, gal, positions, argv, config, path, ps
             else:
                 magnitudes.append(mag_auto[i])
 
-            meas.append(results.corrected_g1)
+            meas.append(e1_cor)
             S_N.append(signal_to_noise)
 
     elif simulation["shear_meas"] == "LENSMC":
@@ -1860,7 +1946,7 @@ def one_scene_lf(m, gal, gal2, positions, positions2, scene, argv, config, path,
 
     g1 = shear_min + m * (shear_max - shear_min) / (shear_bins - 1)
 
-    if simulation["shear_meas"] == "KSB":
+    if simulation["shear_meas"] == "KSB" or simulation["shear_meas"] == "KSB_HENK":
 
         # Filter the PSF with a top hat at pixel scale
         filter_function = galsim.Pixel(scale=pixel_scale)
@@ -1868,6 +1954,9 @@ def one_scene_lf(m, gal, gal2, positions, positions2, scene, argv, config, path,
         psf_1 = galsim.Convolve([psf, filter_function])
 
         # Draw the convolution on a finer pixel grid for KSB
+        if simulation["shear_meas"] == "KSB_HENK":
+            ssamp_grid = 5
+
         image_sampled_psf = psf_1.drawImage(nx=ssamp_grid * stamp_xsize, ny=ssamp_grid * stamp_ysize,
                                             scale=1.0 / ssamp_grid * pixel_scale, method='no_pixel')
     else:
@@ -1879,6 +1968,10 @@ def one_scene_lf(m, gal, gal2, positions, positions2, scene, argv, config, path,
     y_pos = []
     # start = timeit.default_timer()
     gal_image = galsim.fits.read(path + f"output/FITS{index_fits}/catalog_" + f"{scene}_{m}_{index}.fits")
+
+    psf_par = ksb_h.ksb_moments(image_sampled_psf.array, xc=None, yc=None, sigw=3*5)
+    psf_par['Psm11'] = 25. * psf_par['Psm11']
+    psf_par['Psm22'] = 25. * psf_par['Psm22']
 
     seg_map = galsim.fits.read(path + f"output/source_extractor/seg_{scene}_{m}_{index}.fits")
 
@@ -1921,7 +2014,7 @@ def one_scene_lf(m, gal, gal2, positions, positions2, scene, argv, config, path,
 
     sigma_sky = 1.4826 * np.median(np.abs(edge - np.median(edge)))
 
-    if simulation["shear_meas"] == "KSB":
+    if simulation["shear_meas"] == "KSB" or simulation["shear_meas"] == "KSB_HENK":
         for i, id in enumerate(ids):
 
             b = galsim.BoundsI(int(x_cen[i]) - cut_size, int(x_cen[i]) + cut_size, int(y_cen[i]) - cut_size,
@@ -1944,10 +2037,39 @@ def one_scene_lf(m, gal, gal2, positions, positions2, scene, argv, config, path,
                 gain * adamflux + np.pi * (3 * adamsigma * np.sqrt(2 * np.log(2))) ** 2 * (
                         gain * sigma_sky) ** 2)
 
-            if results.corrected_g1 == -10:
+            if simulation["shear_meas"] == "KSB_HENK":
+                if ksb_henk_avai:
+                    try:
+                        ksb_par = ksb_h.ksb_moments(subsampled_image.array, sigw=3)
+
+                        e1_raw = round(ksb_par['e1'], 4)
+                        e2_raw = round(ksb_par['e2'], 4)
+                        e1_cor = round(ksb_par['e1'] - ksb_par['Psm11'] * (psf_par['e1'] / psf_par['Psm11']), 4)
+                        e2_cor = round(ksb_par['e2'] - ksb_par['Psm22'] * (psf_par['e2'] / psf_par['Psm22']), 4)
+                        pg1 = round(ksb_par['Psh11'] - ksb_par['Psm11'] * (psf_par['Psh11'] / psf_par['Psm11']), 4)
+                        pg2 = round(ksb_par['Psh22'] - ksb_par['Psm22'] * (psf_par['Psh22'] / psf_par['Psm22']), 4)
+
+                        if pg1 > 0.1:
+                            e1_cor = e1_cor / pg1
+                        else:
+                            e1_cor = -10
+
+                        if pg2 > 0.1:
+                            e2_cor = e2_cor / pg2
+                        else:
+                            e2_cor = -10
+                    except:
+                        e1_cor = -10
+                        e2_cor = -10
+                else:
+                    raise Exception("KSB code from Henk Hoekstra is not available")
+            else:
+                e1_cor = results.corrected_g1
+
+            if e1_cor == -10:
                 signal_to_noise = -1
 
-            measures.append(results.corrected_g1)
+            measures.append(e1_cor)
             s_n.append(signal_to_noise)
             if bin_type == "MAG_ADAMOM":
                 magnitudes.append(mag_adamom)
@@ -1955,6 +2077,7 @@ def one_scene_lf(m, gal, gal2, positions, positions2, scene, argv, config, path,
                 magnitudes.append(mag_auto[i])
             x_pos.append(x_cen[i])
             y_pos.append(y_cen[i])
+
     elif simulation["shear_meas"] == "LENSMC":
         if not lens_mc_avai:
             raise Exception("LensMC is not available on this machine")
