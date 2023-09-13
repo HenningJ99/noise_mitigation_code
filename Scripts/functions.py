@@ -14,8 +14,10 @@ from galsim.errors import GalSimFFTSizeError
 import matplotlib.pyplot as plt
 try:
     import ksb_distort as ksb_h
+    ksb_henk_avai = True
 except:
     print("Request KSB code from Henk Hoekstra")
+    ksb_henk_avai = False
 
 try:
     from lensmc import measure_shear
@@ -23,8 +25,10 @@ try:
     from lensmc.image import Image
     from lensmc.psf import PSF
     from lensmc.utils import LensMCError
+    lens_mc_avai = True
 except:
     print("LensMC not found")
+    lens_mc_avai = False
 
 from astropy.io import fits
 from astropy.wcs import WCS
@@ -608,16 +612,19 @@ def worker(k, ellip_gal, psf, image_sampled_psf, config, argv, input_shear):
                 sigma_sky = 1.4826 * np.median(np.abs(edge - np.median(edge)))
 
                 if shear_meas == "KSB_HENK":
-                    ksb_par = ksb_h.ksb_moments(subsampled_image.array)
+                    if ksb_henk_avai:
+                        ksb_par = ksb_h.ksb_moments(subsampled_image.array)
 
-                    e1_raw = round(ksb_par['e1'], 4)
-                    e2_raw = round(ksb_par['e2'], 4)
-                    e1_cor = round(ksb_par['e1'] - ksb_par['Psm11'] * (psf_par['e1'] / psf_par['Psm11']), 4)
-                    e2_cor = round(ksb_par['e2'] - ksb_par['Psm22'] * (psf_par['e2'] / psf_par['Psm22']), 4)
-                    pg1 = round(ksb_par['Psh11'] - ksb_par['Psm11'] * (psf_par['Psh11'] / psf_par['Psm11']), 4)
-                    pg2 = round(ksb_par['Psh22'] - ksb_par['Psm22'] * (psf_par['Psh22'] / psf_par['Psm22']), 4)
-                    e1_cor = e1_cor / pg1
-                    e2_cor = e2_cor / pg2
+                        e1_raw = round(ksb_par['e1'], 4)
+                        e2_raw = round(ksb_par['e2'], 4)
+                        e1_cor = round(ksb_par['e1'] - ksb_par['Psm11'] * (psf_par['e1'] / psf_par['Psm11']), 4)
+                        e2_cor = round(ksb_par['e2'] - ksb_par['Psm22'] * (psf_par['e2'] / psf_par['Psm22']), 4)
+                        pg1 = round(ksb_par['Psh11'] - ksb_par['Psm11'] * (psf_par['Psh11'] / psf_par['Psm11']), 4)
+                        pg2 = round(ksb_par['Psh22'] - ksb_par['Psm22'] * (psf_par['Psh22'] / psf_par['Psm22']), 4)
+                        e1_cor = e1_cor / pg1
+                        e2_cor = e2_cor / pg2
+                    else:
+                        raise Exception("KSB code from Henk Hoekstra is not available")
 
                 else:
 
@@ -649,6 +656,8 @@ def worker(k, ellip_gal, psf, image_sampled_psf, config, argv, input_shear):
 
 
             elif shear_meas == "LENSMC":
+                if not lens_mc_avai:
+                    raise Exception("LensMC is not available on this machine")
                 # Generate a simple WCS for testing
                 rotation_angle_degrees = 0
                 pixel_scale = 0.1
@@ -965,6 +974,8 @@ def one_galaxy(k, input_g1, ellip_gal, image_sampled_psf, psf, config, argv):
 
 
             elif shear_meas == "LENSMC":
+                if not lens_mc_avai:
+                    raise Exception("LensMC is not available on this machine")
                 # Generate a simple WCS for testing
                 rotation_angle_degrees = 0
                 pixel_scale = 0.1
@@ -1552,6 +1563,9 @@ def one_scene_pujol(m, total_scene_count, gal, positions, argv, config, path, ps
             S_N.append(signal_to_noise)
 
     elif simulation["shear_meas"] == "LENSMC":
+        if not lens_mc_avai:
+            raise Exception("LensMC is not available on this machine")
+
         ra_cen = data[:, 9][filter]
         dec_cen = data[:, 10][filter]
 
@@ -1942,6 +1956,9 @@ def one_scene_lf(m, gal, gal2, positions, positions2, scene, argv, config, path,
             x_pos.append(x_cen[i])
             y_pos.append(y_cen[i])
     elif simulation["shear_meas"] == "LENSMC":
+        if not lens_mc_avai:
+            raise Exception("LensMC is not available on this machine")
+
         ra_cen = data[:, 9][np.where((data[:, 7] > cut_size) & (data[:, 7] < complete_image_size - cut_size) &
                                      (data[:, 8] > cut_size) & (data[:, 8] < complete_image_size - cut_size))]
         dec_cen = data[:, 10][np.where((data[:, 7] > cut_size) & (data[:, 7] < complete_image_size - cut_size) &
