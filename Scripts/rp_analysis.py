@@ -4,8 +4,9 @@ import numpy as np
 import sys
 import timeit
 import configparser
+
 # Define local paths
-path = sys.argv[4]+"/"
+path = sys.argv[4] + "/"
 
 subfolder = sys.argv[6]
 
@@ -58,7 +59,7 @@ complete_image_size = int(sys.argv[1])
 
 total_scenes_per_shear = int(sys.argv[3])
 
-magnitudes_list = np.array([min_mag + k*(max_mag-min_mag)/(mag_bins) for k in range(mag_bins+1)])
+magnitudes_list = np.array([min_mag + k * (max_mag - min_mag) / (mag_bins) for k in range(mag_bins + 1)])
 mag_auto_bin = magnitudes_list
 # --------------------------------------- ANALYSIS -------------------------------------------------------------------
 start1 = timeit.default_timer()
@@ -68,19 +69,22 @@ data_complete = ascii.read(subfolder + 'shear_catalog.dat', fast_reader={'chunk_
 # SN CUT
 data_complete = data_complete[data_complete["S/N"] > float(simulation["sn_cut"])]
 
-print(f"Outlier with shears larger 5 in percent: {100 * len(data_complete['meas_g1'][(data_complete['meas_g1'] >= 5) | (data_complete['meas_g1'] <= -5)]) / len(data_complete['meas_g1']):.5f}")
+print(
+    f"Outlier with shears larger 5 in percent: {100 * len(data_complete['meas_g1'][(data_complete['meas_g1'] >= 5) | (data_complete['meas_g1'] <= -5)]) / len(data_complete['meas_g1']):.5f}")
 # Outliers
 data_complete = data_complete[(data_complete["meas_g1"] < 5) & (data_complete["meas_g1"] > -5)]
 
 # Magnitude cut
 data_complete = data_complete[(data_complete[bin_type] > min_mag) & (data_complete[bin_type] < max_mag)]
 
+
 # Define function for the standard error to use by aggregate
 def std_error(array):
     return np.std(array) / np.sqrt(array.size)
 
+
 # Use astropy to group arrays and calculate mean ellipticity for each scene, cancel index, shear index and magnitude
-data_complete['binned_mag'] = np.trunc(data_complete[bin_type] + 0.5) # Adding a row with the magnitudes in bins
+data_complete['binned_mag'] = np.trunc(data_complete[bin_type] + 0.5)  # Adding a row with the magnitudes in bins
 meas_comp = data_complete.group_by(['scene_index', 'cancel_index', 'shear_index', 'binned_mag'])
 meas_means = meas_comp['scene_index', 'cancel_index', 'shear_index', 'binned_mag', 'meas_g1'].groups.aggregate(np.mean)
 meas_std = meas_comp['scene_index', 'cancel_index', 'shear_index', 'binned_mag', 'meas_g1'].groups.aggregate(std_error)
@@ -95,11 +99,12 @@ lengths_full = full_impr['meas_g1'].groups.aggregate(np.size)
 columns = []
 for scene in range(total_scenes_per_shear):
     index = 0
-    print(f"{scene+1} / {total_scenes_per_shear}")
-    with open(path + f"output/rp_simulations/catalog_results_{complete_image_size}_{galaxy_number}_{scene}.txt", "w") as file:
+    print(f"{scene + 1} / {total_scenes_per_shear}")
+    with open(path + f"output/rp_simulations/catalog_results_{complete_image_size}_{galaxy_number}_{scene}.txt",
+              "w") as file:
         for j in range(4):
             for i in range(shear_bins):
-                for mag in range(mag_bins+1):
+                for mag in range(mag_bins + 1):
                     if mag == mag_bins:
                         lower_limit = min_mag
                         upper_limit = max_mag
@@ -108,19 +113,34 @@ for scene in range(total_scenes_per_shear):
                         upper_limit = magnitudes_list[mag + 1]
                     start = timeit.default_timer()
 
-                    g1 = shear_min + i * (shear_max - shear_min) / (shear_bins-1)
+                    blended_fraction = len(data_complete[
+                        (data_complete["shear_index"] == i) & (data_complete["scene_index"] == scene) & (
+                                    data_complete["cancel_index"] == j) & (
+                                    data_complete[bin_type] < upper_limit) & (data_complete[bin_type] >= lower_limit) & (
+                                    data_complete["se_flag"] > 0)])
+                    complete_length = len(data_complete[
+                        (data_complete["shear_index"] == i) & (data_complete["scene_index"] == scene) & (
+                                    data_complete["cancel_index"] == j) & (
+                                    data_complete[bin_type] < upper_limit) & (data_complete[bin_type] >= lower_limit)])
+
+                    blending_fraction = 100 * blended_fraction / complete_length
+
+                    g1 = shear_min + i * (shear_max - shear_min) / (shear_bins - 1)
 
                     if mag != mag_bins:
-                        value = meas_means["meas_g1"][(meas_means["scene_index"] == scene) & (meas_means["cancel_index"] == j) & (meas_means["shear_index"] == i) & (meas_means["binned_mag"] == magnitudes_list[mag] + 0.5)].data
+                        value = meas_means["meas_g1"][
+                            (meas_means["scene_index"] == scene) & (meas_means["cancel_index"] == j) & (
+                                        meas_means["shear_index"] == i) & (
+                                        meas_means["binned_mag"] == magnitudes_list[mag] + 0.5)].data
                         error = meas_std["meas_g1"][
                             (meas_means["scene_index"] == scene) & (meas_means["cancel_index"] == j) & (
-                                        meas_means["shear_index"] == i) & (
-                                        meas_means["binned_mag"] == magnitudes_list[mag] + 0.5)].data
+                                    meas_means["shear_index"] == i) & (
+                                    meas_means["binned_mag"] == magnitudes_list[mag] + 0.5)].data
                         weight = lengths["meas_g1"][
                             (meas_means["scene_index"] == scene) & (meas_means["cancel_index"] == j) & (
-                                        meas_means["shear_index"] == i) & (
-                                        meas_means["binned_mag"] == magnitudes_list[mag] + 0.5)].data
-                        
+                                    meas_means["shear_index"] == i) & (
+                                    meas_means["binned_mag"] == magnitudes_list[mag] + 0.5)].data
+
                         if len(value) == 0:
                             value = -1
                             error = -1
@@ -129,12 +149,12 @@ for scene in range(total_scenes_per_shear):
                             value = value[0]
                             error = error[0]
                             weight = weight[0]
-                            
+
                         file.write("%.4f\t %.6f\t %.6f\t %d\t %.1f\n" %
-                                   (g1, value, error ,
+                                   (g1, value, error,
                                     weight, magnitudes_list[mag]))
                         columns.append([g1, i, scene, j, value, error,
-                                        weight, magnitudes_list[mag]])
+                                        weight, magnitudes_list[mag], blending_fraction])
 
                     else:
                         ind = scene * shear_bins * 4 + j * shear_bins + i
@@ -142,15 +162,16 @@ for scene in range(total_scenes_per_shear):
                                    (g1, meas_means_full[ind], meas_std_full[ind],
                                     lengths_full[ind], magnitudes_list[mag]))
                         columns.append([g1, i, scene, j, meas_means_full[ind], meas_std_full[ind],
-                                        lengths_full[ind], magnitudes_list[mag]])
+                                        lengths_full[ind], magnitudes_list[mag], blending_fraction])
 
-                    if i == mag_bins-1 and index == 3:
+                    if i == mag_bins - 1 and index == 3:
                         file.write("\n")
 
             index += 1
 
 columns = np.array(columns, dtype=float)
-lf_results = Table([columns[:, i] for i in range(8)], names=('g1', 'shear_index', 'scene_index', 'cancel_index', 'mean_g1', 'std_g1', 'weight', bin_type))
+lf_results = Table([columns[:, i] for i in range(9)],
+                   names=('g1', 'shear_index', 'scene_index', 'cancel_index', 'mean_g1', 'std_g1', 'weight', bin_type, "blending_fraction"))
 lf_results = lf_results.group_by('scene_index')
 
 ascii.write(lf_results, subfolder + 'analysis.dat',

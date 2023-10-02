@@ -1662,9 +1662,13 @@ def measure_catalog_lf(m, scene, argv, config, path, psf, index_fits):
         mag_auto = data[:, 1][np.where((data[:, 7] > cut_size) & (data[:, 7] < complete_image_size - cut_size) &
                                        (data[:, 8] > cut_size) & (data[:, 8] < complete_image_size - cut_size))]
 
+        flag = data[:, 11][np.where((data[:, 7] > cut_size) & (data[:, 7] < complete_image_size - cut_size) &
+                                       (data[:, 8] > cut_size) & (data[:, 8] < complete_image_size - cut_size))]
+
         measures = []
         magnitudes = []
         s_n = []
+        flags = []
         # images = []
 
         edge = list(gal_image.array[0]) + list([i[-1] for i in gal_image.array[1:-1]]) + list(
@@ -1704,12 +1708,13 @@ def measure_catalog_lf(m, scene, argv, config, path, psf, index_fits):
                     magnitudes.append(mag_auto[i])
                 x_pos.append(x_cen[i])
                 y_pos.append(y_cen[i])
+                flags.append(flag[i])
 
         error_specific = bootstrap(measures, int(simulation['bootstrap_repetitions']))
 
         measurements.append(
             [g1, np.average(measures), error_specific, len(measures), m, scene, np.dstack((x_pos, y_pos))[0],
-             measures, magnitudes, s_n])
+             measures, magnitudes, s_n, flags])
 
         index += 1
 

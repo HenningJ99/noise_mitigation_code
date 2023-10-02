@@ -459,6 +459,7 @@ while ids:
 
 
             for gal in range(len(np.array(x[i][6])[filter])):
+                se_flag_binary = '{:08b}'.format(int(np.array(x[i][10])[filter][gal]))
                 min_deviation = np.argmin(np.abs(np.subtract(magnitudes_npn[gal], np.array(x[i][8])[filter][gal])))
                 gems_magnitude_optimized = np.array(magnitudes_npn[gal])[min_deviation]
                 matching_index = np.array(nearest_positional_neighbors[gal])[min_deviation]
@@ -467,15 +468,15 @@ while ids:
                      magnitudes_npn[gal][0], gems_magnitude_optimized, np.array(x[i][9])[filter][gal],
                      nearest_positional_neighbors[gal][0], matching_index, 0 if len(np.unique(nearest_positional_neighbors[gal])) == 1
                      else 1 if (np.abs(magnitudes_npn[gal][0]-magnitudes_npn[gal][1]) > 2) and (len(np.unique(nearest_positional_neighbors[gal])) == 2)
-                    else 2])
+            else 2, int(se_flag_binary[-2]) + int(se_flag_binary[-1])])
 
 
     ids = not_ready
 
 columns = np.array(columns, dtype=float)
-shear_results = Table([columns[:, i] for i in range(14)], names=(
+shear_results = Table([columns[:, i] for i in range(15)], names=(
 'scene_index', 'shear_index', 'cancel_index', 'input_g1', 'position_x', 'position_y', 'meas_g1', 'mag_auto',
-'mag_gems', 'mag_gems_optimized', 'S/N', 'matching_index', 'matching_index_optimized', 'blending_flag'))
+'mag_gems', 'mag_gems_optimized', 'S/N', 'matching_index', 'matching_index_optimized', 'blending_flag', 'se_flag'))
 
 now = datetime.datetime.now()
 
