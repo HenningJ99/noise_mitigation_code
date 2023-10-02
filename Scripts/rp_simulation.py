@@ -160,6 +160,9 @@ elif psf_config["psf"] == "AIRY":
 elif psf_config["psf"] == "GAUSS":
     psf = galsim.Gaussian(fwhm=0.15)
 
+psf_image = psf.drawImage(nx=stamp_xsize, ny=stamp_ysize, scale=pixel_scale)
+galsim.fits.write(psf_image, "psf_cosmos.fits")
+
 # psf = galsim.Gaussian(sigma=0.1)
 logger.debug('Made PSF profile')
 
@@ -182,6 +185,14 @@ argv_ref = ray.put(sys.argv)
 # ----------- Load the flagship catalog --------------------------------------------------------------------------------
 hdul = fits.open("../Simulations/input/flagship.fits")
 flagship = hdul[1].data
+flagship["bulge_r50"] *= 1.0
+flagship["disk_r50"] *= 1.0
+
+flagship["bulge_nsersic"] = np.where(flagship["bulge_nsersic"] * 0.9 < 0.3, 0.3, flagship["bulge_nsersic"] * 0.9)
+flagship["disk_nsersic"] = np.where(flagship["disk_nsersic"] * 0.9 < 0.3, 0.3, flagship["disk_nsersic"] * 0.9)
+
+flagship["bulge_axis_ratio"] *= 1.0
+flagship["disk_axis_ratio"] *= 1.0
 
 patches = shear_bins * total_scenes_per_shear
 
@@ -430,8 +441,8 @@ while ids:
 
         # Catch the case where no neighbour is found within the given distance (noise peaks?)
         if len(nearest_positional_neighbors) != len(x[6]):
-            print(
-                f"No neighbour within {MAX_DIST} px found for {len(x[6]) - len(nearest_positional_neighbors)} galaxies in scene {x[5]} at shear {x[4]}!")
+            print(f"No neighbour within {MAX_DIST} px found for "
+                  f"{len(x[6]) - len(nearest_positional_neighbors)} galaxies in scene {x[5]} at shear {x[4]}!")
 
         if x[10] % 2 != 0:
             magnitudes_npn = np.array(input_magnitudes[x[5] * shear_bins + x[4]][1::2])[
@@ -459,7 +470,8 @@ while ids:
                      else 1 if (np.abs(magnitudes_npn[gal][0] - magnitudes_npn[gal][1]) > 2) and (
                              len(np.unique(nearest_positional_neighbors[gal])) == 2)
                      else 2, np.array(x[11])[filter][gal], np.array(x[12])[filter][gal], np.array(x[13])[filter][gal],
-                     redshifts_npn[gal][0], np.array(x[14])[filter][gal]])
+                     redshifts_npn[gal][0], np.array(x[14])[filter][gal], np.array(x[15])[filter][gal][0],
+                     np.array(x[15])[filter][gal][1]])
             else:
                 columns.append(
                     [x[5], x[4], x[10], x[0], np.array(x[6])[filter][gal][0], np.array(x[6])[filter][gal][1],
@@ -469,7 +481,8 @@ while ids:
                      0 if len(np.unique(nearest_positional_neighbors[gal])) == 1
                      else 1 if (np.abs(magnitudes_npn[gal][0] - magnitudes_npn[gal][1]) > 2) and (
                              len(np.unique(nearest_positional_neighbors[gal])) == 2)
-                     else 2, redshifts_npn[gal][0]])
+                     else 2, redshifts_npn[gal][0], np.array(x[15])[filter][gal][0],
+                     np.array(x[15])[filter][gal][1]])
 
 
     ids = not_ready
@@ -477,17 +490,17 @@ while ids:
 columns = np.array(columns, dtype=float)
 
 if simulation.getboolean("source_extractor_morph"):
-    length = 19
+    length = 21
     shear_results = Table([columns[:, i] for i in range(length)], names=(
         'scene_index', 'shear_index', 'cancel_index', 'input_g1', 'position_x', 'position_y', 'meas_g1', 'mag_auto',
         'mag_gems', 'mag_gems_optimized', 'S/N', 'matching_index', 'matching_index_optimized', 'blending_flag',
         'sersic_n',
-        'sersic_re', 'sersic_e', 'matched_z', 'class_star'))
+        'sersic_re', 'sersic_e', 'matched_z', 'class_star', 'ra', 'dec'))
 else:
-    length = 15
+    length = 17
     shear_results = Table([columns[:, i] for i in range(length)], names=(
         'scene_index', 'shear_index', 'cancel_index', 'input_g1', 'position_x', 'position_y', 'meas_g1', 'mag_auto',
-        'mag_gems', 'mag_gems_optimized', 'S/N', 'matching_index', 'matching_index_optimized', 'blending_flag', 'matched_z'))
+        'mag_gems', 'mag_gems_optimized', 'S/N', 'matching_index', 'matching_index_optimized', 'blending_flag', 'matched_z', 'ra', 'dec'))
 
 
 now = datetime.datetime.now()

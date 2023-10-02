@@ -12,6 +12,7 @@ import os
 import timeit
 from galsim.errors import GalSimFFTSizeError
 import matplotlib.pyplot as plt
+import GalfitPyWrap
 try:
     import ksb_distort as ksb_h
     ksb_henk_avai = True
@@ -1966,6 +1967,8 @@ def one_scene_lf(m, gal, gal2, positions, positions2, scene, argv, config, path,
 
     x_pos = []
     y_pos = []
+    ra_pos = []
+    dec_pos = []
     # start = timeit.default_timer()
     gal_image = galsim.fits.read(path + f"output/FITS{index_fits}/catalog_" + f"{scene}_{m}_{index}.fits")
 
@@ -1990,6 +1993,8 @@ def one_scene_lf(m, gal, gal2, positions, positions2, scene, argv, config, path,
 
     x_cen = data[:, 7][filter]
     y_cen = data[:, 8][filter]
+    ra_cen = data[:, 9][filter]
+    dec_cen = data[:, 10][filter]
     mag_auto = data[:, 1][filter]
 
     if simulation.getboolean("source_extractor_morph"):
@@ -2013,7 +2018,6 @@ def one_scene_lf(m, gal, gal2, positions, positions2, scene, argv, config, path,
            list(reversed([i[0] for i in gal_image.array[1:-1]]))
 
     sigma_sky = 1.4826 * np.median(np.abs(edge - np.median(edge)))
-
     if simulation["shear_meas"] == "KSB" or simulation["shear_meas"] == "KSB_HENK":
         for i, id in enumerate(ids):
 
@@ -2077,6 +2081,8 @@ def one_scene_lf(m, gal, gal2, positions, positions2, scene, argv, config, path,
                 magnitudes.append(mag_auto[i])
             x_pos.append(x_cen[i])
             y_pos.append(y_cen[i])
+            ra_pos.append(ra_cen[i])
+            dec_pos.append(dec_cen[i])
 
     elif simulation["shear_meas"] == "LENSMC":
         if not lens_mc_avai:
@@ -2123,17 +2129,20 @@ def one_scene_lf(m, gal, gal2, positions, positions2, scene, argv, config, path,
                 magnitudes.append(mag_auto[i])
             x_pos.append(x_cen[i])
             y_pos.append(y_cen[i])
+            ra_pos.append(ra_cen[i])
+            dec_pos.append(dec_cen[i])
         print(f"LensMC: {timeit.default_timer() - start_lens_mc}")
     error_specific = bootstrap(measures, int(simulation['bootstrap_repetitions']))
 
     if simulation.getboolean("source_extractor_morph"):
         measurements.append(
             [g1, np.average(measures), error_specific, len(measures), m, scene, np.dstack((x_pos, y_pos))[0],
-             measures, magnitudes, s_n, index, sersic_index, effective_radius, ellipticity_sextractor, class_star])
+             measures, magnitudes, s_n, index, sersic_index, effective_radius, ellipticity_sextractor, class_star,
+             np.dstack((ra_pos, dec_pos))[0]])
     else:
         measurements.append(
             [g1, np.average(measures), error_specific, len(measures), m, scene, np.dstack((x_pos, y_pos))[0],
-             measures, magnitudes, s_n, index])
+             measures, magnitudes, s_n, index, np.dstack((ra_pos, dec_pos))[0]])
 
     os.system(f"rm {SOURCE_EXTRACTOR_DIR}/seg_{scene}_{m}_{index}.fits")
     return measurements
