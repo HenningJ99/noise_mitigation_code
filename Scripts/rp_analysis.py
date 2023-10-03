@@ -123,6 +123,8 @@ for scene in range(total_scenes_per_shear):
                                     data_complete["cancel_index"] == j) & (
                                     data_complete[bin_type] < upper_limit) & (data_complete[bin_type] >= lower_limit)])
 
+                    if complete_length == 0:
+                        complete_length = 1
                     blending_fraction = 100 * blended_fraction / complete_length
 
                     g1 = shear_min + i * (shear_max - shear_min) / (shear_bins - 1)
