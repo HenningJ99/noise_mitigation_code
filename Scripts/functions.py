@@ -11,8 +11,7 @@ import math
 import os
 import timeit
 from galsim.errors import GalSimFFTSizeError
-import matplotlib.pyplot as plt
-import GalfitPyWrap
+
 try:
     import ksb_distort as ksb_h
     ksb_henk_avai = True
