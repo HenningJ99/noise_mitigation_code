@@ -323,7 +323,7 @@ if rest != 0:
 # ------------------------ READ OUT THE GENERATED MEASUREMENTS --------------------------------------------------------
 
 interval = (shear_max - shear_min) / ((object_number / average_num) - 1)
-binning = [-0.1 + 0.2 / 19 * k for k in range(20)]  # Creates values between -0.1 and 0.1
+binning = [shear_min + interval * k for k in range(object_number // average_num)]  # Creates values between -0.1 and 0.1
 
 columns = []
 failure_counter = 0
@@ -342,7 +342,7 @@ for i in range(object_number):
             for m in range(len(x[-1])):
                 columns.append(
                     [x[0], int(x[0] / average_num), x[2], shear_min + int(x[0] / average_num) * interval,
-                     binning[int(x[2])], x[-2][m], x[-1][m],
+                     0 if simulation["g2"] == "ZERO" else binning[int(x[2])], x[-2][m], x[-1][m],
                      x[4][m], x[3], x[5][m]])
                 # shear_catalog.add_row(column)
         else:
