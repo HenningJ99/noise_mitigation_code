@@ -331,32 +331,31 @@ for scene in range(total_scenes_per_shear):
         input_magnitudes.append(magnitudes)
         if m == 0:
             print(timeit.default_timer() - start_input_building)
-    # ----------------------------- DISTRIBUTE WORK TO RAY --------------------------------------------------------
-    ids = []
-    rng = galsim.UniformDeviate()
+# ----------------------------- DISTRIBUTE WORK TO RAY --------------------------------------------------------
+ids = []
+rng = galsim.UniformDeviate()
 
 for scene in range(total_scenes_per_shear):
     for m in range(shear_bins):
         seed1 = int(rng() * 1e6)
         seed2 = int(rng() * 1e6)
 
-        ids = [fct.one_scene_lf.remote(m, gal_list[scene * shear_bins + m], gal_list2[scene * shear_bins + m],
+        ids.append(fct.one_scene_lf.remote(m, gal_list[scene * shear_bins + m], gal_list2[scene * shear_bins + m],
                                     positions[scene * shear_bins + m], positions_2[scene * shear_bins + m], scene,
                                     argv_ref, config_ref,
-                                    path, psf_ref, 0, index_fits, seed1),
-               fct.one_scene_lf.remote(m, gal_list[scene * shear_bins + m], gal_list2[scene * shear_bins + m],
+                                    path, psf_ref, 0, index_fits, seed1))
+        ids.append(fct.one_scene_lf.remote(m, gal_list[scene * shear_bins + m], gal_list2[scene * shear_bins + m],
                                     positions[scene * shear_bins + m], positions_2[scene * shear_bins + m], scene,
                                     argv_ref, config_ref,
-                                    path, psf_ref, 1, index_fits, seed1),
-               fct.one_scene_lf.remote(m, gal_list[scene * shear_bins + m], gal_list2[scene * shear_bins + m],
+                                    path, psf_ref, 1, index_fits, seed1))
+        ids.append(fct.one_scene_lf.remote(m, gal_list[scene * shear_bins + m], gal_list2[scene * shear_bins + m],
                                     positions[scene * shear_bins + m], positions_2[scene * shear_bins + m], scene,
                                     argv_ref, config_ref,
-                                    path, psf_ref, 2, index_fits, seed1),
-               fct.one_scene_lf.remote(m, gal_list[scene * shear_bins + m], gal_list2[scene * shear_bins + m],
+                                    path, psf_ref, 2, index_fits, seed1))
+        ids.append(fct.one_scene_lf.remote(m, gal_list[scene * shear_bins + m], gal_list2[scene * shear_bins + m],
                                     positions[scene * shear_bins + m], positions_2[scene * shear_bins + m], scene,
                                     argv_ref, config_ref,
-                                    path, psf_ref, 3, index_fits, seed1)
-               ]
+                                    path, psf_ref, 3, index_fits, seed1))
 
 
 print(timeit.default_timer() - start_scene)
