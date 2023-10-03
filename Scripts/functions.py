@@ -1568,10 +1568,14 @@ def one_scene_pujol(m, total_scene_count, gal, positions, argv, config, path, ps
         np.where((data[:, 7] > cut_size) & (data[:, 7] < complete_image_size - cut_size) & (data[:, 8] > cut_size) & (
                 data[:, 8] < complete_image_size - cut_size))]
 
+    flag = data[:, 11][np.where((data[:, 7] > cut_size) & (data[:, 7] < complete_image_size - cut_size) &
+                                (data[:, 8] > cut_size) & (data[:, 8] < complete_image_size - cut_size))]
+
     measures = []
     images = []
     magnitudes = []
     S_N = []
+    flags = []
 
     edge = list(gal_image.array[0]) + list([i[-1] for i in gal_image.array[1:-1]]) + list(
         reversed(gal_image.array[-1])) + \
@@ -1616,8 +1620,9 @@ def one_scene_pujol(m, total_scene_count, gal, positions, argv, config, path, ps
 
             meas.append(results.corrected_g1)
             S_N.append(signal_to_noise)
+            flags.append(flag[i])
 
-    return meas, np.dstack((x_pos, y_pos))[0], m, total_scene_count, magnitudes, S_N
+    return meas, np.dstack((x_pos, y_pos))[0], m, total_scene_count, magnitudes, S_N, flags
 
 
 
