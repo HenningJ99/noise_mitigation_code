@@ -755,17 +755,20 @@ for reps in range(REPS):
                      c_bias_err_err_s))
 
             blended_fraction = len(data_complete[
-                                       (data_complete["scene_index"] == scene) & (
-                                               data_complete[bin_type] < upper_limit) & (
-                                                   data_complete[bin_type] >= lower_limit) & (
-                                               data_complete["se_flag"] > 0)])
+                                       (data_complete["scene_index"] <= scene) &
+                                       (data_complete["scene_index"] > scene - analyse_every) &
+                                       (data_complete[bin_type] < upper_limit) &
+                                       (data_complete[bin_type] >= lower_limit) &
+                                       (data_complete["se_flag"] > 0)])
             complete_length = len(data_complete[
-                                      (data_complete["scene_index"] == scene) & (
-                                              data_complete[bin_type] < upper_limit) & (
-                                                  data_complete[bin_type] >= lower_limit)])
+                                      (data_complete["scene_index"] <= scene) &
+                                      (data_complete["scene_index"] > scene - analyse_every) &
+                                      (data_complete[bin_type] < upper_limit) &
+                                      (data_complete[bin_type] >= lower_limit)])
+            if complete_length == 0:
+                complete_length = 1
 
             blending_fraction = 100 * blended_fraction / complete_length
-
             columns.append([complete_image_size, galaxy_number, scene + 1, bias, err, c_bias,
                       c_bias_err,
                       results_values[0], results_values[1], int(timeit.default_timer() - start),
