@@ -347,7 +347,7 @@ for scene in range(total_scenes_per_shear):
         ids.append(fct.one_scene_lf.remote(m, gal_list[scene * shear_bins + m], gal_list2[scene * shear_bins + m],
                                     positions[scene * shear_bins + m], positions_2[scene * shear_bins + m], scene,
                                     argv_ref, config_ref,
-                                    path, psf_ref, 1, index_fits, seed1))
+                                    path, psf_ref, 1, index_fits, seed2))
         ids.append(fct.one_scene_lf.remote(m, gal_list[scene * shear_bins + m], gal_list2[scene * shear_bins + m],
                                     positions[scene * shear_bins + m], positions_2[scene * shear_bins + m], scene,
                                     argv_ref, config_ref,
@@ -355,7 +355,7 @@ for scene in range(total_scenes_per_shear):
         ids.append(fct.one_scene_lf.remote(m, gal_list[scene * shear_bins + m], gal_list2[scene * shear_bins + m],
                                     positions[scene * shear_bins + m], positions_2[scene * shear_bins + m], scene,
                                     argv_ref, config_ref,
-                                    path, psf_ref, 3, index_fits, seed1))
+                                    path, psf_ref, 3, index_fits, seed2))
 
 
 print(timeit.default_timer() - start_scene)
