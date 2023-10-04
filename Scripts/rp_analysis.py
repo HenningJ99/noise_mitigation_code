@@ -113,6 +113,25 @@ for scene in range(total_scenes_per_shear):
 
                 g1 = shear_min + i * (shear_max - shear_min) / (shear_bins - 1)
 
+                blended_fraction = len(data_complete[
+                                           (data_complete["shear_index"] == i) & (
+                                                       data_complete["scene_index"] == scene) & (
+                                                   data_complete["cancel_index"] == j) & (
+                                                   data_complete[bin_type] < upper_limit) & (
+                                                       data_complete[bin_type] >= lower_limit) & (
+                                                   data_complete["se_flag"] > 0)])
+                complete_length = len(data_complete[
+                                          (data_complete["shear_index"] == i) & (
+                                                      data_complete["scene_index"] == scene) & (
+                                                  data_complete["cancel_index"] == j) & (
+                                                  data_complete[bin_type] < upper_limit) & (
+                                                      data_complete[bin_type] >= lower_limit)])
+
+                if complete_length == 0:
+                    complete_length = 1
+
+                blending_fraction = 100 * blended_fraction / complete_length
+
                 if mag != mag_bins:
                     value = meas_means["meas_g1"][
                         (meas_means["scene_index"] == scene) & (meas_means["cancel_index"] == j) & (
@@ -137,19 +156,19 @@ for scene in range(total_scenes_per_shear):
                         weight = weight[0]
 
                     columns.append([g1, i, scene, j, value, error,
-                                    weight, magnitudes_list[mag]])
+                                    weight, magnitudes_list[mag], blending_fraction])
 
                 else:
                     ind = scene * shear_bins * 4 + j * shear_bins + i
 
                     columns.append([g1, i, scene, j, meas_means_full[ind], meas_std_full[ind],
-                                    lengths_full[ind], magnitudes_list[mag]])
+                                    lengths_full[ind], magnitudes_list[mag], blending_fraction])
 
         index += 1
 
 columns = np.array(columns, dtype=float)
-lf_results = Table([columns[:, i] for i in range(8)],
-                   names=('g1', 'shear_index', 'scene_index', 'cancel_index', 'mean_g1', 'std_g1', 'weight', bin_type))
+lf_results = Table([columns[:, i] for i in range(9)],
+                   names=('g1', 'shear_index', 'scene_index', 'cancel_index', 'mean_g1', 'std_g1', 'weight', bin_type, 'blending_fraction'))
 lf_results = lf_results.group_by('scene_index')
 
 ascii.write(lf_results, subfolder + 'analysis.dat',

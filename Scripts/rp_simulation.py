@@ -456,6 +456,7 @@ while ids:
                 nearest_positional_neighbors]
 
         for gal in range(len(np.array(x[6])[filter])):
+            se_flag_binary = '{:08b}'.format(int(np.array(x[-1])[filter][gal]))
             min_deviation = np.argmin(np.abs(np.subtract(magnitudes_npn[gal], np.array(x[8])[filter][gal])))
             gems_magnitude_optimized = np.array(magnitudes_npn[gal])[min_deviation]
             matching_index = np.array(nearest_positional_neighbors[gal])[min_deviation]
@@ -471,7 +472,7 @@ while ids:
                              len(np.unique(nearest_positional_neighbors[gal])) == 2)
                      else 2, np.array(x[11])[filter][gal], np.array(x[12])[filter][gal], np.array(x[13])[filter][gal],
                      redshifts_npn[gal][0], np.array(x[14])[filter][gal], np.array(x[15])[filter][gal][0],
-                     np.array(x[15])[filter][gal][1]])
+                     np.array(x[15])[filter][gal][1], int(se_flag_binary[-2]) + int(se_flag_binary[-1])])
             else:
                 columns.append(
                     [x[5], x[4], x[10], x[0], np.array(x[6])[filter][gal][0], np.array(x[6])[filter][gal][1],
@@ -481,8 +482,8 @@ while ids:
                      0 if len(np.unique(nearest_positional_neighbors[gal])) == 1
                      else 1 if (np.abs(magnitudes_npn[gal][0] - magnitudes_npn[gal][1]) > 2) and (
                              len(np.unique(nearest_positional_neighbors[gal])) == 2)
-                     else 2, redshifts_npn[gal][0], np.array(x[15])[filter][gal][0],
-                     np.array(x[15])[filter][gal][1]])
+                     else 2, redshifts_npn[gal][0], np.array(x[11])[filter][gal][0],
+                     np.array(x[11])[filter][gal][1], int(se_flag_binary[-2]) + int(se_flag_binary[-1])])
 
 
     ids = not_ready
@@ -490,17 +491,17 @@ while ids:
 columns = np.array(columns, dtype=float)
 
 if simulation.getboolean("source_extractor_morph"):
-    length = 21
+    length = 22
     shear_results = Table([columns[:, i] for i in range(length)], names=(
         'scene_index', 'shear_index', 'cancel_index', 'input_g1', 'position_x', 'position_y', 'meas_g1', 'mag_auto',
         'mag_gems', 'mag_gems_optimized', 'S/N', 'matching_index', 'matching_index_optimized', 'blending_flag',
         'sersic_n',
-        'sersic_re', 'sersic_e', 'matched_z', 'class_star', 'ra', 'dec'))
+        'sersic_re', 'sersic_e', 'matched_z', 'class_star', 'ra', 'dec', 'se_flag'))
 else:
-    length = 17
+    length = 18
     shear_results = Table([columns[:, i] for i in range(length)], names=(
         'scene_index', 'shear_index', 'cancel_index', 'input_g1', 'position_x', 'position_y', 'meas_g1', 'mag_auto',
-        'mag_gems', 'mag_gems_optimized', 'S/N', 'matching_index', 'matching_index_optimized', 'blending_flag', 'matched_z', 'ra', 'dec'))
+        'mag_gems', 'mag_gems_optimized', 'S/N', 'matching_index', 'matching_index_optimized', 'blending_flag', 'matched_z', 'ra', 'dec', 'se_flag'))
 
 
 now = datetime.datetime.now()

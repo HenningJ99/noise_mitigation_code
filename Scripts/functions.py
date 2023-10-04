@@ -1553,6 +1553,7 @@ def one_scene_pujol(m, total_scene_count, gal, positions, argv, config, path, ps
     x_cen = data[:, 7][filter]
     y_cen = data[:, 8][filter]
     mag_auto = data[:, 1][filter]
+    flag = data[:, 11][filter]
 
     if simulation.getboolean("source_extractor_morph"):
         sersic_index = data[:, 14][filter]
@@ -1564,11 +1565,14 @@ def one_scene_pujol(m, total_scene_count, gal, positions, argv, config, path, ps
 
         class_star = data[:, 25][filter]
 
+        flag = data[:, 11][filter]
+
 
     measures = []
     images = []
     magnitudes = []
     S_N = []
+    flags = []
 
     edge = list(gal_image.array[0]) + list([i[-1] for i in gal_image.array[1:-1]]) + list(
         reversed(gal_image.array[-1])) + \
@@ -1647,6 +1651,7 @@ def one_scene_pujol(m, total_scene_count, gal, positions, argv, config, path, ps
 
             meas.append(e1_cor)
             S_N.append(signal_to_noise)
+            flags.append(flag[i])
 
     elif simulation["shear_meas"] == "LENSMC":
         if not lens_mc_avai:
@@ -1690,14 +1695,15 @@ def one_scene_pujol(m, total_scene_count, gal, positions, argv, config, path, ps
 
             meas.append(e1)
             S_N.append(signal_to_noise)
+            flags.append(flag[i])
         print(f"LensMC: {timeit.default_timer() - start_lens_mc}")
     os.system(f"rm {SOURCE_EXTRACTOR_DIR}/seg_{total_scene_count}_{m}.fits")
 
     if simulation.getboolean("source_extractor_morph"):
-        return meas, np.dstack((x_pos, y_pos))[0], m, total_scene_count, magnitudes, S_N, sersic_index, effective_radius, ellipticity_sextractor, class_star
+        return meas, np.dstack((x_pos, y_pos))[0], m, total_scene_count, magnitudes, S_N, sersic_index, effective_radius, ellipticity_sextractor, class_star, flags
     else:
         return meas, np.dstack((x_pos, y_pos))[
-            0], m, total_scene_count, magnitudes, S_N
+            0], m, total_scene_count, magnitudes, S_N, flags
 
 
 
@@ -1995,6 +2001,7 @@ def one_scene_lf(m, gal, gal2, positions, positions2, scene, argv, config, path,
     ra_cen = data[:, 9][filter]
     dec_cen = data[:, 10][filter]
     mag_auto = data[:, 1][filter]
+    flag = data[:, 11][filter]
 
     if simulation.getboolean("source_extractor_morph"):
         sersic_index = data[:, 14][filter]
@@ -2006,10 +2013,13 @@ def one_scene_lf(m, gal, gal2, positions, positions2, scene, argv, config, path,
 
         class_star = data[:, 25][filter]
 
+        flag = data[:, 26][filter]
+
 
     measures = []
     magnitudes = []
     s_n = []
+    flags = []
     # images = []
 
     edge = list(gal_image.array[0]) + list([i[-1] for i in gal_image.array[1:-1]]) + list(
@@ -2082,6 +2092,7 @@ def one_scene_lf(m, gal, gal2, positions, positions2, scene, argv, config, path,
             y_pos.append(y_cen[i])
             ra_pos.append(ra_cen[i])
             dec_pos.append(dec_cen[i])
+            flags.append(flag[i])
 
     elif simulation["shear_meas"] == "LENSMC":
         if not lens_mc_avai:
@@ -2130,6 +2141,7 @@ def one_scene_lf(m, gal, gal2, positions, positions2, scene, argv, config, path,
             y_pos.append(y_cen[i])
             ra_pos.append(ra_cen[i])
             dec_pos.append(dec_cen[i])
+            flags.append(flag[i])
         print(f"LensMC: {timeit.default_timer() - start_lens_mc}")
     error_specific = bootstrap(measures, int(simulation['bootstrap_repetitions']))
 
@@ -2137,11 +2149,11 @@ def one_scene_lf(m, gal, gal2, positions, positions2, scene, argv, config, path,
         measurements.append(
             [g1, np.average(measures), error_specific, len(measures), m, scene, np.dstack((x_pos, y_pos))[0],
              measures, magnitudes, s_n, index, sersic_index, effective_radius, ellipticity_sextractor, class_star,
-             np.dstack((ra_pos, dec_pos))[0]])
+             np.dstack((ra_pos, dec_pos))[0], flags])
     else:
         measurements.append(
             [g1, np.average(measures), error_specific, len(measures), m, scene, np.dstack((x_pos, y_pos))[0],
-             measures, magnitudes, s_n, index, np.dstack((ra_pos, dec_pos))[0]])
+             measures, magnitudes, s_n, index, np.dstack((ra_pos, dec_pos))[0], flags])
 
     os.system(f"rm {SOURCE_EXTRACTOR_DIR}/seg_{scene}_{m}_{index}.fits")
     return measurements
