@@ -170,16 +170,16 @@ for run in [4, 2, 1]:
 
         meas_all = catalog_new.group_by([k, "binned_mag", "binned_time"])
         meas_comp = meas_all[
-            "galaxy_id", k, "binned_mag", "binned_time", "meas_g1", "meas_g2", "intr_g1", "intr_g2"].groups.aggregate(
+            "galaxy_id", k, "binned_mag", "binned_time", "meas_g1", "meas_g2", "meas_g1_sel", "meas_g2_sel", "intr_g1", "intr_g2"].groups.aggregate(
             np.mean)
-        meas_weights = meas_all["galaxy_id", "binned_time", "meas_g1", "meas_g2"].groups.aggregate(np.size)
+        meas_weights = meas_all["galaxy_id", "binned_time", "meas_g1", "meas_g2", "meas_g1_sel", "meas_g2_sel"].groups.aggregate(np.size)
 
         # Group also by galaxy id
         meas_all_bs = catalog_new.group_by([k, "binned_mag", "binned_time", "galaxy_id"])
         meas_comp_bs = meas_all_bs[
-            "galaxy_id", k, "binned_mag", "binned_time", "meas_g1", "meas_g2", "intr_g1", "intr_g2"].groups.aggregate(
+            "galaxy_id", k, "binned_mag", "binned_time", "meas_g1", "meas_g2", "meas_g1_sel", "meas_g2_sel", "intr_g1", "intr_g2"].groups.aggregate(
             np.mean)
-        meas_weights_bs = meas_all_bs["galaxy_id", "binned_time", "meas_g1", "meas_g2"].groups.aggregate(np.size)
+        meas_weights_bs = meas_all_bs["galaxy_id", "binned_time", "meas_g1", "meas_g2", "meas_g1_sel", "meas_g2_sel"].groups.aggregate(np.size)
 
         meas_comp_ref = ray.put(meas_comp)
         meas_weights_ref = ray.put(meas_weights)
@@ -203,14 +203,16 @@ for run in [4, 2, 1]:
 
         # Convert columns to numpy array and create the output Table
         columns[shear_component] = np.array(columns[shear_component], dtype=float)
-        columns[shear_component] = columns[shear_component][np.lexsort((columns[shear_component][:,9], -columns[shear_component][:,8], columns[shear_component][:, 0]))]
+        columns[shear_component] = columns[shear_component][np.lexsort((columns[shear_component][:,12], -columns[shear_component][:,11], columns[shear_component][:, 0]))]
 
     columns = np.hstack(columns)
 
-    shear_results = Table(columns[:, [1, 11, 2, 3, 4, 12, 13, 14, 5, 6, 7, 17]],
+    shear_results = Table(columns[:, [1, 14, 2, 3, 4, 15, 16, 17, 5, 6, 7, 18, 19, 20, 8, 9, 10, 23]],
                           names=('input_g1', 'input_g2', 'meas_g1', 'meas_g1_err', 'meas_g1_err_err',
                                  'meas_g2',
-                                 'meas_g2_err', 'meas_g2_err_err', 'n_pairs', 'mag', 'intrinsic_g1',
+                                 'meas_g2_err', 'meas_g2_err_err', 'meas_g1_sel', 'meas_g1_sel_err', 'meas_g1_sel_err_err',
+                                 'meas_g2_sel', 'meas_g2_sel_err', 'meas_g2_sel_err_err',
+                                 'n_pairs', 'mag', 'intrinsic_g1',
                                  'intrinsic_g2'))
 
     stop = timeit.default_timer()
