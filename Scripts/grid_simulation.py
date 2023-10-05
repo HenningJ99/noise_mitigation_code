@@ -339,7 +339,7 @@ for i in range(object_number):
             for m in range(len(x[-1])):
                 columns.append(
                     [x[0], int(x[0] / average_num), x[2], shear_min + int(x[0] / average_num) * interval,
-                     binning[int(x[2])], x[-2][m], x[-1][m],
+                     binning[int(x[2])], x[-4][m], x[-3][m], x[-2][m], x[-1][m],
                      x[4][m], x[3], x[5][m]])
                 # shear_catalog.add_row(column)
         else:
@@ -358,8 +358,8 @@ print(f"Failure count: {failure_counter}")
 
 # Convert columns to numpy array and create the output table
 columns = np.array(columns, dtype=float)
-shear_catalog = Table([columns[:, i] for i in range(10)], names=(
-    'galaxy_id', 'shear_index_g1', 'shear_index_g2', 'input_g1', 'input_g2', 'meas_g1', 'meas_g2', 'mag_meas', 'mag_input',
+shear_catalog = Table([columns[:, i] for i in range(12)], names=(
+    'galaxy_id', 'shear_index_g1', 'shear_index_g2', 'input_g1', 'input_g2', 'meas_g1', 'meas_g2', 'meas_g1_sel', 'meas_g2_sel', 'mag_meas', 'mag_input',
     'S/N'))
 
 # Save the output files in a folder labeled by the current date and time

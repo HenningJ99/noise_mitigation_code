@@ -444,6 +444,8 @@ def worker(k, ellip_gal, psf, image_sampled_psf, config, argv, input_shear):
 
     meas_g1 = [[0 for _ in range(nx_tiles)] for _ in range(column)]
     meas_g2 = [[0 for _ in range(nx_tiles)] for _ in range(column)]
+    meas_g1_sel = [[0 for _ in range(nx_tiles)] for _ in range(column)]
+    meas_g2_sel = [[0 for _ in range(nx_tiles)] for _ in range(column)]
     meas_SNR = [[0 for _ in range(nx_tiles)] for _ in range(column)]
     meas_mag = [[0 for _ in range(nx_tiles)] for _ in range(column)]
 
@@ -588,14 +590,14 @@ def worker(k, ellip_gal, psf, image_sampled_psf, config, argv, input_shear):
                     gain * adamflux + np.pi * (3 * adamsigma * np.sqrt(2 * np.log(2))) ** 2 * (
                             gain * sigma_sky) ** 2)
 
-                if not simulation.getboolean("sel_bias"):
-                    # Use this for a normal run
-                    meas_g1[iy][ix] = results.corrected_g1
-                    meas_g2[iy][ix] = results.corrected_g2
-                else:
-                    # Use this for selection bias checks
-                    meas_g1[iy][ix] = input_shear[0] + g1
-                    meas_g2[iy][ix] = input_shear[1] + g2
+
+                # Use this for a normal run
+                meas_g1[iy][ix] = results.corrected_g1
+                meas_g2[iy][ix] = results.corrected_g2
+
+                # Use this for selection bias checks
+                meas_g1_sel[iy][ix] = input_shear[0] + g1
+                meas_g2_sel[iy][ix] = input_shear[1] + g2
 
                 meas_SNR[iy][ix] = signal_to_noise
                 gal_mag_inp = -2.5 * np.log10(gain / exp_time * ellip_gal.original.flux) + zp  # Input magnitude
@@ -613,6 +615,8 @@ def worker(k, ellip_gal, psf, image_sampled_psf, config, argv, input_shear):
     # Flatten the measurement array in the end to make the analysis.
     meas_g1 = np.concatenate(meas_g1)
     meas_g2 = np.concatenate(meas_g2)
+    meas_g1_sel = np.concatenate(meas_g1_sel)
+    meas_g2_sel = np.concatenate(meas_g2_sel)
     meas_SNR = np.concatenate(meas_SNR)
     meas_mag = np.concatenate(meas_mag)
 
@@ -621,7 +625,7 @@ def worker(k, ellip_gal, psf, image_sampled_psf, config, argv, input_shear):
         # if len(fails) != 0:
         # np.savetxt(sys.stdout,np.reshape(np.array(fails),(-1,2)),fmt="%i")
         return k, timings, bin_index, gal_mag_inp, meas_mag, meas_SNR, gal_image if simulation.getboolean(
-            "output") else "", np.concatenate(fails), meas_g1, meas_g2
+            "output") else "", np.concatenate(fails), meas_g1, meas_g2, meas_g1_sel, meas_g2_sel
     else:
         return -1
 
@@ -1833,11 +1837,17 @@ def one_shear_analysis(m, config, argv, meas_comp, meas_weights, meas_comp_bs, m
             intr = meas_comp["intr_" + shear][
                 (meas_comp[index] == m) & (meas_comp["binned_time"] <= i) & (
                         meas_comp["binned_mag"] > lower_lim) & (meas_comp["binned_mag"] < upper_lim)].data
+
+            selection = meas_comp["meas_" + shear +"_sel"][(meas_comp[index] == m) & (meas_comp["binned_time"] <= i) & (
+                    meas_comp["binned_mag"] > lower_lim) & (meas_comp["binned_mag"] < upper_lim)].data
             # A few try excepts to handle empty array_g1s occuring for example for the faintest magnitudes
             if len(value) == 0:
                 av_mod = 0
                 err_mod = 0
                 err_mod_err = 0
+                av_sel = 0
+                err_sel = 0
+                err_sel_err = 0
                 intrinsic_av = 0
                 length = 0
 
@@ -1868,8 +1878,27 @@ def one_shear_analysis(m, config, argv, meas_comp, meas_weights, meas_comp_bs, m
                             meas_comp["binned_mag"] > lower_lim) & (
                             meas_comp["binned_mag"] < upper_lim)].data)
 
+                av_sel = np.average(selection, weights=meas_weights["meas_" + shear +"_sel"][
+                    (meas_comp[index] == m) & (meas_comp["binned_time"] <= i) & (
+                            meas_comp["binned_mag"] > lower_lim) & (
+                            meas_comp["binned_mag"] < upper_lim)].data)  # np.average(array_g1["meas_g1"])
+
+                bootstrap_res = bootstrap_new(meas_comp_bs["meas_" + shear +"_sel"][(meas_comp_bs[index] == m) & (
+                        meas_comp_bs["binned_time"] <= i) & (meas_comp_bs["binned_mag"] > lower_lim) & (
+                                                                                    meas_comp_bs[
+                                                                                        "binned_mag"] < upper_lim)].data,
+                                              meas_weights_bs["meas_" + shear +"_sel"][(meas_comp_bs[index] == m) & (
+                                                      meas_comp_bs["binned_time"] <= i) & (meas_comp_bs[
+                                                                                               "binned_mag"] > lower_lim) & (
+                                                                                       meas_comp_bs[
+                                                                                           "binned_mag"] < upper_lim)].data,
+                                              BOOTSTRAP_REPETITIONS)
+
+                err_sel = bootstrap_res[0]
+                err_sel_err = bootstrap_res[1]
+
             columns.append([m,
                             shear_min + (shear_max - shear_min) / ((object_number / average_num) - 1) * m,
-                            av_mod, err_mod, err_mod_err,
+                            av_mod, err_mod, err_mod_err, av_sel, err_sel, err_sel_err,
                             length, upper_lim, intrinsic_av, i, mag])
     return columns
