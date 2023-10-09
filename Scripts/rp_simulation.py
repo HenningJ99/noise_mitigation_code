@@ -188,8 +188,8 @@ flagship = hdul[1].data
 flagship["bulge_r50"] *= 1.0
 flagship["disk_r50"] *= 1.0
 
-flagship["bulge_nsersic"] = np.where(flagship["bulge_nsersic"] * 0.9 < 0.3, 0.3, flagship["bulge_nsersic"] * 0.9)
-flagship["disk_nsersic"] = np.where(flagship["disk_nsersic"] * 0.9 < 0.3, 0.3, flagship["disk_nsersic"] * 0.9)
+#flagship["bulge_nsersic"] = np.where(flagship["bulge_nsersic"] * 0.9 < 0.3, 0.3, flagship["bulge_nsersic"] * 0.9)
+#flagship["disk_nsersic"] = np.where(flagship["disk_nsersic"] * 0.9 < 0.3, 0.3, flagship["disk_nsersic"] * 0.9)
 
 flagship["bulge_axis_ratio"] *= 1.0
 flagship["disk_axis_ratio"] *= 1.0
