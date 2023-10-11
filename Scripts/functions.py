@@ -1372,6 +1372,7 @@ def one_scene_pujol(m, total_scene_count, gal, positions, argv, config, path, ps
     stamp_ysize = int(image['stamp_ysize'])
     cut_size = int(image['cut_size'])
     bin_type = simulation['bin_type']
+    dec_min_org = float(image["dec_min"])
 
     # ------------------------ Create the stamps ---------------------------------------------------------------------
     stamps = []
@@ -1435,11 +1436,11 @@ def one_scene_pujol(m, total_scene_count, gal, positions, argv, config, path, ps
     # Build the two large images for none and shape and add sky level and Gaussian RON to them
     angular_size = (complete_image_size - 2. * 1.5 / pixel_scale) * pixel_scale / 3600
 
-    ra_max = ra_min + angular_size
+    ra_max = ra_min + angular_size * np.cos(dec_min_org * np.pi / 180)
 
     dec_max = dec_min + angular_size
 
-    image_none, wcs = SimpleCanvas(ra_min, ra_max, dec_min, dec_max, pixel_scale)
+    image_none, wcs = SimpleCanvas(ra_min, ra_max, dec_min, dec_max, pixel_scale, image_size=complete_image_size)
 
     for i in range(len(stamps)):
         # Find the overlapping bounds between the large image and the individual stamp.
@@ -1725,7 +1726,7 @@ def one_scene_pujol(m, total_scene_count, gal, positions, argv, config, path, ps
 
 
 
-def SimpleCanvas(RA_min, RA_max, DEC_min, DEC_max, pixel_scale, edge_sep=1.5, rotate=False):
+def SimpleCanvas(RA_min, RA_max, DEC_min, DEC_max, pixel_scale, edge_sep=1.5, rotate=False, image_size=4000):
     """
     Build a simple canvas
     """
@@ -1735,8 +1736,8 @@ def SimpleCanvas(RA_min, RA_max, DEC_min, DEC_max, pixel_scale, edge_sep=1.5, ro
     DEC0 = (DEC_min + DEC_max) / 2.
 
     # decide bounds
-    xmax = (RA_max - RA_min) * 3600. / pixel_scale + 2. * edge_sep / pixel_scale  # edge_sep in both sides to avoid edge effects
-    ymax = (DEC_max - DEC_min) * 3600. / pixel_scale + 2. * edge_sep / pixel_scale
+    xmax = image_size #(RA_max - RA_min) * 3600. / pixel_scale + 2. * edge_sep / pixel_scale  # edge_sep in both sides to avoid edge effects
+    ymax = image_size #(DEC_max - DEC_min) * 3600. / pixel_scale + 2. * edge_sep / pixel_scale
 
     if math.ceil(xmax) % 2 == 0:
         xmax += 1
@@ -1803,6 +1804,8 @@ def one_scene_lf(m, gal, gal2, positions, positions2, scene, argv, config, path,
     exp_time = float(image['exp_time'])
     bin_type = simulation['bin_type']
     shear_bins = int(simulation['shear_bins'])
+
+    dec_min_org = float(image["dec_min"])
 
     rng = galsim.UniformDeviate()
     rng1 = rng.duplicate()
@@ -1883,12 +1886,12 @@ def one_scene_lf(m, gal, gal2, positions, positions2, scene, argv, config, path,
     # Build the two large images for none and shape and add sky level and Gaussian RON to them
     angular_size = (complete_image_size - 2. * 1.5 / pixel_scale) * pixel_scale / 3600
 
-    ra_max = ra_min + angular_size
+    ra_max = ra_min + angular_size / np.cos(dec_min_org * np.pi / 180)
 
     dec_max = dec_min + angular_size
 
     image, wcs = SimpleCanvas(ra_min, ra_max, dec_min, dec_max, pixel_scale,
-                              rotate=True if index % 2 != 0 and argv[5] == "True" else False)
+                              rotate=True if index % 2 != 0 and argv[5] == "True" else False, image_size=complete_image_size)
     if simulation.getboolean("source_extractor_morph"):
         # Add stars
         n_stars = 30

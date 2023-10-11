@@ -249,8 +249,8 @@ y_scenes = math.ceil(total_scenes / x_scenes)
 
 angular_size = (complete_image_size - 2. * 1.5 / pixel_scale) * pixel_scale / 3600
 
-x = np.linspace(ra_min_org, ra_min_org + x_scenes * angular_size, x_scenes)
-y = np.linspace(dec_min_org, dec_min_org + y_scenes * angular_size, y_scenes)
+x = np.linspace(ra_min_org, ra_min_org + x_scenes * angular_size / np.cos(dec_min_org * np.pi / 180), x_scenes+1)
+y = np.linspace(dec_min_org, dec_min_org + y_scenes * angular_size, y_scenes+1)
 
 if (np.min(x) < CATALOG_LIMITS[2]) or (np.max(x) > CATALOG_LIMITS[3]) or (np.min(y) < CATALOG_LIMITS[0]) or (
         np.max(y) > CATALOG_LIMITS[1]):
@@ -273,7 +273,7 @@ for scene in range(total_scenes_per_shear):
         redshifts = []
 
         ra_min = grid_x[grid_counter]
-        ra_max = ra_min + angular_size
+        ra_max = ra_min + angular_size / np.cos(dec_min_org * np.pi / 180)
 
         dec_min = grid_y[grid_counter]  # + (total_scenes_per_shear * m + scene) * 0.1
         dec_max = dec_min + angular_size  # + (total_scenes_per_shear * m + scene + 1) * 0.1
@@ -293,7 +293,8 @@ for scene in range(total_scenes_per_shear):
             positions_2[scene * shear_bins + m] = positions[scene * shear_bins + m]
 
         # Convert positions from WCS to image
-        canvas, wcs_astropy = fct.SimpleCanvas(ra_min, ra_max, dec_min, dec_max, pixel_scale)
+        canvas, wcs_astropy = fct.SimpleCanvas(ra_min, ra_max, dec_min, dec_max, pixel_scale,
+                                               image_size=complete_image_size)
         full_image = canvas.copy()
         wcs = full_image.wcs
 
@@ -302,7 +303,8 @@ for scene in range(total_scenes_per_shear):
         positions[scene * shear_bins + m] = np.vstack([x_gals, y_gals]).T
 
         if sys.argv[5] == "True":
-            canvas, wcs_astropy = fct.SimpleCanvas(ra_min, ra_max, dec_min, dec_max, pixel_scale, rotate=True)
+            canvas, wcs_astropy = fct.SimpleCanvas(ra_min, ra_max, dec_min, dec_max, pixel_scale, rotate=True,
+                                                   image_size=complete_image_size)
             full_image = canvas.copy()
             wcs = full_image.wcs
 
