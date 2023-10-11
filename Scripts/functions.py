@@ -1556,6 +1556,9 @@ def one_scene_pujol(m, total_scene_count, gal, positions, argv, config, path, ps
     y_cen = data[:, 8][filter]
     mag_auto = data[:, 1][filter]
     flag = data[:, 11][filter]
+    kron_radius = data[:, 12][filter]
+    a_image = data[:, 13][filter]
+    b_image = data[:, 14][filter]
 
     if simulation.getboolean("source_extractor_morph"):
         sersic_index = data[:, 14][filter]
@@ -1567,7 +1570,11 @@ def one_scene_pujol(m, total_scene_count, gal, positions, argv, config, path, ps
 
         class_star = data[:, 25][filter]
 
-        flag = data[:, 11][filter]
+        flag = data[:, 26][filter]
+
+        kron_radius = data[:, 27][filter]
+        a_image = data[:, 28][filter]
+        b_image = data[:, 29][filter]
 
 
     measures = []
@@ -1575,6 +1582,9 @@ def one_scene_pujol(m, total_scene_count, gal, positions, argv, config, path, ps
     magnitudes = []
     S_N = []
     flags = []
+    kron_radii = []
+    a_images = []
+    b_images = []
 
     edge = list(gal_image.array[0]) + list([i[-1] for i in gal_image.array[1:-1]]) + list(
         reversed(gal_image.array[-1])) + \
@@ -1654,6 +1664,9 @@ def one_scene_pujol(m, total_scene_count, gal, positions, argv, config, path, ps
             meas.append(e1_cor)
             S_N.append(signal_to_noise)
             flags.append(flag[i])
+            kron_radii.append(kron_radius[i])
+            a_images.append(a_image[i])
+            b_images.append(b_image[i])
 
     elif simulation["shear_meas"] == "LENSMC":
         if not lens_mc_avai:
@@ -1698,14 +1711,17 @@ def one_scene_pujol(m, total_scene_count, gal, positions, argv, config, path, ps
             meas.append(e1)
             S_N.append(signal_to_noise)
             flags.append(flag[i])
+            kron_radii.append(kron_radius[i])
+            a_images.append(a_image[i])
+            b_images.append(b_image[i])
         print(f"LensMC: {timeit.default_timer() - start_lens_mc}")
     os.system(f"rm {SOURCE_EXTRACTOR_DIR}/seg_{total_scene_count}_{m}.fits")
 
     if simulation.getboolean("source_extractor_morph"):
-        return meas, np.dstack((x_pos, y_pos))[0], m, total_scene_count, magnitudes, S_N, sersic_index, effective_radius, ellipticity_sextractor, class_star, flags
+        return meas, np.dstack((x_pos, y_pos))[0], m, total_scene_count, magnitudes, S_N, sersic_index, effective_radius, ellipticity_sextractor, class_star, flags, kron_radii, a_images, b_images
     else:
         return meas, np.dstack((x_pos, y_pos))[
-            0], m, total_scene_count, magnitudes, S_N, flags
+            0], m, total_scene_count, magnitudes, S_N, flags, kron_radii, a_images, b_images
 
 
 
@@ -2004,6 +2020,9 @@ def one_scene_lf(m, gal, gal2, positions, positions2, scene, argv, config, path,
     dec_cen = data[:, 10][filter]
     mag_auto = data[:, 1][filter]
     flag = data[:, 11][filter]
+    kron_radius = data[:, 12][filter]
+    a_image = data[:, 13][filter]
+    b_image = data[:, 14][filter]
 
     if simulation.getboolean("source_extractor_morph"):
         sersic_index = data[:, 14][filter]
@@ -2017,11 +2036,18 @@ def one_scene_lf(m, gal, gal2, positions, positions2, scene, argv, config, path,
 
         flag = data[:, 26][filter]
 
+        kron_radius = data[:, 27][filter]
+        a_image = data[:, 28][filter]
+        b_image = data[:, 29][filter]
+
 
     measures = []
     magnitudes = []
     s_n = []
     flags = []
+    kron_radii = []
+    a_images = []
+    b_images = []
     # images = []
 
     edge = list(gal_image.array[0]) + list([i[-1] for i in gal_image.array[1:-1]]) + list(
@@ -2095,6 +2121,9 @@ def one_scene_lf(m, gal, gal2, positions, positions2, scene, argv, config, path,
             ra_pos.append(ra_cen[i])
             dec_pos.append(dec_cen[i])
             flags.append(flag[i])
+            kron_radii.append(kron_radius[i])
+            a_images.append(a_image[i])
+            b_images.append(b_image[i])
 
     elif simulation["shear_meas"] == "LENSMC":
         if not lens_mc_avai:
@@ -2144,6 +2173,9 @@ def one_scene_lf(m, gal, gal2, positions, positions2, scene, argv, config, path,
             ra_pos.append(ra_cen[i])
             dec_pos.append(dec_cen[i])
             flags.append(flag[i])
+            kron_radii.append(kron_radius[i])
+            a_images.append(a_image[i])
+            b_images.append(b_image[i])
         print(f"LensMC: {timeit.default_timer() - start_lens_mc}")
     error_specific = bootstrap(measures, int(simulation['bootstrap_repetitions']))
 
@@ -2151,11 +2183,11 @@ def one_scene_lf(m, gal, gal2, positions, positions2, scene, argv, config, path,
         measurements.append(
             [g1, np.average(measures), error_specific, len(measures), m, scene, np.dstack((x_pos, y_pos))[0],
              measures, magnitudes, s_n, index, sersic_index, effective_radius, ellipticity_sextractor, class_star,
-             np.dstack((ra_pos, dec_pos))[0], flags])
+             np.dstack((ra_pos, dec_pos))[0], flags, kron_radii, a_images, b_images])
     else:
         measurements.append(
             [g1, np.average(measures), error_specific, len(measures), m, scene, np.dstack((x_pos, y_pos))[0],
-             measures, magnitudes, s_n, index, np.dstack((ra_pos, dec_pos))[0], flags])
+             measures, magnitudes, s_n, index, np.dstack((ra_pos, dec_pos))[0], flags, kron_radii, a_images, b_images])
 
     os.system(f"rm {SOURCE_EXTRACTOR_DIR}/seg_{scene}_{m}_{index}.fits")
     return measurements

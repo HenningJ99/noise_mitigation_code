@@ -385,7 +385,7 @@ while ids:
     redshifts_npn = np.array(input_redshifts[results[0][3]])[nearest_positional_neighbors]
 
     for m in range(len(np.array(results[0][0])[filter])):
-        se_flag_binary = '{:08b}'.format(int(np.array(results[0][-1])[filter][m]))
+        se_flag_binary = '{:08b}'.format(int(np.array(results[0][-4])[filter][m]))
 
         min_deviation = np.argmin(np.abs(np.subtract(magnitudes_npn[m], np.array(results[0][4])[filter][m])))
         gems_magnitude_optimized = np.array(magnitudes_npn[m])[min_deviation]
@@ -401,7 +401,8 @@ while ids:
                  else 1 if (np.abs(magnitudes_npn[m][0] - magnitudes_npn[m][1]) > 2) and (
                              len(np.unique(nearest_positional_neighbors[m])) == 2)
                  else 2, np.array(results[0][6])[filter][m], np.array(results[0][7])[filter][m],
-                 np.array(results[0][8])[filter][m], redshifts_npn[m][0], np.array(results[0][9])[filter][m], int(se_flag_binary[-2]) + int(se_flag_binary[-1])])
+                 np.array(results[0][8])[filter][m], redshifts_npn[m][0], np.array(results[0][9])[filter][m], int(se_flag_binary[-2]) + int(se_flag_binary[-1]),
+                 np.array(results[0][-3])[filter][m], np.array(results[0][-2])[filter][m], np.array(results[0][-1])[filter][m]])
         else:
             columns.append(
                 [results[0][3], results[0][2], np.array(results[0][0])[filter][m],
@@ -413,7 +414,8 @@ while ids:
                  0 if len(np.unique(nearest_positional_neighbors[m])) == 1
                  else 1 if (np.abs(magnitudes_npn[m][0] - magnitudes_npn[m][1]) > 2) and (
                          len(np.unique(nearest_positional_neighbors[m])) == 2)
-                 else 2, redshifts_npn[m][0], int(se_flag_binary[-2]) + int(se_flag_binary[-1])])
+                 else 2, redshifts_npn[m][0], int(se_flag_binary[-2]) + int(se_flag_binary[-1]),
+                 np.array(results[0][-3])[filter][m], np.array(results[0][-2])[filter][m], np.array(results[0][-1])[filter][m]])
 
 
     ids = not_ready
@@ -421,15 +423,15 @@ while ids:
 columns = np.array(columns, dtype=float)
 
 if simulation.getboolean("source_extractor_morph"):
-    shear_results = Table([columns[:, i] for i in range(18)],
+    shear_results = Table([columns[:, i] for i in range(21)],
                           names=('scene_index', 'shear_index', 'meas_g1', 'position_x', 'position_y', 'mag_auto',
                                  'mag_gems', 'mag_gems_optimized', 'S/N', 'matching_index', 'matching_index_optimized',
-                                 'blending_flag', 'sersic_n', 'sersic_re', 'sersic_e', 'matched_z', 'class_star', 'se_flag'))
+                                 'blending_flag', 'sersic_n', 'sersic_re', 'sersic_e', 'matched_z', 'class_star', 'se_flag', 'kron_radius', 'a_image', 'b_image'))
 else:
-    shear_results = Table([columns[:, i] for i in range(14)],
+    shear_results = Table([columns[:, i] for i in range(17)],
                           names=('scene_index', 'shear_index', 'meas_g1', 'position_x', 'position_y', 'mag_auto',
                                  'mag_gems', 'mag_gems_optimized', 'S/N', 'matching_index', 'matching_index_optimized',
-                                 'blending_flag', 'matched_z', 'se_flag'))
+                                 'blending_flag', 'matched_z', 'se_flag', 'kron_radius', 'a_image', 'b_image'))
 
 now = datetime.datetime.now()
 
