@@ -749,6 +749,12 @@ for reps in range(REPS):
                                                data_complete[bin_type] < upper_limit) & (
                                                data_complete[bin_type] >= lower_limit) & (
                                                data_complete["se_flag"] > 0)])
+
+            blended_kron = len(data_complete[
+                                       (data_complete["scene_index"] == scene) & (
+                                               data_complete[bin_type] < upper_limit) & (
+                                               data_complete[bin_type] >= lower_limit) & (
+                                               data_complete["kron_blend"] > 0)])
             complete_length = len(data_complete[
                                       (data_complete["scene_index"] == scene) & (
                                               data_complete[bin_type] < upper_limit) & (
@@ -758,6 +764,7 @@ for reps in range(REPS):
                 complete_length = 1
 
             blending_fraction = 100 * blended_fraction / complete_length
+            blending_fraction_kron = 100 * blended_kron / complete_length
 
             columns.append([complete_image_size, galaxy_number, scene + 1, bias, err, c_bias,
                       c_bias_err,
@@ -767,7 +774,7 @@ for reps in range(REPS):
                       popt[0], error_fit_m_large, popt[1], error_fit_c_large, popt_s[0], error_fit_m_small, popt_s[1], error_fit_c_small,
                       magnitudes_list[counter], np.sum(meas0_weights[mag][:int((scene + 1) / division)]), err_err,
                       c_bias_err_err, bias_small_err_err,
-                      c_bias_err_err_s, blending_fraction])
+                      c_bias_err_err_s, blending_fraction, blending_fraction_kron])
 
 
             counter += 1
@@ -789,14 +796,14 @@ for reps in range(REPS):
 
 
 columns = np.array(columns, dtype=float)
-pujol_results = Table([columns[:, i] for i in range(30)], names=(
+pujol_results = Table([columns[:, i] for i in range(31)], names=(
     'sim_size', 'galaxy_num', 'scene_index', 'm_bias_large', 'm_bias_large_err', 'c_bias_large', 'c_bias_large_err',
     'm_bias_response', 'm_bias_response_err', 'total_runtime', 'theo_runtime', 'm_bias_small', 'm_bias_small_err',
     'c_bias_small', 'c_bias_small_err', 'm_bias_large_fit', 'm_bias_large_fit_err', 'c_bias_large_fit',
     'c_bias_large_fit_err',
     'm_bias_small_fit', 'm_bias_small_fit_err', 'c_bias_small_fit', 'c_bias_small_fit_err', bin_type, 'weight',
     'm_bias_large_err_err',
-    'c_bias_large_err_err', 'm_bias_small_err_err', 'c_bias_small_err_err', 'blending_fraction'))
+    'c_bias_large_err_err', 'm_bias_small_err_err', 'c_bias_small_err_err', 'blending_fraction', 'blending_fraction_kron'))
 
 ascii.write(pujol_results, subfolder + 'analysis.dat',
             overwrite=True)

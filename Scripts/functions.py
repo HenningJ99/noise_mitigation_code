@@ -1560,6 +1560,7 @@ def one_scene_pujol(m, total_scene_count, gal, positions, argv, config, path, ps
     kron_radius = data[:, 12][filter]
     a_image = data[:, 13][filter]
     b_image = data[:, 14][filter]
+    elongation = data[:, 16][filter]
 
     if simulation.getboolean("source_extractor_morph"):
         sersic_index = data[:, 14][filter]
@@ -1576,6 +1577,7 @@ def one_scene_pujol(m, total_scene_count, gal, positions, argv, config, path, ps
         kron_radius = data[:, 27][filter]
         a_image = data[:, 28][filter]
         b_image = data[:, 29][filter]
+        elongation = data[:, 30][filter]
 
 
     measures = []
@@ -1586,6 +1588,7 @@ def one_scene_pujol(m, total_scene_count, gal, positions, argv, config, path, ps
     kron_radii = []
     a_images = []
     b_images = []
+    elongations = []
 
     edge = list(gal_image.array[0]) + list([i[-1] for i in gal_image.array[1:-1]]) + list(
         reversed(gal_image.array[-1])) + \
@@ -1668,6 +1671,7 @@ def one_scene_pujol(m, total_scene_count, gal, positions, argv, config, path, ps
             kron_radii.append(kron_radius[i])
             a_images.append(a_image[i])
             b_images.append(b_image[i])
+            elongations.append(elongation[i])
 
     elif simulation["shear_meas"] == "LENSMC":
         if not lens_mc_avai:
@@ -1715,14 +1719,16 @@ def one_scene_pujol(m, total_scene_count, gal, positions, argv, config, path, ps
             kron_radii.append(kron_radius[i])
             a_images.append(a_image[i])
             b_images.append(b_image[i])
+            elongations.append(elongation[i])
         print(f"LensMC: {timeit.default_timer() - start_lens_mc}")
     os.system(f"rm {SOURCE_EXTRACTOR_DIR}/seg_{total_scene_count}_{m}.fits")
 
     if simulation.getboolean("source_extractor_morph"):
-        return meas, np.dstack((x_pos, y_pos))[0], m, total_scene_count, magnitudes, S_N, sersic_index, effective_radius, ellipticity_sextractor, class_star, flags, kron_radii, a_images, b_images
+        return (meas, np.dstack((x_pos, y_pos))[0], m, total_scene_count, magnitudes, S_N, sersic_index,
+                effective_radius, ellipticity_sextractor, class_star, flags, kron_radii, a_images, b_images, elongations)
     else:
         return meas, np.dstack((x_pos, y_pos))[
-            0], m, total_scene_count, magnitudes, S_N, flags, kron_radii, a_images, b_images
+            0], m, total_scene_count, magnitudes, S_N, flags, kron_radii, a_images, b_images, elongations
 
 
 
@@ -2026,6 +2032,7 @@ def one_scene_lf(m, gal, gal2, positions, positions2, scene, argv, config, path,
     kron_radius = data[:, 12][filter]
     a_image = data[:, 13][filter]
     b_image = data[:, 14][filter]
+    elongation = data[:, 16][filter]
 
     if simulation.getboolean("source_extractor_morph"):
         sersic_index = data[:, 14][filter]
@@ -2042,6 +2049,7 @@ def one_scene_lf(m, gal, gal2, positions, positions2, scene, argv, config, path,
         kron_radius = data[:, 27][filter]
         a_image = data[:, 28][filter]
         b_image = data[:, 29][filter]
+        elongation = data[:, 30][filter]
 
 
     measures = []
@@ -2051,6 +2059,7 @@ def one_scene_lf(m, gal, gal2, positions, positions2, scene, argv, config, path,
     kron_radii = []
     a_images = []
     b_images = []
+    elongations = []
     # images = []
 
     edge = list(gal_image.array[0]) + list([i[-1] for i in gal_image.array[1:-1]]) + list(
@@ -2127,6 +2136,7 @@ def one_scene_lf(m, gal, gal2, positions, positions2, scene, argv, config, path,
             kron_radii.append(kron_radius[i])
             a_images.append(a_image[i])
             b_images.append(b_image[i])
+            elongations.append(elongation[i])
 
     elif simulation["shear_meas"] == "LENSMC":
         if not lens_mc_avai:
@@ -2179,6 +2189,7 @@ def one_scene_lf(m, gal, gal2, positions, positions2, scene, argv, config, path,
             kron_radii.append(kron_radius[i])
             a_images.append(a_image[i])
             b_images.append(b_image[i])
+            elongations.append(elongation[i])
         print(f"LensMC: {timeit.default_timer() - start_lens_mc}")
     error_specific = bootstrap(measures, int(simulation['bootstrap_repetitions']))
 
@@ -2186,11 +2197,12 @@ def one_scene_lf(m, gal, gal2, positions, positions2, scene, argv, config, path,
         measurements.append(
             [g1, np.average(measures), error_specific, len(measures), m, scene, np.dstack((x_pos, y_pos))[0],
              measures, magnitudes, s_n, index, sersic_index, effective_radius, ellipticity_sextractor, class_star,
-             np.dstack((ra_pos, dec_pos))[0], flags, kron_radii, a_images, b_images])
+             np.dstack((ra_pos, dec_pos))[0], flags, kron_radii, a_images, b_images, elongations])
     else:
         measurements.append(
             [g1, np.average(measures), error_specific, len(measures), m, scene, np.dstack((x_pos, y_pos))[0],
-             measures, magnitudes, s_n, index, np.dstack((ra_pos, dec_pos))[0], flags, kron_radii, a_images, b_images])
+             measures, magnitudes, s_n, index, np.dstack((ra_pos, dec_pos))[0], flags, kron_radii, a_images, b_images,
+             elongations])
 
     os.system(f"rm {SOURCE_EXTRACTOR_DIR}/seg_{scene}_{m}_{index}.fits")
     return measurements

@@ -120,6 +120,14 @@ for scene in range(total_scenes_per_shear):
                                                    data_complete[bin_type] < upper_limit) & (
                                                        data_complete[bin_type] >= lower_limit) & (
                                                    data_complete["se_flag"] > 0)])
+
+                blended_kron = len(data_complete[
+                                           (data_complete["shear_index"] == i) & (
+                                                       data_complete["scene_index"] == scene) & (
+                                                   data_complete["cancel_index"] == j) & (
+                                                   data_complete[bin_type] < upper_limit) & (
+                                                       data_complete[bin_type] >= lower_limit) & (
+                                                   data_complete["kron_blend"] > 0)])
                 complete_length = len(data_complete[
                                           (data_complete["shear_index"] == i) & (
                                                       data_complete["scene_index"] == scene) & (
@@ -131,6 +139,7 @@ for scene in range(total_scenes_per_shear):
                     complete_length = 1
 
                 blending_fraction = 100 * blended_fraction / complete_length
+                blending_fraction_kron = 100 * blended_kron / complete_length
 
                 if mag != mag_bins:
                     value = meas_means["meas_g1"][
@@ -156,19 +165,19 @@ for scene in range(total_scenes_per_shear):
                         weight = weight[0]
 
                     columns.append([g1, i, scene, j, value, error,
-                                    weight, magnitudes_list[mag], blending_fraction])
+                                    weight, magnitudes_list[mag], blending_fraction, blending_fraction_kron])
 
                 else:
                     ind = scene * shear_bins * 4 + j * shear_bins + i
 
                     columns.append([g1, i, scene, j, meas_means_full[ind], meas_std_full[ind],
-                                    lengths_full[ind], magnitudes_list[mag], blending_fraction])
+                                    lengths_full[ind], magnitudes_list[mag], blending_fraction, blending_fraction_kron])
 
         index += 1
 
 columns = np.array(columns, dtype=float)
-lf_results = Table([columns[:, i] for i in range(9)],
-                   names=('g1', 'shear_index', 'scene_index', 'cancel_index', 'mean_g1', 'std_g1', 'weight', bin_type, 'blending_fraction'))
+lf_results = Table([columns[:, i] for i in range(10)],
+                   names=('g1', 'shear_index', 'scene_index', 'cancel_index', 'mean_g1', 'std_g1', 'weight', bin_type, 'blending_fraction', 'blending_kron'))
 lf_results = lf_results.group_by('scene_index')
 
 ascii.write(lf_results, subfolder + 'analysis.dat',

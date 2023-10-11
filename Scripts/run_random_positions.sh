@@ -85,6 +85,7 @@ then
       # -------------------------- INITIAL ANALYSIS -------------------------------------#
 
       echo "Fit method analysis ..."
+      python3 kron_radius_blending.py $shape_options $run_lf 20 LF
       python3 rp_analysis.py $sim_size $run_lf $path $shear_interval $shape_options $binning
 
       echo "Plotting and bootstrapping ..."
@@ -99,8 +100,10 @@ then
       then
         if [[ $compare -eq 1 ]]
         then
+          python3 kron_radius_blending.py $puj_folder $run_rm 2 RM
           python3 pujol_rp_analysis.py $sim_size $run_rm 2 $path $puj_folder $binning
         else
+          python3 kron_radius_blending.py $puj_folder $run_rm 11 RM
           python3 pujol_rp_analysis.py $sim_size $run_rm 11 $path $puj_folder $binning
         fi
         mv $puj_folder/analysis.dat $puj_folder/analysis_${binning}.dat # Avoid overwriting output
