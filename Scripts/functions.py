@@ -1577,15 +1577,17 @@ def one_scene_pujol(m, total_scene_count, gal, positions, argv, config, path, ps
             (data[:, 7] > cut_size) & (data[:, 7] < complete_image_size - cut_size) & (data[:, 8] > cut_size) & (
                     data[:, 8] < complete_image_size - cut_size))
 
+        flag = data[:, 11][filter]
+        kron_radius = data[:, 12][filter]
+        a_image = data[:, 13][filter]
+        b_image = data[:, 14][filter]
+        elongation = data[:, 16][filter]
+
     ids = data[:, 0][filter]
     x_cen = data[:, 7][filter]
     y_cen = data[:, 8][filter]
     mag_auto = data[:, 1][filter]
-    flag = data[:, 11][filter]
-    kron_radius = data[:, 12][filter]
-    a_image = data[:, 13][filter]
-    b_image = data[:, 14][filter]
-    elongation = data[:, 16][filter]
+
 
 
 
@@ -2055,6 +2057,12 @@ def one_scene_lf(m, gal, gal2, positions, positions2, scene, argv, config, path,
         filter = np.where((data[:, 7] > cut_size) & (data[:, 7] < complete_image_size - cut_size) &
                           (data[:, 8] > cut_size) & (data[:, 8] < complete_image_size - cut_size))
 
+        flag = data[:, 11][filter]
+        kron_radius = data[:, 12][filter]
+        a_image = data[:, 13][filter]
+        b_image = data[:, 14][filter]
+        elongation = data[:, 16][filter]
+
     ids = data[:, 0][filter]
 
     x_cen = data[:, 7][filter]
@@ -2062,11 +2070,7 @@ def one_scene_lf(m, gal, gal2, positions, positions2, scene, argv, config, path,
     ra_cen = data[:, 9][filter]
     dec_cen = data[:, 10][filter]
     mag_auto = data[:, 1][filter]
-    flag = data[:, 11][filter]
-    kron_radius = data[:, 12][filter]
-    a_image = data[:, 13][filter]
-    b_image = data[:, 14][filter]
-    elongation = data[:, 16][filter]
+
 
 
 
