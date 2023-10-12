@@ -59,11 +59,11 @@ for i in range(scenes):
             dist, ind = do_kdtree(positions, positions, k=[2])
             for l in range(len(catalog_cut)):
                 ellipses = [(catalog_cut["position_x"][l], catalog_cut["position_y"][l],
-                             2.5 * catalog_cut["a_image"][l] * catalog_cut["kron_radius"][l],
-                             2.5 * catalog_cut["b_image"][l] * catalog_cut["kron_radius"][l], catalog_cut["elongation"][l]),
+                             catalog_cut["a_image"][l] * catalog_cut["kron_radius"][l],
+                             catalog_cut["b_image"][l] * catalog_cut["kron_radius"][l], catalog_cut["elongation"][l]),
                             (catalog_cut["position_x"][ind[l]], catalog_cut["position_y"][ind[l]],
-                             2.5 * catalog_cut["a_image"][ind[l]] * catalog_cut["kron_radius"][ind[l]],
-                             2.5 * catalog_cut["b_image"][ind[l]] * catalog_cut["kron_radius"][ind[l]],
+                             catalog_cut["a_image"][ind[l]] * catalog_cut["kron_radius"][ind[l]],
+                             catalog_cut["b_image"][ind[l]] * catalog_cut["kron_radius"][ind[l]],
                              catalog_cut["elongation"][ind[l]])]
 
                 try:
@@ -75,14 +75,14 @@ for i in range(scenes):
                     connection_vector = np.array([catalog_cut["position_x"][l] - catalog_cut["position_x"][ind[l]],
                                                   catalog_cut["position_y"][l] - catalog_cut["position_y"][ind[l]]]).reshape(2)
 
-                    ellip1a = np.array([2.5 * catalog_cut["a_image"][l] * catalog_cut["kron_radius"][l]
+                    ellip1a = np.array([catalog_cut["a_image"][l] * catalog_cut["kron_radius"][l]
                                         * np.cos(catalog_cut["elongation"][l] * np.pi / 180),
-                                        2.5 * catalog_cut["a_image"][l] * catalog_cut["kron_radius"][l]
+                                        catalog_cut["a_image"][l] * catalog_cut["kron_radius"][l]
                                         * np.sin(catalog_cut["elongation"][l] * np.pi / 180)])
 
-                    ellip2a = np.array([2.5 * catalog_cut["a_image"][ind[l]] * catalog_cut["kron_radius"][ind[l]]
+                    ellip2a = np.array([catalog_cut["a_image"][ind[l]] * catalog_cut["kron_radius"][ind[l]]
                                         * np.cos(catalog_cut["elongation"][ind[l]] * np.pi / 180),
-                                        2.5 * catalog_cut["a_image"][ind[l]] * catalog_cut["kron_radius"][ind[l]]
+                                        catalog_cut["a_image"][ind[l]] * catalog_cut["kron_radius"][ind[l]]
                                         * np.sin(catalog_cut["elongation"][ind[l]] * np.pi / 180)])
                     v_norm = np.sqrt(sum(connection_vector ** 2))
 
