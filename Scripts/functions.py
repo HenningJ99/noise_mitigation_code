@@ -1549,9 +1549,34 @@ def one_scene_pujol(m, total_scene_count, gal, positions, argv, config, path, ps
 
     data = np.genfromtxt(path + f"output/source_extractor/{index_fits}/" + f"none_pujol_{total_scene_count}_{m}.cat")
 
-    # Exclude the outer pixels of each large scenes because the stamps would be incomplete
-    filter = np.where((data[:, 7] > cut_size) & (data[:, 7] < complete_image_size - cut_size) & (data[:, 8] > cut_size) & (
-                data[:, 8] < complete_image_size - cut_size))
+    if simulation.getboolean("source_extractor_morph"):
+        class_star = data[:, 25]
+        # Exclude the outer pixels of each large scenes because the stamps would be incomplete
+        filter = np.where(
+            (data[:, 7] > cut_size) & (data[:, 7] < complete_image_size - cut_size) & (data[:, 8] > cut_size) & (
+                    data[:, 8] < complete_image_size - cut_size) & (class_star < 0.5))
+
+        class_star = class_star[filter]
+
+        sersic_index = data[:, 14][filter]
+
+        effective_radius = data[:, 16][filter]
+
+        ellipticity_sextractor = np.sqrt(
+            data[:, 18][filter] ** 2 + data[:, 19][filter] ** 2)
+
+        flag = data[:, 26][filter]
+
+        kron_radius = data[:, 27][filter]
+        a_image = data[:, 28][filter]
+        b_image = data[:, 29][filter]
+        elongation = data[:, 30][filter]
+
+    else:
+        filter = np.where(
+            (data[:, 7] > cut_size) & (data[:, 7] < complete_image_size - cut_size) & (data[:, 8] > cut_size) & (
+                    data[:, 8] < complete_image_size - cut_size))
+
     ids = data[:, 0][filter]
     x_cen = data[:, 7][filter]
     y_cen = data[:, 8][filter]
@@ -1562,22 +1587,7 @@ def one_scene_pujol(m, total_scene_count, gal, positions, argv, config, path, ps
     b_image = data[:, 14][filter]
     elongation = data[:, 16][filter]
 
-    if simulation.getboolean("source_extractor_morph"):
-        sersic_index = data[:, 14][filter]
 
-        effective_radius = data[:, 16][filter]
-
-        ellipticity_sextractor = np.sqrt(
-            data[:, 18][filter] ** 2 + data[:, 19][filter] ** 2)
-
-        class_star = data[:, 25][filter]
-
-        flag = data[:, 26][filter]
-
-        kron_radius = data[:, 27][filter]
-        a_image = data[:, 28][filter]
-        b_image = data[:, 29][filter]
-        elongation = data[:, 30][filter]
 
 
     measures = []
@@ -2012,9 +2022,6 @@ def one_scene_lf(m, gal, gal2, positions, positions2, scene, argv, config, path,
 
     data = np.genfromtxt(path + f"output/source_extractor/{index_fits}/" + f"{scene}_{m}_{index}.cat")
 
-    filter = np.where((data[:, 7] > cut_size) & (data[:, 7] < complete_image_size - cut_size) &
-                                (data[:, 8] > cut_size) & (data[:, 8] < complete_image_size - cut_size))
-    ids = data[:, 0][filter]
 
     #elements_to_remove = seg_map.array[~filter]  # [3, 4, 7]
 
@@ -2022,6 +2029,33 @@ def one_scene_lf(m, gal, gal2, positions, positions2, scene, argv, config, path,
 
     # Set the pixels with specified IDs to 0
     #seg_map.array[mask] = 0
+
+    if simulation.getboolean("source_extractor_morph"):
+        class_star = data[:, 25]
+
+        filter = np.where((data[:, 7] > cut_size) & (data[:, 7] < complete_image_size - cut_size) &
+                          (data[:, 8] > cut_size) & (data[:, 8] < complete_image_size - cut_size) & (class_star < 0.5))
+
+        class_star = class_star[filter]
+
+        sersic_index = data[:, 14][filter]
+
+        effective_radius = data[:, 16][filter]
+
+        ellipticity_sextractor = np.sqrt(
+            data[:, 18][filter] ** 2 + data[:, 19][filter] ** 2)
+
+        flag = data[:, 26][filter]
+
+        kron_radius = data[:, 27][filter]
+        a_image = data[:, 28][filter]
+        b_image = data[:, 29][filter]
+        elongation = data[:, 30][filter]
+    else:
+        filter = np.where((data[:, 7] > cut_size) & (data[:, 7] < complete_image_size - cut_size) &
+                          (data[:, 8] > cut_size) & (data[:, 8] < complete_image_size - cut_size))
+
+    ids = data[:, 0][filter]
 
     x_cen = data[:, 7][filter]
     y_cen = data[:, 8][filter]
@@ -2034,22 +2068,7 @@ def one_scene_lf(m, gal, gal2, positions, positions2, scene, argv, config, path,
     b_image = data[:, 14][filter]
     elongation = data[:, 16][filter]
 
-    if simulation.getboolean("source_extractor_morph"):
-        sersic_index = data[:, 14][filter]
 
-        effective_radius = data[:, 16][filter]
-
-        ellipticity_sextractor = np.sqrt(
-            data[:, 18][filter] ** 2 + data[:, 19][filter] ** 2)
-
-        class_star = data[:, 25][filter]
-
-        flag = data[:, 26][filter]
-
-        kron_radius = data[:, 27][filter]
-        a_image = data[:, 28][filter]
-        b_image = data[:, 29][filter]
-        elongation = data[:, 30][filter]
 
 
     measures = []
