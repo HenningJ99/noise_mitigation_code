@@ -427,15 +427,17 @@ while ids:
                  magnitudes_npn[gal][0], gems_magnitude_optimized, np.array(x[9])[filter][gal],
                  nearest_positional_neighbors[gal][0], matching_index, 0 if len(np.unique(nearest_positional_neighbors[gal])) == 1
                  else 1 if (np.abs(magnitudes_npn[gal][0]-magnitudes_npn[gal][1]) > 2) and (len(np.unique(nearest_positional_neighbors[gal])) == 2)
-        else 2, int(se_flag_binary[-2]) + int(se_flag_binary[-1])])
+        else 2, int(se_flag_binary[-2]) + int(se_flag_binary[-1]), np.array(x[12])[filter][gal], np.array(x[13])[filter][gal]
+                 ,np.array(x[14])[filter][gal], np.array(x[15])[filter][gal]])
 
 
     ids = not_ready
 
 columns = np.array(columns, dtype=float)
-shear_results = Table([columns[:, i] for i in range(15)], names=(
+shear_results = Table([columns[:, i] for i in range(19)], names=(
 'scene_index', 'shear_index', 'cancel_index', 'input_g1', 'position_x', 'position_y', 'meas_g1', 'mag_auto',
-'mag_gems', 'mag_gems_optimized', 'S/N', 'matching_index', 'matching_index_optimized', 'blending_flag', 'se_flag'))
+'mag_gems', 'mag_gems_optimized', 'S/N', 'matching_index', 'matching_index_optimized', 'blending_flag', 'se_flag',
+'kron_radius', 'a_image', 'b_image', 'elongation'))
 
 now = datetime.datetime.now()
 

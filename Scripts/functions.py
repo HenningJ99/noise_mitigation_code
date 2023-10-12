@@ -1349,21 +1349,28 @@ def one_scene_lf(m, gal, gal2, positions, positions2, scene, argv, config, path,
 
     data = np.genfromtxt(path + f"output/source_extractor/{index_fits}/" + f"{scene}_{m}_{index}.cat")
 
-    x_cen = data[:, 7][np.where((data[:, 7] > cut_size) & (data[:, 7] < complete_image_size - cut_size) &
-                                (data[:, 8] > cut_size) & (data[:, 8] < complete_image_size - cut_size))]
-    y_cen = data[:, 8][np.where((data[:, 7] > cut_size) & (data[:, 7] < complete_image_size - cut_size) &
-                                (data[:, 8] > cut_size) & (data[:, 8] < complete_image_size - cut_size))]
-    mag_auto = data[:, 1][np.where((data[:, 7] > cut_size) & (data[:, 7] < complete_image_size - cut_size) &
-                                   (data[:, 8] > cut_size) & (data[:, 8] < complete_image_size - cut_size))]
+    filter = np.where((data[:, 7] > cut_size) & (data[:, 7] < complete_image_size - cut_size) &
+                                (data[:, 8] > cut_size) & (data[:, 8] < complete_image_size - cut_size))
 
-    flag = data[:, 11][np.where((data[:, 7] > cut_size) & (data[:, 7] < complete_image_size - cut_size) &
-                                (data[:, 8] > cut_size) & (data[:, 8] < complete_image_size - cut_size))]
+    x_cen = data[:, 7][filter]
+    y_cen = data[:, 8][filter]
+    mag_auto = data[:, 1][filter]
+
+    flag = data[:, 11][filter]
+    kron_radius = data[:, 12][filter]
+    a_image = data[:, 13][filter]
+    b_image = data[:, 14][filter]
+    elongation = data[:, 16][filter]
 
     measures = []
     magnitudes = []
     s_n = []
     flags = []
     # images = []
+    kron_radii = []
+    a_images = []
+    b_images = []
+    elongations = []
 
     edge = list(gal_image.array[0]) + list([i[-1] for i in gal_image.array[1:-1]]) + list(
         reversed(gal_image.array[-1])) + \
@@ -1403,12 +1410,16 @@ def one_scene_lf(m, gal, gal2, positions, positions2, scene, argv, config, path,
             x_pos.append(x_cen[i])
             y_pos.append(y_cen[i])
             flags.append(flag[i])
+            kron_radii.append(kron_radius[i])
+            a_images.append(a_image[i])
+            b_images.append(b_image[i])
+            elongations.append(elongation[i])
 
     error_specific = bootstrap(measures, int(simulation['bootstrap_repetitions']))
 
     measurements.append(
         [g1, np.average(measures), error_specific, len(measures), m, scene, np.dstack((x_pos, y_pos))[0],
-         measures, magnitudes, s_n, flags, index])
+         measures, magnitudes, s_n, flags, index, kron_radii, a_images, b_images, elongations])
 
     return measurements
 
@@ -1561,25 +1572,29 @@ def one_scene_pujol(m, total_scene_count, gal, positions, argv, config, path, ps
 
     data = np.genfromtxt(path + f"output/source_extractor/{index_fits}/" + f"none_pujol_{total_scene_count}_{m}.cat")
 
+    filter = np.where((data[:, 7] > cut_size) & (data[:, 7] < complete_image_size - cut_size) & (data[:, 8] > cut_size) & (
+                data[:, 8] < complete_image_size - cut_size))
     # Exclude the outer pixels of each large scenes because the stamps would be incomplete
-    x_cen = data[:, 7][
-        np.where((data[:, 7] > cut_size) & (data[:, 7] < complete_image_size - cut_size) & (data[:, 8] > cut_size) & (
-                data[:, 8] < complete_image_size - cut_size))]
-    y_cen = data[:, 8][
-        np.where((data[:, 7] > cut_size) & (data[:, 7] < complete_image_size - cut_size) & (data[:, 8] > cut_size) & (
-                data[:, 8] < complete_image_size - cut_size))]
+    x_cen = data[:, 7][filter]
+    y_cen = data[:, 8][filter]
     mag_auto = data[:, 1][
-        np.where((data[:, 7] > cut_size) & (data[:, 7] < complete_image_size - cut_size) & (data[:, 8] > cut_size) & (
-                data[:, 8] < complete_image_size - cut_size))]
+        filter]
 
-    flag = data[:, 11][np.where((data[:, 7] > cut_size) & (data[:, 7] < complete_image_size - cut_size) &
-                                (data[:, 8] > cut_size) & (data[:, 8] < complete_image_size - cut_size))]
+    flag = data[:, 11][filter]
+    kron_radius = data[:, 12][filter]
+    a_image = data[:, 13][filter]
+    b_image = data[:, 14][filter]
+    elongation = data[:, 16][filter]
 
     measures = []
-    images = []
     magnitudes = []
     S_N = []
     flags = []
+    # images = []
+    kron_radii = []
+    a_images = []
+    b_images = []
+    elongations = []
 
     edge = list(gal_image.array[0]) + list([i[-1] for i in gal_image.array[1:-1]]) + list(
         reversed(gal_image.array[-1])) + \
@@ -1625,8 +1640,12 @@ def one_scene_pujol(m, total_scene_count, gal, positions, argv, config, path, ps
             meas.append(results.corrected_g1)
             S_N.append(signal_to_noise)
             flags.append(flag[i])
+            kron_radii.append(kron_radius[i])
+            a_images.append(a_image[i])
+            b_images.append(b_image[i])
+            elongations.append(elongation[i])
 
-    return meas, np.dstack((x_pos, y_pos))[0], m, total_scene_count, magnitudes, S_N, flags
+    return meas, np.dstack((x_pos, y_pos))[0], m, total_scene_count, magnitudes, S_N, flags, kron_radii, a_images, b_images, elongations
 
 
 
