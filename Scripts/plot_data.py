@@ -285,7 +285,7 @@ for m in range(time_bins):
                         (int(objects), int(galaxies), int(tiles), int(ring_num), popts[1][0], errors[1][0], popts[1][1],
                          errors[1][1],
                          int(runtime), np.sum(data["n_pairs"]),
-                         int(objects) * int(ring_num) * (1 + int(tiles) * noise_plus_meas) * (10 - m) / 10,
+                         int(objects) * int(ring_num) * (1 + int(tiles) * noise_plus_meas) * (time_bins - m) / time_bins,
                          (error_plus[0] - error_minus[0]) / 2, (error_plus[1] - error_minus[1]) / 2, popts[0][0],
                          errors[0][0], popts[0][1], errors[0][1]))
                 else:
@@ -294,5 +294,5 @@ for m in range(time_bins):
                         (int(objects), int(galaxies), int(tiles), int(ring_num), popts[1][0], errors[1][0], popts[1][1],
                          errors[1][1],
                          int(runtime), np.sum(data["n_pairs"]),
-                         int(objects) * int(ring_num) * (1 + int(tiles) * noise_plus_meas) * (10 - m) / 10, popts[0][0],
+                         int(objects) * int(ring_num) * (1 + int(tiles) * noise_plus_meas) * (time_bins - m) / time_bins, popts[0][0],
                          errors[0][0], popts[0][1], errors[0][1]))
