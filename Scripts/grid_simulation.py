@@ -394,4 +394,5 @@ psfs = [image_sampled_psf, image_epsf]
 galsim.fits.writeMulti(psfs, file_name_epsf)
 
 ray.shutdown()
+os.system('cp config_grid.ini ' + path + 'output/grid_simulations/' + f'run_lf_{date_object}_{current_time}/')
 print(f"Runtime: {timeit.default_timer() - start:.2f} seconds")

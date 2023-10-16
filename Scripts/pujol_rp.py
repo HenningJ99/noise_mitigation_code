@@ -453,6 +453,7 @@ ascii.write(input_catalog,
 # print(all_meas[0])
 
 ray.shutdown()
+os.system('cp config_rp.ini ' + path + 'output/rp_simulations/' + f'run_pujol_{date_object}_{current_time}/')
 
 # DELETE ALL CATALOG AND FITS FILES TO SAVE MEMORY
 os.chdir(path + "output")

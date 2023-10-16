@@ -525,6 +525,7 @@ ascii.write(shear_results,
             path + 'output/rp_simulations/' + f'run_lf_{date_object}_{current_time}_{sys.argv[5]}/shear_catalog.dat',
             overwrite=True)
 
+os.system('cp config_rp.ini ' + path + 'output/rp_simulations/' + f'run_lf_{date_object}_{current_time}_{sys.argv[6]}/')
 # DELETE CATALOGUES AND FITS FILES TO SAVE MEMORY
 os.chdir(path + "output")
 os.system(f"rm -r source_extractor/{index_fits}")
