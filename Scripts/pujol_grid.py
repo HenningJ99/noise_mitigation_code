@@ -313,4 +313,5 @@ if simulation.getboolean("output"):
     galsim.fits.writeMulti(images, file_name)
 
 ray.shutdown()
+os.system('cp config_grid.ini ' + path + 'output/grid_simulations/' + f'run_puj_{date_object}_{current_time}/')
 print(timeit.default_timer() - start)

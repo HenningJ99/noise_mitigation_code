@@ -451,6 +451,7 @@ ascii.write(input_catalog, path + 'output/rp_simulations/' + f'run_lf_{date_obje
 ascii.write(shear_results, path + 'output/rp_simulations/' + f'run_lf_{date_object}_{current_time}_{sys.argv[6]}/shear_catalog.dat',
             overwrite=True)
 
+os.system('cp config_rp.ini ' + path + 'output/rp_simulations/' + f'run_lf_{date_object}_{current_time}_{sys.argv[6]}/')
 
 # DELETE CATALOGUES AND FITS FILES TO SAVE MEMORY
 os.chdir(path + "output")
@@ -463,5 +464,6 @@ if simulation.getboolean("output"):
     os.system('mv ' + path + f'output/FITS{index_fits}/*.fits' + ' ' + path + 'output/rp_simulations/' + f'run_lf_{date_object}_{current_time}_{sys.argv[6]}/FITS_org/')
 
 os.system(f"rm -r FITS{index_fits}")
+
 
 ray.shutdown()
