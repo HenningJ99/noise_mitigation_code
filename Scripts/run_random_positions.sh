@@ -77,15 +77,25 @@ then
   #python3 display_fits.py lf $lf_folder_local 32 $((sim_size-32)) 32 $((sim_size-32))
   #python3 display_fits.py puj $puj_folder 32 $((sim_size-32)) 32 $((sim_size-32))
   #counter=4
+  echo "Analysing the Kron radius blending for $puj_folder"
+  if [[ $compare -eq 1 ]]
+    then
+      python3 kron_radius_blending.py $puj_folder $run_rm 2 RM
+    else
+      python3 kron_radius_blending.py $puj_folder $run_rm 11 RM
+  fi
+
   for shape_options in $lf_folder_local $lf_folder_global
   do
+    echo "Analysing the Kron radius blending for $shape_shape_options"
+    python3 kron_radius_blending.py $shape_options $run_lf 20 LF
+
     for binning in MAG_AUTO GEMS # Do the analysis for GEMS and MAG_AUTO Binning for comparison
     do
       echo "Starting analysis for $shape_options binned in $binning!"
       # -------------------------- INITIAL ANALYSIS -------------------------------------#
 
       echo "Fit method analysis ..."
-      python3 kron_radius_blending.py $shape_options $run_lf 20 LF
       python3 rp_analysis.py $sim_size $galaxy_num $run_lf $path $shear_interval $shape_options $binning
 
       echo "Plotting and bootstrapping ..."
@@ -100,10 +110,8 @@ then
       then
         if [[ $compare -eq 1 ]]
         then
-          python kron_radius_blending.py $puj_folder $run_rm 2 RM
           python3 pujol_rp_analysis.py $sim_size $galaxy_num $run_rm 2 $path $puj_folder $binning
         else
-          python3 kron_radius_blending.py $puj_folder $run_rm 11 RM
           python3 pujol_rp_analysis.py $sim_size $galaxy_num $run_rm 11 $path $puj_folder $binning
         fi
         mv $puj_folder/analysis.dat $puj_folder/analysis_${binning}.dat # Avoid overwriting output
