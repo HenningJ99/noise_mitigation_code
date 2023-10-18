@@ -72,7 +72,6 @@ def bootstrap(array, weights, n):
 
 
 file_number = int(sys.argv[1])
-galaxy_num = 1 # Normalise this
 path = sys.argv[2] + "/"
 sim_size = int(sys.argv[3])
 subfolder = sys.argv[4]
@@ -81,6 +80,8 @@ data2_compl = []
 magnitudes_list = [min_mag + k * (max_mag - min_mag) / (mag_bins) for k in range(mag_bins + 1)]
 
 # Read in the catalog with astropy and numpy
+input_catalog = ascii.read(subfolder + 'input_catalog.dat')
+galaxy_num = len(input_catalog) / (file_number * shear_bins * 4)
 data_complete = ascii.read(subfolder + 'analysis.dat')
 numpy_data = np.genfromtxt(subfolder + 'analysis.dat', skip_header=1, usecols=(0, 4, 5, 6, 7))
 print("Finished read in")
