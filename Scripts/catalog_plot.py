@@ -82,6 +82,7 @@ magnitudes_list = [min_mag + k * (max_mag - min_mag) / (mag_bins) for k in range
 # Read in the catalog with astropy and numpy
 input_catalog = ascii.read(subfolder + 'input_catalog.dat')
 galaxy_num = len(input_catalog) / (file_number * shear_bins * 4)
+print(f"Average galaxy number: {galaxy_num}")
 data_complete = ascii.read(subfolder + 'analysis.dat')
 numpy_data = np.genfromtxt(subfolder + 'analysis.dat', skip_header=1, usecols=(0, 4, 5, 6, 7))
 print("Finished read in")

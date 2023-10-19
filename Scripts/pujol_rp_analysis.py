@@ -20,9 +20,11 @@ subfolder = sys.argv[5]
 if not os.path.isdir(subfolder + "/plots"):
     os.mkdir(subfolder + "/plots")
 complete_image_size = int(sys.argv[1])
-galaxy_number = 1 # Normalise this
 num_shears = int(sys.argv[3])
 total_scenes_per_shear = int(sys.argv[2])
+input_catalog = ascii.read(subfolder + 'input_catalog.dat')
+galaxy_number = len(input_catalog) / total_scenes_per_shear
+print(f"Average galaxy number: {galaxy_number}")
 # Time the program
 start = timeit.default_timer()
 
