@@ -38,6 +38,7 @@ SKIP_FIRST_RM = int(simulation["skip_first_rm"])
 
 
 mag_bins = int(simulation["bins_mag"])
+shear_bins = int(simulation["shear_bins"])
 
 pujol_every = int(simulation["puj_analyse_every"])
 min_mag = float(simulation["min_mag"])
@@ -45,6 +46,7 @@ max_mag = float(simulation["max_mag"])
 
 improvements = [[[] for _ in range(mag_bins+1)] for _ in range(4)]
 fit_parameters = [[[] for _ in range(mag_bins+1)] for _ in range(4)]
+improvements_area = [[[] for _ in range(mag_bins+1)] for _ in range(4)]
 for reps in range(REPS):
     # Read in the columns with relevant information from the temporary file
     names_list = np.genfromtxt(path+"output/rp_simulations/tmp_rm.txt", skip_footer=int(REPS * (mag_bins+1) * run_rm / pujol_every + 3 * (run_lf - SKIP_FIRST_LF) * (mag_bins+1) * (REPS - (reps+1))),
@@ -91,12 +93,16 @@ for reps in range(REPS):
         both = data_complete[np.where((names_list == "both") & (data_complete[:,4] == magnitude_list[mag]))[0]]
 
         runtime_data = data_complete[:, 3]
-
         # Find out the longest runtime from all possible methods
         try:
+            num_shears = 2 if sys.argv[5] == "0.02" else 11
             runtime_norm = np.max([np.max(runtime_data), np.max(data_puyol[:, 3])])
+            runtime_norm_area = np.max([np.max((no_cancel[:, 7]+1) * shear_bins * 4 * no_cancel[:, 5]**2 / (100 * 3600**2)),
+                                   np.max(data_puyol[:, 7] * num_shears * data_puyol[:, 5]**2 / (100 * 3600**2))])
         except ValueError:
             runtime_norm = np.max(runtime_data)
+            runtime_norm_area = np.max((no_cancel[:, 7]+1) * shear_bins * 4 * no_cancel[:, 5]**2 / (100 * 3600**2))
+
 
         if reps == REPS-1:
             mm = 1 / 25.4  # millimeter in inches
@@ -104,7 +110,7 @@ for reps in range(REPS):
 
         text_file = open(path+"output/rp_simulations/error_scaling.txt", "a")
         i = 0
-        test1 = [1, 2, 4]
+        cancel_index = [1, 2, 4]
         names = ("no cancel", "shape (global)", "both (global)", "RM")
         colors = ("blue", "red", "black", "orange", "purple")
         for data in (no_cancel, shape_noise, both, data_puyol):
@@ -119,9 +125,17 @@ for reps in range(REPS):
                 continue
 
             if i != 3:
-                runtime_data = data[:, 3] + factor_runtime * (data[:, 7]+1) * 20 * test1[i]
+                runtime_data = data[:, 3] + factor_runtime * (data[:, 7]+1) * 20 * cancel_index[i]
+                runtime_data_area = (data[:, 7] + 1) * data[:, 5]**2 / (100 * 3600**2) * cancel_index[i] * shear_bins
             else:
-                runtime_data = data[:, 3] + factor_runtime * data_puyol[:, 7] * 11
+                if sys.argv[5] == "0.1":
+                    runtime_data = data[:, 3] + factor_runtime * data_puyol[:, 7] * 11
+                    runtime_data_area = data[:, 7] * data[:, 5]**2 / (100 * 3600**2) * 11
+
+                elif sys.argv[5] == "0.02":
+                    runtime_data = data[:, 3] + factor_runtime * data_puyol[:, 7] * 2
+                    runtime_data_area = data[:, 7] * data[:, 5] ** 2 / (100 * 3600 ** 2) * 2
+
             filter = ~np.isnan(data[:,2]) & ~np.isinf(data[:,2])
 
             if len(data[:, 2][filter]) == 0: #If no data is available at all (for example faintest bin)
@@ -134,9 +148,14 @@ for reps in range(REPS):
             
             if WITH_ERROR:
                 popt, pcov = curve_fit(linear_function, 1 / np.sqrt(runtime_data[filter] / runtime_norm), data[:, 2][filter], sigma=data[:, 8][filter], absolute_sigma=True)
+                popt_area, pcov_area = curve_fit(linear_function, 1 / np.sqrt(runtime_data_area[filter] / runtime_norm_area),
+                                       data[:, 2][filter], sigma=data[:, 8][filter], absolute_sigma=True)
             else:
                 popt, pcov = curve_fit(linear_function, 1 / np.sqrt(runtime_data[filter] / runtime_norm), data[:, 2][filter])
+                popt_area, pcov_area = curve_fit(linear_function, 1 / np.sqrt(runtime_data_area[filter] / runtime_norm_area),
+                                       data[:, 2][filter])
             error = np.sqrt(np.diag(pcov))
+            error_area = np.sqrt(np.diag(popt_area))
 
             if i == 0:
                 a_no_cancel = popt[0]
@@ -148,6 +167,15 @@ for reps in range(REPS):
                 improvement_err = 0
                 factor = 0
                 factor_err = 0
+
+                a_no_cancel_area = popt_area[0]
+                # print(a_no_cancel)
+                a_no_cancel_err_area = error_area[0]
+                improvement_area = 0
+                improvements_area[i][mag].append(improvement_area)
+                improvement_err_area = 0
+                factor_area = 0
+                factor_err_area = 0
             else:
                 factor = a_no_cancel / popt[0]
                 fit_parameters[i][mag].append(popt[0])
@@ -155,6 +183,13 @@ for reps in range(REPS):
                 improvement = factor**2
                 improvements[i][mag].append(improvement)
                 improvement_err = 2 * factor * factor_err
+
+                factor_area = a_no_cancel_area/ popt_area[0]
+                factor_err_area = np.sqrt(
+                    (a_no_cancel_err_area / (popt_area[0])) ** 2 + (a_no_cancel_area * (error_area[0]) / (popt_area[0]) ** 2) ** 2)
+                improvement_area = factor_area ** 2
+                improvements_area[i][mag].append(improvement_area)
+                improvement_err_area = 2 * factor_area * factor_err_area
 
             if i != 3:
                 skip = PLOT_EVERY_LF
@@ -165,23 +200,39 @@ for reps in range(REPS):
 
 
                 if not WITH_ERROR:
-                    axs[0].plot(runtime_data[::skip] / runtime_norm, data[:, 2][::skip], '+', label=names[i], markersize=5, color=colors[i])
-                    axs[1].plot(1 / np.sqrt(runtime_data[::skip] / runtime_norm), data[:, 2][::skip], '+', label=names[i], markersize=5, color=colors[i])
+                    axs[0].plot(runtime_data[::skip] / runtime_norm, data[:, 2][::skip], '+',
+                                label=names[i], markersize=5, color=colors[i])
+                    axs[1].plot(1 / np.sqrt(runtime_data[::skip] / runtime_norm), data[:, 2][::skip], '+',
+                                label=names[i], markersize=5, color=colors[i])
                 else:
-                    axs[0].errorbar(runtime_data[::skip] / runtime_norm, data[:, 2][::skip], yerr=data[:, 8][::skip], fmt= '+', label=names[i], markersize=5, color=colors[i], capsize=2, elinewidth=0.5)
-                    axs[1].errorbar(1 / np.sqrt(runtime_data[::skip] / runtime_norm), data[:, 2][::skip], yerr=data[:, 8][::skip],fmt= '+', label=names[i], markersize=5,
+                    axs[0].errorbar(runtime_data[::skip] / runtime_norm, data[:, 2][::skip], yerr=data[:, 8][::skip],
+                                    fmt= '+', label=names[i], markersize=5, color=colors[i], capsize=2, elinewidth=0.5)
+                    axs[1].errorbar(1 / np.sqrt(runtime_data[::skip] / runtime_norm), data[:, 2][::skip],
+                                    yerr=data[:, 8][::skip],fmt= '+', label=names[i], markersize=5,
                                 color=colors[i], capsize=2, elinewidth=0.5)
 
 
                 axs[1].fill_between(1 / np.sqrt(runtime_data / runtime_norm),
-                                    linear_function(1 / np.sqrt(runtime_data / runtime_norm), np.min(fit_parameters[i][mag])),
-                                    linear_function(1 / np.sqrt(runtime_data / runtime_norm), np.max(fit_parameters[i][mag])), color=colors[i], alpha=.25)
-                axs[1].plot(1 / np.sqrt(runtime_data / runtime_norm),
-                            linear_function(1 / np.sqrt(runtime_data / runtime_norm), *popt), color=colors[i], alpha=0.5)
-                axs[0].plot(runtime_data / runtime_norm, sqrt_function(runtime_data / runtime_norm, *popt), color=colors[i], alpha=0.5)
-                axs[0].fill_between(runtime_data / runtime_norm, sqrt_function(runtime_data / runtime_norm, np.min(fit_parameters[i][mag])), sqrt_function(runtime_data / runtime_norm, np.max(fit_parameters[i][mag])), color=colors[i], alpha=.25)
+                                    linear_function(1 / np.sqrt(runtime_data / runtime_norm),
+                                                    np.min(fit_parameters[i][mag])),
+                                    linear_function(1 / np.sqrt(runtime_data / runtime_norm),
+                                                    np.max(fit_parameters[i][mag])), color=colors[i], alpha=.25)
 
-                text_file.write("%s\t %.7f\t %.7f\t %.6f\t %.6f\t %.6f\t %.6f\n" % (names[i], popt[0], error[0], factor, factor_err, improvement, np.std(improvements[i][mag])))
+                axs[1].plot(1 / np.sqrt(runtime_data / runtime_norm),
+                            linear_function(1 / np.sqrt(runtime_data / runtime_norm), *popt),
+                            color=colors[i], alpha=0.5)
+
+                axs[0].plot(runtime_data / runtime_norm, sqrt_function(runtime_data / runtime_norm, *popt),
+                            color=colors[i], alpha=0.5)
+
+                axs[0].fill_between(runtime_data / runtime_norm, sqrt_function(runtime_data / runtime_norm,
+                                                                               np.min(fit_parameters[i][mag])),
+                                    sqrt_function(runtime_data / runtime_norm, np.max(fit_parameters[i][mag])),
+                                    color=colors[i], alpha=.25)
+
+                text_file.write("%s\t %.7f\t %.7f\t %.6f\t %.6f\t %.6f\t %.6f\t %.6f\t %.6f\n" %
+                                (names[i], popt[0], error[0], factor, factor_err, improvement,
+                                 np.std(improvements[i][mag]), improvement_area, np.std(improvements_area[i][mag])))
             i += 1
 
 
