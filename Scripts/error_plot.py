@@ -230,9 +230,14 @@ for reps in range(REPS):
                                     sqrt_function(runtime_data / runtime_norm, np.max(fit_parameters[i][mag])),
                                     color=colors[i], alpha=.25)
 
-                text_file.write("%s\t %.7f\t %.7f\t %.6f\t %.6f\t %.6f\t %.6f\t %.6f\t %.6f\n" %
+                goal = sqrt_function(100, a_no_cancel_area)
+                # print((popt[0] / goal) ** 2)
+                area_equivalent = (popt_area[0] / goal) ** 2
+
+                text_file.write("%s\t %.7f\t %.7f\t %.6f\t %.6f\t %.6f\t %.6f\t %.6f\t %.6f\t %.2f\n" %
                                 (names[i], popt[0], error[0], factor, factor_err, improvement,
-                                 np.std(improvements[i][mag]), improvement_area, np.std(improvements_area[i][mag])))
+                                 np.std(improvements[i][mag]), improvement_area, np.std(improvements_area[i][mag]),
+                                 area_equivalent))
             i += 1
 
 

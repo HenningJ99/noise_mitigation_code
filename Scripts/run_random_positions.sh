@@ -159,10 +159,10 @@ then
   python3 bias_comparison.py $path/output/plots/bias_comparison_rp.txt RP
 
   # ----------------------------- REMOVE THE TEMPORARY FILES ---------------------------------------- #
-  rm $path/output/plots/binned_improvement_rp_m.txt
-  rm $path/output/plots/binned_improvement_rp_c.txt
-  rm $path/output/rp_simulations/fits.txt
-  rm $path/output/plots/bias_comparison_rp.txt
+  mv $path/output/plots/binned_improvement_rp_m.txt $lf_folder_global
+  mv $path/output/plots/binned_improvement_rp_c.txt $lf_folder_global
+  mv $path/output/rp_simulations/fits.txt $lf_folder_global
+  mv $path/output/plots/bias_comparison_rp.txt $lf_folder_global
   rm $path/output/rp_simulations/catalog_results*
 
 fi
