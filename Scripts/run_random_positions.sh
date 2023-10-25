@@ -72,11 +72,6 @@ then
     fi
   fi
 
-  # -------------------------- PLOTTING THE SCENES --------------------------------#
-  #python3 display_fits.py lf $lf_folder_global 32 $((sim_size-32)) 32 $((sim_size-32))
-  #python3 display_fits.py lf $lf_folder_local 32 $((sim_size-32)) 32 $((sim_size-32))
-  #python3 display_fits.py puj $puj_folder 32 $((sim_size-32)) 32 $((sim_size-32))
-  #counter=4
   echo "Analysing the Kron radius blending for $puj_folder"
   if [[ $compare -eq 1 ]]
     then
@@ -101,9 +96,9 @@ then
       echo "Plotting and bootstrapping ..."
       python3 catalog_plot.py $run_lf $path $sim_size $shape_options $binning
 
-      mv $shape_options/analysis.dat $shape_options/analysis_${binning}.dat #Avoid overwriting output
-
-      extraction=$((reps * (mag_bins+1) * (3 * (run_lf - skip_first_lf) + run_rm / analyse_every_pujol)))
+      # Avoid overwriting output
+      mv $shape_options/fits_analysis.dat $shape_options/fits_analysis_${binning}.dat
+      mv $shape_options/analysis.dat $shape_options/analysis_${binning}.dat
 
       echo "Response method analysis ..."
       if [[ $shape_options == $lf_folder_local ]]
@@ -114,39 +109,29 @@ then
         else
           python3 pujol_rp_analysis.py $sim_size $run_rm 11 $path $puj_folder $binning
         fi
-        mv $puj_folder/analysis.dat $puj_folder/analysis_${binning}.dat # Avoid overwriting output
-      else
-        tail ${path}/output/rp_simulations/fits.txt -n $((2 * extraction)) | head -n $((reps * (mag_bins+1) * run_rm / analyse_every_pujol)) >> ${path}/output/rp_simulations/fits.txt
+        mv $puj_folder/analysis.dat $puj_folder/analysis_${binning}.dat
       fi
 
       # -------------------------- EXTRACT BIASES AND UNCERTAINTIES ---------------------#
 
-      echo $extraction
-      tail ${path}/output/rp_simulations/fits.txt -n $((extraction)) >> $path/output/rp_simulations/tmp_rm.txt
-
       if [ $binning == "MAG_AUTO" ]
       then
-        head $path/output/rp_simulations/tmp_rm.txt -n $((reps * (mag_bins+1)*3*(run_lf - skip_first_lf))) | tail -n $(((mag_bins+1)*3)) >> $path/output/plots/bias_comparison_rp.txt
+        tail $shape_options/fits_analysis_${binning}.dat -n $(((mag_bins+1)*3)) >> $path/output/plots/bias_comparison_rp.txt
       fi
 
 
       if [ $binning == "MAG_AUTO" ] && [ $shape_options == $lf_folder_global ]
       then
-        tail $path/output/rp_simulations/tmp_rm.txt -n $((mag_bins+1)) >> $path/output/plots/bias_comparison_rp.txt
+        tail $puj_folder/analysis_${binning}.dat -n $((mag_bins+1)) >> $path/output/plots/bias_comparison_rp.txt
       fi
 
       # ------------------------ PRODUCE THE UNCERTAINTY EVOLUTION PLOTS -------------------------#
-      python3 error_plot.py $run_lf $run_rm $path M $shear_interval
-      tail ${path}/output/rp_simulations/error_scaling.txt -n $((4*(mag_bins+1))) >> $path/output/plots/binned_improvement_rp_m.txt
-      #tail ${path}/output/rp_simulations/error_scaling.txt -n $((4*(mag_bins+1))) >> $path/output/plots/binned_improvement_rp_m.txt
+      python3 error_plot.py $run_lf $run_rm $path M $shear_interval $shape_options $puj_folder $binning
+      tail ${shape_options}/error_scaling_${binning}_M.dat -n $((4*(mag_bins+1))) >> $path/output/plots/binned_improvement_rp_m.txt
 
-      python3 error_plot.py $run_lf $run_rm $path C $shear_interval
-      tail ${path}/output/rp_simulations/error_scaling.txt -n $((4*(mag_bins+1))) >> $path/output/plots/binned_improvement_rp_c.txt
-      #tail ${path}/output/rp_simulations/error_scaling.txt -n $((4*(mag_bins+1))) >> $path/output/plots/binned_improvement_rp_c.txt
+      python3 error_plot.py $run_lf $run_rm $path C $shear_interval $shape_options $puj_folder $binning
+      tail ${shape_options}/error_scaling_${binning}_C.dat -n $((4*(mag_bins+1))) >> $path/output/plots/binned_improvement_rp_c.txt
 
-
-      rm $path/output/rp_simulations/tmp_rm.txt
-      # counter=$((counter-1))
     done
   done
 
@@ -159,10 +144,9 @@ then
   python3 bias_comparison.py $path/output/plots/bias_comparison_rp.txt RP
 
   # ----------------------------- REMOVE THE TEMPORARY FILES ---------------------------------------- #
-  mv $path/output/plots/binned_improvement_rp_m.txt $lf_folder_global
-  mv $path/output/plots/binned_improvement_rp_c.txt $lf_folder_global
-  mv $path/output/rp_simulations/fits.txt $lf_folder_global
-  mv $path/output/plots/bias_comparison_rp.txt $lf_folder_global
+  rm $path/output/plots/binned_improvement_rp_m.txt
+  rm $path/output/plots/binned_improvement_rp_c.txt
+  rm $path/output/plots/bias_comparison_rp.txt
 
 fi
 

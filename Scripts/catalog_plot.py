@@ -12,6 +12,7 @@ import configparser
 from astropy.io import ascii
 import timeit
 import os
+from astropy.table import Table
 
 config = configparser.ConfigParser()
 config.read('config_rp.ini')
@@ -80,7 +81,7 @@ data2_compl = []
 magnitudes_list = [min_mag + k * (max_mag - min_mag) / (mag_bins) for k in range(mag_bins + 1)]
 
 # Read in the catalog with astropy and numpy
-input_catalog = ascii.read(subfolder + 'input_catalog.dat')
+input_catalog = ascii.read(subfolder + 'input_catalog.dat', fast_reader={'chunk_size': 100 * 1000000})
 galaxy_num = len(input_catalog) / (file_number * shear_bins * 4)
 print(f"Average galaxy number: {galaxy_num}")
 data_complete = ascii.read(subfolder + 'analysis.dat')
@@ -90,6 +91,7 @@ start = timeit.default_timer()
 bootstrapping = 0
 errors_m = [[[[] for _ in range(mag_bins + 1)] for _ in range(file_number)] for _ in range(3)]
 errors_c = [[[[] for _ in range(mag_bins + 1)] for _ in range(file_number)] for _ in range(3)]
+columns = [] #For output
 for reps in range(REPS):
     print(f"{reps + 1}/{REPS}")
     data_compl = []
@@ -418,13 +420,11 @@ for reps in range(REPS):
                         error_plus = (1, 1)
                         error_minus = (-1, -1)
 
-                    with open(path + "output/rp_simulations/fits.txt", "a") as file:
-                        file.write("%s\t %d\t %d\t %d\t %.7f\t %.7f\t %.7f\t %.7f\t %d\t %.1f\t %.7f\t %.7f\n" %
-                                   ("none", sim_size, galaxy_num, run,
-                                    popt[0], error[0], popt[1], error[1],
-                                    shear_bins * galaxy_num * (run + 1) * (1 + noise_plus_meas)
-                                    + shear_bins * (run + 1) * scene_creation, magnitudes_list[m],
-                                    np.std(errors_m[0][run][m]), np.std(errors_c[0][run][m])))
+                    columns.append([0, sim_size, galaxy_num, run,
+                                popt[0], error[0], popt[1], error[1],
+                                shear_bins * galaxy_num * (run + 1) * (1 + noise_plus_meas)
+                                + shear_bins * (run + 1) * scene_creation, magnitudes_list[m],
+                                np.std(errors_m[0][run][m]), np.std(errors_c[0][run][m])])
 
                     r = deviation - linear_function(data[:, 0][i * shear_bins:(i + 1) * shear_bins][filter], *popt)
 
@@ -434,12 +434,11 @@ for reps in range(REPS):
                         ax.plot(data[:, 0][0:shear_bins], linear_function(data[:, 0][0:shear_bins], *popt), color="C0")
 
                 else:
-                    with open(path + "output/rp_simulations/fits.txt", "a") as file:
-                        file.write("%s\t %d\t %d\t %d\t %.7f\t %.7f\t %.7f\t %.7f\t %d\t %.1f\t %.7f\t %.7f\n" %
-                                   ("none", sim_size, galaxy_num, run,
-                                    1, 1, 1, 1,
-                                    shear_bins * galaxy_num * (run + 1) * (1 + noise_plus_meas)
-                                    + shear_bins * (run + 1) * scene_creation, magnitudes_list[m], 0.0, 0.0))
+
+                    columns.append([0, sim_size, galaxy_num, run,
+                                1, 1, 1, 1,
+                                shear_bins * galaxy_num * (run + 1) * (1 + noise_plus_meas)
+                                + shear_bins * (run + 1) * scene_creation, magnitudes_list[m], 0.0, 0.0])
 
                 # SHAPE NOISE FITS
                 if len(np.where((shape_noise_err != -1) & (shape_noise_err != 0))[0]) > 3:
@@ -483,21 +482,19 @@ for reps in range(REPS):
                                     label="shape", color="C1")
                         ax.plot(data[:, 0][0:shear_bins], linear_function(data[:, 0][0:shear_bins], *popt), color="C1")
 
-                    with open(path + "output/rp_simulations/fits.txt", "a") as file:
-                        file.write("%s\t %d\t %d\t %d\t %.7f\t %.7f\t %.7f\t %.7f\t %d\t %.1f\t %.7f\t %.7f\n" %
-                                   ("shape", sim_size, galaxy_num, run,
-                                    popt[0], error[0], popt[1], error[1],
-                                    shear_bins * galaxy_num * (run + 1) * (2 + 2 * noise_plus_meas)
-                                    + (run + 1) * shear_bins * 2 * scene_creation, magnitudes_list[m],
-                                    np.std(errors_m[1][run][m]), np.std(errors_c[1][run][m])))
+
+
+                    columns.append([1, sim_size, galaxy_num, run,
+                                popt[0], error[0], popt[1], error[1],
+                                shear_bins * galaxy_num * (run + 1) * (2 + 2 * noise_plus_meas)
+                                + (run + 1) * shear_bins * 2 * scene_creation, magnitudes_list[m],
+                                np.std(errors_m[1][run][m]), np.std(errors_c[1][run][m])])
                 else:
 
-                    with open(path + "output/rp_simulations/fits.txt", "a") as file:
-                        file.write("%s\t %d\t %d\t %d\t %.7f\t %.7f\t %.7f\t %.7f\t %d\t %.1f\t %.7f\t %.7f\n" %
-                                   ("shape", sim_size, galaxy_num, run,
-                                    1, 1, 1, 1,
-                                    shear_bins * galaxy_num * (run + 1) * (2 + 2 * noise_plus_meas)
-                                    + (run + 1) * shear_bins * 2 * scene_creation, magnitudes_list[m], 0.0, 0.0))
+                    columns.append([1, sim_size, galaxy_num, run,
+                                1, 1, 1, 1,
+                                shear_bins * galaxy_num * (run + 1) * (2 + 2 * noise_plus_meas)
+                                + (run + 1) * shear_bins * 2 * scene_creation, magnitudes_list[m], 0.0, 0.0])
 
                 # BOTH NOISE FITS
                 if len(np.where((both_noise_err != -1) & (both_noise_err != 0))[0]) > 3:
@@ -538,20 +535,18 @@ for reps in range(REPS):
                                     label="both", color="C2")
                         ax.plot(data[:, 0][0:shear_bins], linear_function(data[:, 0][0:shear_bins], *popt), color="C2")
 
-                    with open(path + "output/rp_simulations/fits.txt", "a") as file:
-                        file.write("%s\t %d\t %d\t %d\t %.7f\t %.7f\t %.7f\t %.7f\t %d\t %.1f\t %.7f\t %.7f\n" %
-                                   ("both", sim_size, galaxy_num, run,
-                                    popt[0], error[0], popt[1], error[1],
-                                    shear_bins * galaxy_num * (run + 1) * (2 + 4 * noise_plus_meas)
-                                    + (run + 1) * shear_bins * scene_creation * 4, magnitudes_list[m],
-                                    np.std(errors_m[2][run][m]), np.std(errors_c[2][run][m])))
+
+
+                    columns.append([2, sim_size, galaxy_num, run,
+                                popt[0], error[0], popt[1], error[1],
+                                shear_bins * galaxy_num * (run + 1) * (2 + 4 * noise_plus_meas)
+                                + (run + 1) * shear_bins * scene_creation * 4, magnitudes_list[m],
+                                np.std(errors_m[2][run][m]), np.std(errors_c[2][run][m])])
                 else:
 
-                    with open(path + "output/rp_simulations/fits.txt", "a") as file:
-                        file.write("%s\t %d\t %d\t %d\t %.7f\t %.7f\t %.7f\t %.7f\t %d\t %.1f\t %.7f\t %.7f\n" %
-                                   ("both", sim_size, galaxy_num, run,
-                                    1, 1, 1, 1, shear_bins * galaxy_num * (run + 1) * (2 + 4 * noise_plus_meas)
-                                    + (run + 1) * shear_bins * scene_creation * 4, magnitudes_list[m], 0.0, 0.0))
+                    columns.append([2, sim_size, galaxy_num, run,
+                                1, 1, 1, 1, shear_bins * galaxy_num * (run + 1) * (2 + 4 * noise_plus_meas)
+                                + (run + 1) * shear_bins * scene_creation * 4, magnitudes_list[m], 0.0, 0.0])
 
                 if reps == REPS - 1:
                     ax.legend()
@@ -566,5 +561,13 @@ for reps in range(REPS):
                                     bbox_inches='tight')
                     plt.close()
 
+columns = np.array(columns, dtype=float)
+fit_results = Table([columns[:, i] for i in range(12)], names=('cancellation_index', 'sim_size', 'galaxy_num',
+                                                                 'scene_index', 'm_bias', 'm_bias_err', 'c_bias', 'c_bias_err',
+                                                                 'theo_runtime', 'magnitude_bin', 'm_bias_err_err',
+                                                                 'c_bias_err_err'))
+
+ascii.write(fit_results, subfolder + 'fits_analysis.dat',
+            overwrite=True)
 print(f"total analysis time: {timeit.default_timer() - start}")
 print(f"Davon bootstrapping: {bootstrapping}")

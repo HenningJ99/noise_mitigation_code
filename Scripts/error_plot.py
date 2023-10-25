@@ -15,13 +15,18 @@ import matplotlib . pyplot as plt
 from scipy.optimize import curve_fit
 import configparser
 import sys
+from astropy.io import ascii
+from astropy.table import Table
 from matplotlib.ticker import (MultipleLocator, FormatStrFormatter,
                                AutoMinorLocator, NullFormatter)
 
 run_lf = int(sys.argv[1])
 run_rm = int(sys.argv[2])
 path = sys.argv[3]+"/"
+fit_folder = sys.argv[6]
+puj_folder = sys.argv[7]
 print(run_lf, run_rm)
+binning = sys.argv[8]
 
 config = configparser.ConfigParser()
 config.read('config_rp.ini')
@@ -47,34 +52,31 @@ max_mag = float(simulation["max_mag"])
 improvements = [[[] for _ in range(mag_bins+1)] for _ in range(4)]
 fit_parameters = [[[] for _ in range(mag_bins+1)] for _ in range(4)]
 improvements_area = [[[] for _ in range(mag_bins+1)] for _ in range(4)]
+columns = []
 for reps in range(REPS):
     # Read in the columns with relevant information from the temporary file
-    names_list = np.genfromtxt(path+"output/rp_simulations/tmp_rm.txt", skip_footer=int(REPS * (mag_bins+1) * run_rm / pujol_every + 3 * (run_lf - SKIP_FIRST_LF) * (mag_bins+1) * (REPS - (reps+1))),
-                               dtype="unicode", skip_header=int(3 * (mag_bins+1) * (run_lf - SKIP_FIRST_LF) * reps))[:,0]
+    if reps + 1 != REPS:
+        data_complete = ascii.read(fit_folder + f"fits_analysis_{binning}.dat",
+                                   data_start=int(3 * (mag_bins + 1) * (run_lf - SKIP_FIRST_LF) * reps)+1,
+                                   data_end=-int(3 * (run_lf - SKIP_FIRST_LF) * (mag_bins + 1) * (REPS - (reps + 1))))
+
+        data_puyol_compl = ascii.read(puj_folder + f"analysis_{binning}.dat",
+                                      data_start=int((mag_bins + 1) * SKIP_FIRST_RM + (mag_bins + 1) *
+                                                     run_rm / pujol_every * reps)+1,
+                                      data_end=-int((mag_bins+1) * (REPS - (reps+1)) * run_rm / pujol_every))
+
+    else:
+        data_complete = ascii.read(fit_folder + f"fits_analysis_{binning}.dat",
+                                   data_start=int(3 * (mag_bins + 1) * (run_lf - SKIP_FIRST_LF) * reps) + 1)
+
+        data_puyol_compl = ascii.read(puj_folder + f"analysis_{binning}.dat",
+                                      data_start=int((mag_bins + 1) * SKIP_FIRST_RM + (mag_bins + 1) *
+                                                     run_rm / pujol_every * reps)+1)
 
     if sys.argv[4] == "C":
-        data_complete = np.genfromtxt(path+"output/rp_simulations/tmp_rm.txt", skip_footer=int(REPS * (mag_bins+1) * run_rm / pujol_every + 3 * (run_lf - SKIP_FIRST_LF) * (mag_bins+1) * (REPS - (reps+1))), usecols=(0,6,7,8,9,1,2,3,11)
-                                      , skip_header=int(3 * (mag_bins+1) * (run_lf - SKIP_FIRST_LF) * reps))
-
-        if sys.argv[5] == "0.02":
-            data_puyol_compl = np.genfromtxt(path+"output/rp_simulations/tmp_rm.txt", skip_header=int(3 * (run_lf - SKIP_FIRST_LF) * (mag_bins + 1) * REPS + (mag_bins + 1) * SKIP_FIRST_RM + (mag_bins + 1) * run_rm / pujol_every * reps),
-                                             usecols=(0, 18, 19, 11, 24,1,2,3, 29), skip_footer=int((mag_bins+1) * (REPS - (reps+1)) * run_rm / pujol_every))
-            # data_puyol_compl[:, 3] = data_puyol_compl[:, 3] * 2 / 11
-
-        elif sys.argv[5] == "0.1":
-            data_puyol_compl = np.genfromtxt(path + "output/rp_simulations/tmp_rm.txt", skip_header=int(3 * (run_lf - SKIP_FIRST_LF) * (mag_bins + 1) * REPS + (mag_bins + 1) * SKIP_FIRST_RM + (mag_bins + 1) * run_rm / pujol_every * reps),
-                                             usecols=(0, 18, 19, 11, 24, 1, 2, 3, 27), skip_footer=int((mag_bins+1) * (REPS - (reps+1)) * run_rm / pujol_every))
+        bias = "c_bias"
     elif sys.argv[4] == "M":
-        data_complete = np.genfromtxt(path + "output/rp_simulations/tmp_rm.txt", skip_footer=int(REPS * (mag_bins+1) * run_rm / pujol_every + 3 * (run_lf - SKIP_FIRST_LF) * (mag_bins+1) * (REPS - (reps+1))),
-                                      usecols=(0, 4, 5, 8, 9, 1, 2, 3, 10), skip_header=int(3 * (mag_bins+1) * (run_lf - SKIP_FIRST_LF) * reps))
-        if sys.argv[5] == "0.02":
-            data_puyol_compl = np.genfromtxt(path + "output/rp_simulations/tmp_rm.txt", skip_header=int(3 * (run_lf - SKIP_FIRST_LF) * (mag_bins + 1) * REPS + (mag_bins + 1) * SKIP_FIRST_RM + (mag_bins + 1) * run_rm / pujol_every * reps),
-                                         usecols=(0, 16, 17, 11, 24, 1, 2, 3, 28), skip_footer=int((mag_bins+1) * (REPS - (reps+1)) * run_rm / pujol_every))
-            # data_puyol_compl[:, 3] = data_puyol_compl[:, 3] * 2 / 11
-
-        elif sys.argv[5] == "0.1":
-            data_puyol_compl = np.genfromtxt(path + "output/rp_simulations/tmp_rm.txt", skip_header=int(3 * (run_lf - SKIP_FIRST_LF) * (mag_bins + 1) * REPS + (mag_bins + 1) * SKIP_FIRST_RM + (mag_bins + 1) * run_rm / pujol_every * reps),
-                                             usecols=(0, 16, 17, 11, 24, 1, 2, 3, 26), skip_footer=int((mag_bins+1) * (REPS - (reps+1)) * run_rm / pujol_every))
+        bias = "m_bias"
 
     def linear_function(x, a):
         return a*x
@@ -85,28 +87,36 @@ for reps in range(REPS):
 
     magnitude_list = [min_mag + k*(max_mag-min_mag)/(mag_bins) for k in range(mag_bins+1)]
     for mag in range((mag_bins+1)):
+        if sys.argv[5] == "0.1":
+            data_puyol = data_puyol_compl[mag::(mag_bins + 1)][
+                (data_puyol_compl[mag::(mag_bins + 1)][bias + "_large_fit"] != -1)
+                & (data_puyol_compl[mag::(mag_bins + 1)][bias + "_large_fit_err"] != 0)]
 
-        data_puyol = data_puyol_compl[mag::(mag_bins+1)][(data_puyol_compl[mag::(mag_bins+1)][:, 1] != -1) & (data_puyol_compl[mag::(mag_bins+1)][:, 2] != 0)]
+        elif sys.argv[5] == "0.02":
+            data_puyol = data_puyol_compl[mag::(mag_bins + 1)][
+                (data_puyol_compl[mag::(mag_bins + 1)][bias + "_small_fit"] != -1) & (
+                            data_puyol_compl[mag::(mag_bins + 1)][bias + "_small_fit_err"] != 0)]
 
-        no_cancel = data_complete[np.where((names_list == "none") & (data_complete[:,4] == magnitude_list[mag]))[0]]
-        shape_noise = data_complete[np.where((names_list == "shape") & (data_complete[:,4] == magnitude_list[mag]))[0]]
-        both = data_complete[np.where((names_list == "both") & (data_complete[:,4] == magnitude_list[mag]))[0]]
+        no_cancel = data_complete[np.where((data_complete["cancellation_index"] == 0) & (data_complete["magnitude_bin"] == magnitude_list[mag]))[0]]
+        shape_noise = data_complete[np.where((data_complete["cancellation_index"] == 1) & (data_complete["magnitude_bin"] == magnitude_list[mag]))[0]]
+        both = data_complete[np.where((data_complete["cancellation_index"] == 2) & (data_complete["magnitude_bin"] == magnitude_list[mag]))[0]]
 
-        runtime_data = data_complete[:, 3]
+        runtime_data = data_complete["theo_runtime"]
         # Find out the longest runtime from all possible methods
         try:
             num_shears = 2 if sys.argv[5] == "0.02" else 11
-            runtime_norm = np.max([np.max(runtime_data), np.max(data_puyol[:, 3])])
-            runtime_norm_area = np.max([np.max((no_cancel[:, 7]+1) * shear_bins * 4 * no_cancel[:, 5]**2 / (100 * 3600**2)),
-                                   np.max(data_puyol[:, 7] * num_shears * data_puyol[:, 5]**2 / (100 * 3600**2))])
+            runtime_norm = np.max([np.max(runtime_data), np.max(data_puyol["theo_runtime"])])
+            runtime_norm_area = np.max([np.max((no_cancel["scene_index"]+1) * shear_bins * 4 * no_cancel["sim_size"]**2 / (100 * 3600**2)),
+                                   np.max(data_puyol["scene_index"] * num_shears * data_puyol["galaxy_num"]**2 / (100 * 3600**2))])
         except ValueError:
             runtime_norm = np.max(runtime_data)
-            runtime_norm_area = np.max((no_cancel[:, 7]+1) * shear_bins * 4 * no_cancel[:, 5]**2 / (100 * 3600**2))
+            runtime_norm_area = np.max((no_cancel["run"]+1) * shear_bins * 4 * no_cancel["galaxy_num"]**2 / (100 * 3600**2))
 
 
         if reps == REPS-1:
             mm = 1 / 25.4  # millimeter in inches
             fig, axs = plt.subplots(2, 1, constrained_layout=True, figsize=(88 * mm, 88 * mm))
+
 
         text_file = open(path+"output/rp_simulations/error_scaling.txt", "a")
         i = 0
@@ -125,35 +135,39 @@ for reps in range(REPS):
                 continue
 
             if i != 3:
-                runtime_data = data[:, 3] + factor_runtime * (data[:, 7]+1) * 20 * cancel_index[i]
-                runtime_data_area = (data[:, 7] + 1) * data[:, 5]**2 / (100 * 3600**2) * cancel_index[i] * shear_bins
+                runtime_data = data["theo_runtime"] + factor_runtime * (data["scene_index"]+1) * 20 * cancel_index[i]
+                runtime_data_area = (data["scene_index"] + 1) * data["galaxy_num"]**2 / (100 * 3600**2) * cancel_index[i] * shear_bins
+                bias_err = data[bias+"_err"]
+                bias_err_err = data[bias+"_err_err"]
             else:
                 if sys.argv[5] == "0.1":
-                    runtime_data = data[:, 3] + factor_runtime * data_puyol[:, 7] * 11
-                    runtime_data_area = data[:, 7] * data[:, 5]**2 / (100 * 3600**2) * 11
+                    runtime_data = data["theo_runtime"] + factor_runtime * data_puyol["scene_index"] * 11
+                    runtime_data_area = data["scene_index"] * data["galaxy_num"]**2 / (100 * 3600**2) * 11
+                    bias_err = data[bias+"_large_fit_err"]
+                    bias_err_err = data[bias+"_large_err_err"]
 
                 elif sys.argv[5] == "0.02":
-                    runtime_data = data[:, 3] + factor_runtime * data_puyol[:, 7] * 2
-                    runtime_data_area = data[:, 7] * data[:, 5] ** 2 / (100 * 3600 ** 2) * 2
+                    runtime_data = data["theo_runtime"] + factor_runtime * data_puyol["scene_index"] * 2
+                    runtime_data_area = data["scene_index"] * data["galaxy_num"] ** 2 / (100 * 3600 ** 2) * 2
+                    bias_err = data[bias+"_small_fit_err"]
+                    bias_err_err = data[bias+"_small_err_err"]
 
-            filter = ~np.isnan(data[:,2]) & ~np.isinf(data[:,2])
-
-            if len(data[:, 2][filter]) == 0: #If no data is available at all (for example faintest bin)
+            filter = ~np.isnan(bias_err) & ~np.isinf(bias_err)
+            if len(bias_err[filter]) == 0: #If no data is available at all (for example faintest bin)
                 if reps == REPS - 1:
-                    text_file.write("%s\t %.7f\t %.7f\t %.6f\t %.6f\t %.6f\t %.6f\n" % (
-                    names[i], 0, 0, 0, 0, 1, 0))
+                    columns.append([i, mag, 0, 0, 0, 0, 1, 0])
                 i += 1
                 continue
 
             
             if WITH_ERROR:
-                popt, pcov = curve_fit(linear_function, 1 / np.sqrt(runtime_data[filter] / runtime_norm), data[:, 2][filter], sigma=data[:, 8][filter], absolute_sigma=True)
+                popt, pcov = curve_fit(linear_function, 1 / np.sqrt(runtime_data[filter] / runtime_norm), bias_err[filter], sigma=bias_err_err[filter], absolute_sigma=True)
                 popt_area, pcov_area = curve_fit(linear_function, 1 / np.sqrt(runtime_data_area[filter] / runtime_norm_area),
-                                       data[:, 2][filter], sigma=data[:, 8][filter], absolute_sigma=True)
+                                       bias_err[filter], sigma=bias_err_err[filter], absolute_sigma=True)
             else:
-                popt, pcov = curve_fit(linear_function, 1 / np.sqrt(runtime_data[filter] / runtime_norm), data[:, 2][filter])
+                popt, pcov = curve_fit(linear_function, 1 / np.sqrt(runtime_data[filter] / runtime_norm), bias_err[filter])
                 popt_area, pcov_area = curve_fit(linear_function, 1 / np.sqrt(runtime_data_area[filter] / runtime_norm_area),
-                                       data[:, 2][filter])
+                                       bias_err[filter])
             error = np.sqrt(np.diag(pcov))
             error_area = np.sqrt(np.diag(popt_area))
 
@@ -200,15 +214,15 @@ for reps in range(REPS):
 
 
                 if not WITH_ERROR:
-                    axs[0].plot(runtime_data[::skip] / runtime_norm, data[:, 2][::skip], '+',
+                    axs[0].plot(runtime_data[::skip] / runtime_norm, bias_err[::skip], '+',
                                 label=names[i], markersize=5, color=colors[i])
-                    axs[1].plot(1 / np.sqrt(runtime_data[::skip] / runtime_norm), data[:, 2][::skip], '+',
+                    axs[1].plot(1 / np.sqrt(runtime_data[::skip] / runtime_norm), bias_err[::skip], '+',
                                 label=names[i], markersize=5, color=colors[i])
                 else:
-                    axs[0].errorbar(runtime_data[::skip] / runtime_norm, data[:, 2][::skip], yerr=data[:, 8][::skip],
+                    axs[0].errorbar(runtime_data[::skip] / runtime_norm, bias_err[::skip], yerr=bias_err_err[::skip],
                                     fmt= '+', label=names[i], markersize=5, color=colors[i], capsize=2, elinewidth=0.5)
-                    axs[1].errorbar(1 / np.sqrt(runtime_data[::skip] / runtime_norm), data[:, 2][::skip],
-                                    yerr=data[:, 8][::skip],fmt= '+', label=names[i], markersize=5,
+                    axs[1].errorbar(1 / np.sqrt(runtime_data[::skip] / runtime_norm), bias_err[::skip],
+                                    yerr=bias_err_err[::skip],fmt= '+', label=names[i], markersize=5,
                                 color=colors[i], capsize=2, elinewidth=0.5)
 
 
@@ -234,12 +248,9 @@ for reps in range(REPS):
                 # print((popt[0] / goal) ** 2)
                 area_equivalent = (popt_area[0] / goal) ** 2
 
-                text_file.write("%s\t %.7f\t %.7f\t %.6f\t %.6f\t %.6f\t %.6f\t %.6f\t %.6f\t %.2f\n" %
-                                (names[i], popt[0], error[0], factor, factor_err, improvement,
-                                 np.std(improvements[i][mag]), improvement_area, np.std(improvements_area[i][mag]),
-                                 area_equivalent))
+                columns.append([i, mag, popt[0], error[0], factor, factor_err, improvement, np.std(improvements[i][mag]),
+                                improvement_area, np.std(improvements_area[i][mag]), area_equivalent])
             i += 1
-
 
 
         if reps == REPS-1:
@@ -273,3 +284,11 @@ for reps in range(REPS):
                 fig.savefig(path + f'output/plots/rp_{magnitude_list[mag]}_c_bias.pdf', dpi=300,
                             bbox_inches='tight')
 
+
+columns = np.array(columns, dtype=float)
+fit_results = Table([columns[:, i] for i in range(11)], names=('cancellation_index', 'mag_index', 'a', 'a_err', 'factor', 'factor_err',
+                                                               'improvement', 'improvement_err', 'improvement_area',
+                                                               'improvement_area_err', 'area_equivalent'))
+
+ascii.write(fit_results, fit_folder + f'error_scaling_{binning}_{sys.argv[4]}.dat',
+            overwrite=True)
