@@ -133,6 +133,7 @@ ellip_max = float(simulation['ellip_max'])
 stamp_xsize = int(image['stamp_xsize'])
 stamp_ysize = int(image['stamp_ysize'])
 ssamp_grid = int(image['ssamp_grid'])
+cut_size = int(image['cut_size'])
 
 shear_bins = int(simulation['shear_bins'])
 
@@ -247,7 +248,7 @@ total_scenes = total_scenes_per_shear * shear_bins
 x_scenes = int(np.sqrt(total_scenes))
 y_scenes = math.ceil(total_scenes / x_scenes)
 
-angular_size = (complete_image_size - 2. * 1.5 / pixel_scale) * pixel_scale / 3600
+angular_size = (complete_image_size - 2. * cut_size) * pixel_scale / 3600
 
 x = np.linspace(ra_min_org, ra_min_org + x_scenes * angular_size / np.cos(dec_min_org * np.pi / 180), x_scenes+1)
 y = np.linspace(dec_min_org, dec_min_org + y_scenes * angular_size, y_scenes+1)
@@ -525,7 +526,7 @@ ascii.write(shear_results,
             path + 'output/rp_simulations/' + f'run_lf_{date_object}_{current_time}_{sys.argv[5]}/shear_catalog.dat',
             overwrite=True)
 
-os.system('cp config_rp.ini ' + path + 'output/rp_simulations/' + f'run_lf_{date_object}_{current_time}_{sys.argv[6]}/')
+os.system('cp config_rp.ini ' + path + 'output/rp_simulations/' + f'run_lf_{date_object}_{current_time}_{sys.argv[5]}/')
 # DELETE CATALOGUES AND FITS FILES TO SAVE MEMORY
 os.chdir(path + "output")
 os.system(f"rm -r source_extractor/{index_fits}")

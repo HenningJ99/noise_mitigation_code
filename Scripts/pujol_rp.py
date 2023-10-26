@@ -162,6 +162,7 @@ ellip_max = float(simulation['ellip_max'])
 stamp_xsize = int(image['stamp_xsize'])
 stamp_ysize = int(image['stamp_ysize'])
 ssamp_grid = int(image['ssamp_grid'])
+cut_size = int(image['cut_size'])
 
 ra_min_org = float(image["ra_min"])
 dec_min_org = float(image["dec_min"])
@@ -258,7 +259,7 @@ gal_list = [[] for _ in range(total_scenes_per_shear)]
 x_scenes = int(np.sqrt(total_scenes_per_shear))
 y_scenes = math.ceil(total_scenes_per_shear / x_scenes)
 
-angular_size = (complete_image_size - 2. * 1.5 / pixel_scale) * pixel_scale / 3600
+angular_size = (complete_image_size - 2. * cut_size) * pixel_scale / 3600
 
 x = np.linspace(ra_min_org, ra_min_org + x_scenes * angular_size / np.cos(dec_min_org * np.pi / 180), x_scenes+1)
 y = np.linspace(dec_min_org, dec_min_org + y_scenes * angular_size, y_scenes+1)
