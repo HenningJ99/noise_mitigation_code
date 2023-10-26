@@ -1434,7 +1434,7 @@ def one_scene_pujol(m, total_scene_count, gal, positions, argv, config, path, ps
     sky_level = pixel_scale ** 2 * exp_time / gain * 10 ** (-0.4 * (sky - zp))
 
     # Build the two large images for none and shape and add sky level and Gaussian RON to them
-    angular_size = (complete_image_size - 2. * 1.5 / pixel_scale) * pixel_scale / 3600
+    angular_size = (complete_image_size - 2. * cut_size) * pixel_scale / 3600
 
     ra_max = ra_min + angular_size * np.cos(dec_min_org * np.pi / 180)
 
@@ -1902,7 +1902,7 @@ def one_scene_lf(m, gal, gal2, positions, positions2, scene, argv, config, path,
     sky_level = pixel_scale ** 2 * exp_time / gain * 10 ** (-0.4 * (sky - zp))
 
     # Build the two large images for none and shape and add sky level and Gaussian RON to them
-    angular_size = (complete_image_size - 2. * 1.5 / pixel_scale) * pixel_scale / 3600
+    angular_size = (complete_image_size - 2. * cut_size) * pixel_scale / 3600
 
     ra_max = ra_min + angular_size / np.cos(dec_min_org * np.pi / 180)
 
