@@ -1796,7 +1796,7 @@ def SimpleCanvas(RA_min, RA_max, DEC_min, DEC_max, pixel_scale, edge_sep=1.5, ro
 
 
 @ray.remote
-def one_scene_lf(m, gal, gal2, positions, positions2, scene, argv, config, path, psf, index, index_fits, seed, ra_min,
+def one_scene_lf(m, gal, positions, positions2, scene, argv, config, path, psf, index, index_fits, seed, ra_min,
                  dec_min):
     image = config['IMAGE']
     simulation = config['SIMULATION']
@@ -1861,7 +1861,7 @@ def one_scene_lf(m, gal, gal2, positions, positions2, scene, argv, config, path,
         final = galsim.Convolve([normal_gal, psf])
 
         # Rotate the unsheared galaxy
-        rotated_galaxy = gal2[i].rotate(90 * galsim.degrees)
+        rotated_galaxy = gal[i].rotate(90 * galsim.degrees)
 
         # Add the shear also that rotated galaxy
         rotated_galaxy = rotated_galaxy.shear(g1=g1, g2=g2)

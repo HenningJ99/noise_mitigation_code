@@ -186,14 +186,6 @@ argv_ref = ray.put(sys.argv)
 # ----------- Load the flagship catalog --------------------------------------------------------------------------------
 hdul = fits.open("../Simulations/input/flagship.fits")
 flagship = hdul[1].data
-flagship["bulge_r50"] *= 1.0
-flagship["disk_r50"] *= 1.0
-
-#flagship["bulge_nsersic"] = np.where(flagship["bulge_nsersic"] * 0.9 < 0.3, 0.3, flagship["bulge_nsersic"] * 0.9)
-#flagship["disk_nsersic"] = np.where(flagship["disk_nsersic"] * 0.9 < 0.3, 0.3, flagship["disk_nsersic"] * 0.9)
-
-flagship["bulge_axis_ratio"] *= 1.0
-flagship["disk_axis_ratio"] *= 1.0
 
 patches = shear_bins * total_scenes_per_shear
 
@@ -240,7 +232,6 @@ sigma_sky = 1.4826 * np.median(np.abs(edge - np.median(edge)))
 columns = []
 
 gal_list = [[] for _ in range(total_scenes_per_shear * shear_bins)]
-gal_list2 = [[] for _ in range(total_scenes_per_shear * shear_bins)]
 positions = [[] for _ in range(total_scenes_per_shear * shear_bins)]
 positions_2 = [[] for _ in range(total_scenes_per_shear * shear_bins)]
 
@@ -276,9 +267,9 @@ for scene in range(total_scenes_per_shear):
         ra_min = grid_x[grid_counter]
         ra_max = ra_min + angular_size / np.cos(dec_min_org * np.pi / 180)
 
-        dec_min = grid_y[grid_counter]  # + (total_scenes_per_shear * m + scene) * 0.1
-        dec_max = dec_min + angular_size  # + (total_scenes_per_shear * m + scene + 1) * 0.1
-        print(ra_min, ra_max, dec_min, dec_max)
+        dec_min = grid_y[grid_counter]
+        dec_max = dec_min + angular_size
+        print(f"RAmin = {ra_min:.3f}, RAmax = {ra_max:.3f}, DECmin = {dec_min:.3f}, DECmax = {dec_max:.3f}")
         mask = ((flagship["ra_gal"] <= ra_max) & (flagship["ra_gal"] > ra_min) & (flagship["dec_gal"] <= dec_max) &
                 (flagship["dec_gal"] > dec_min))
 
@@ -286,12 +277,7 @@ for scene in range(total_scenes_per_shear):
 
         positions[scene * shear_bins + m] = np.vstack([flagship_cut["ra_gal"], flagship_cut["dec_gal"]])
 
-        if sys.argv[5] == "RANDOM_POS" or sys.argv[5] == "RANDOM_GAL":
-            positions_2[scene * shear_bins + m] = np.array(
-                [ra_max - ra_min, dec_max - dec_min]) * np.random.random_sample((galaxy_number, 2)) + \
-                                                  np.array([ra_min, ra_max])
-        else:
-            positions_2[scene * shear_bins + m] = positions[scene * shear_bins + m]
+        positions_2[scene * shear_bins + m] = positions[scene * shear_bins + m]
 
         # Convert positions from WCS to image
         canvas, wcs_astropy = fct.SimpleCanvas(ra_min, ra_max, dec_min, dec_max, pixel_scale,
@@ -331,22 +317,10 @@ for scene in range(total_scenes_per_shear):
             redshifts.append(flagship_cut["observed_redshift_gal"][i])
             theo_sn = res[1]
 
-            if sys.argv[5] == "RANDOM_GAL":
-                index2 = random.randint(0, len(flagship_cut) - 1)
-
-                res = fct.generate_gal_from_flagship(flagship_cut, betas, exp_time, gain, zp, pixel_scale,
-                                                     sky_level, read_noise, index2)
-
-                gal_list2[scene * shear_bins + m].append(res[0])
-                magnitudes.append(res[2])
-                redshifts.append(flagship_cut["observed_redshift_gal"][index2])
-                theo_sn2 = res[1]
-
-            else:
-                magnitudes.append(res[2])
-                redshifts.append(flagship_cut["observed_redshift_gal"][i])
-                index2 = i
-                theo_sn2 = theo_sn
+            magnitudes.append(res[2])
+            redshifts.append(flagship_cut["observed_redshift_gal"][i])
+            index2 = i
+            theo_sn2 = theo_sn
 
             for k in range(4):
 
@@ -368,9 +342,6 @@ for scene in range(total_scenes_per_shear):
                          flagship_cut["bulge_r50"][i], flagship_cut["disk_nsersic"][i], flagship_cut["disk_r50"][i],
                          flagship_cut["bulge_fraction"][i], flagship_cut["observed_redshift_gal"][i], theo_sn])
 
-        if sys.argv[5] != "RANDOM_GAL":
-            gal_list2[scene * shear_bins + m] = gal_list[scene * shear_bins + m]
-
         input_magnitudes.append(magnitudes)
         input_redshifts.append(redshifts)
         grid_counter += 1
@@ -389,22 +360,22 @@ for scene in range(total_scenes_per_shear):
         seed2 = int(rng() * 1e6)
 
         ids.append(
-            fct.one_scene_lf.remote(m, gal_list[scene * shear_bins + m], gal_list2[scene * shear_bins + m],
+            fct.one_scene_lf.remote(m, gal_list[scene * shear_bins + m],
                                     positions[scene * shear_bins + m], positions_2[scene * shear_bins + m], scene,
                                     argv_ref, config_ref,
                                     path, psf_ref, 0, index_fits, seed1, grid_x[grid_counter], grid_y[grid_counter]))
         ids.append(
-            fct.one_scene_lf.remote(m, gal_list[scene * shear_bins + m], gal_list2[scene * shear_bins + m],
+            fct.one_scene_lf.remote(m, gal_list[scene * shear_bins + m],
                                     positions[scene * shear_bins + m], positions_2[scene * shear_bins + m], scene,
                                     argv_ref, config_ref,
                                     path, psf_ref, 1, index_fits, seed2, grid_x[grid_counter], grid_y[grid_counter]))
         ids.append(
-            fct.one_scene_lf.remote(m, gal_list[scene * shear_bins + m], gal_list2[scene * shear_bins + m],
+            fct.one_scene_lf.remote(m, gal_list[scene * shear_bins + m],
                                     positions[scene * shear_bins + m], positions_2[scene * shear_bins + m], scene,
                                     argv_ref, config_ref,
                                     path, psf_ref, 2, index_fits, seed1, grid_x[grid_counter], grid_y[grid_counter]))
         ids.append(
-            fct.one_scene_lf.remote(m, gal_list[scene * shear_bins + m], gal_list2[scene * shear_bins + m],
+            fct.one_scene_lf.remote(m, gal_list[scene * shear_bins + m],
                                     positions[scene * shear_bins + m], positions_2[scene * shear_bins + m], scene,
                                     argv_ref, config_ref,
                                     path, psf_ref, 3, index_fits, seed2, grid_x[grid_counter], grid_y[grid_counter]))

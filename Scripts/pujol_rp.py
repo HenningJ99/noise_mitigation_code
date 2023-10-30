@@ -281,9 +281,9 @@ for total_scene_count in range(total_scenes_per_shear):
     ra_min = grid_x[grid_counter]
     ra_max = ra_min + angular_size / np.cos(dec_min_org * np.pi / 180)
 
-    dec_min = grid_y[grid_counter]  # + (total_scenes_per_shear * m + scene) * 0.1
-    dec_max = dec_min + angular_size  # + (total_scenes_per_shear * m + scene + 1) * 0.1
-    print(ra_min, ra_max, dec_min, dec_max)
+    dec_min = grid_y[grid_counter]
+    dec_max = dec_min + angular_size
+    print(f"RAmin = {ra_min:.3f}, RAmax = {ra_max:.3f}, DECmin = {dec_min:.3f}, DECmax = {dec_max:.3f}")
     mask = ((flagship["ra_gal"] <= ra_max) & (flagship["ra_gal"] > ra_min) & (flagship["dec_gal"] <= dec_max) &
             (flagship["dec_gal"] > dec_min))
 
@@ -328,8 +328,6 @@ for total_scene_count in range(total_scenes_per_shear):
              flagship_cut["bulge_nsersic"][i],
              flagship_cut["bulge_r50"][i], flagship_cut["disk_nsersic"][i], flagship_cut["disk_r50"][i],
              flagship_cut["bulge_fraction"][i], flagship_cut["observed_redshift_gal"][i], theo_sn])
-
-    print(np.average(input_shears))
 
     input_magnitudes.append(magnitudes)
     input_redshifts.append(redshifts)
