@@ -710,7 +710,7 @@ def worker(k, ellip_gal, psf, image_sampled_psf, config, argv, input_shear):
 
                 # Use this for a normal run
                 meas_g1[iy][ix] = results.e1
-                meas_g2[iy][ix] = results.e1
+                meas_g2[iy][ix] = results.e2
 
                 # Use this for selection bias checks
                 meas_g1_sel[iy][ix] = input_shear[0] + g1
