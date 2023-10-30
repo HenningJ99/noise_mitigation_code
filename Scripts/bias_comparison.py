@@ -38,6 +38,7 @@ if type == "RP":
     data = np.genfromtxt(file_name, skip_footer=(mag_bins + 1))
     data_pu = np.genfromtxt(file_name, skip_header=(mag_bins + 1) * 6)
 
+
 elif type == "GR":
     config = configparser.ConfigParser()
     config.read('config_grid.ini')
@@ -85,7 +86,7 @@ for biases in ["M", "C"]:
                          yerr=data[:, 5][(mag_bins + 1) * 3 + 2::3], fmt='p', capsize=2, label="both global", markersize=3)
 
             # Response method
-            axs.errorbar(magnitudes + 0.75, data_pu[:, 16], yerr=data_pu[:, 17], fmt="+", capsize=2, label="RM", markersize=3)
+            axs.errorbar(magnitudes + 0.75, data_pu[:, 15], yerr=data_pu[:, 16], fmt="+", capsize=2, label="RM", markersize=3)
 
             #axs.set_ylim(-0.5, 0.2)
 
@@ -124,7 +125,7 @@ for biases in ["M", "C"]:
                                alpha=0.8, markersize=3)
 
                 # Response method
-                axins.errorbar(magnitudes[bin] + 0.75, data_pu[:, 16][bin], yerr=data_pu[:, 17][bin], fmt="+",
+                axins.errorbar(magnitudes[bin] + 0.75, data_pu[:, 15][bin], yerr=data_pu[:, 16][bin], fmt="+",
                                capsize=2, label="RM", alpha=0.8, markersize=3)
                 ylim = axs.get_ylim()
                 y_delta = ylim[1] - ylim[0]
@@ -144,7 +145,7 @@ for biases in ["M", "C"]:
             axs.set_ylabel("$\mu$-bias")
             # axs.grid(True)
             axs.set_xlim(20.5, magnitudes[-1])
-            axs.set_xticks([21, 22, 23, 24, 25, 26])
+            #axs.set_xticks([21, 22, 23, 24, 25, 26])
 
 
         # For the grid
@@ -241,12 +242,12 @@ for biases in ["M", "C"]:
                          yerr=data[:, 7][(mag_bins + 1) * 3 + 2::3], fmt='p', capsize=2, label="both global", markersize=3)
 
             # Response method
-            axs.errorbar(magnitudes + 0.8, data_pu[:, 18], yerr=data_pu[:, 19], fmt="+", capsize=2, label="RM", markersize=3)
+            axs.errorbar(magnitudes + 0.8, data_pu[:, 17], yerr=data_pu[:, 18], fmt="+", capsize=2, label="RM", markersize=3)
             axs.set_xlabel("$m_{\mathrm{AUTO}}$")
             axs.set_ylabel("$c$-bias")
             axs.set_xlim(20.5, magnitudes[-1])
             #axs.set_ylim(-0.0005, 0.002)
-            axs.set_xticks([21,22,23,24,25,26])
+            #axs.set_xticks([21,22,23,24,25,26])
 
         elif type == "GR":
             axs.set_title("Grid")

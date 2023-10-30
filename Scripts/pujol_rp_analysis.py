@@ -175,9 +175,9 @@ for mag in range(len(magnitudes_list)):
         lower_limit = magnitudes_list[mag]
 
 
-    print(len(data_complete["meas_g1"][
-                  (data_complete["scene_index"] <= scene) & (data_complete[bin_type] > lower_limit) & (
-                              data_complete[bin_type] < upper_limit)]))
+    # print(len(data_complete["meas_g1"][
+    #               (data_complete["scene_index"] <= scene) & (data_complete[bin_type] > lower_limit) & (
+    #                           data_complete[bin_type] < upper_limit)]))
     if len(data_complete["meas_g1"][
                (data_complete["scene_index"] <= scene) & (data_complete[bin_type] > lower_limit) & (
                        data_complete[bin_type] < upper_limit)]) != 0:
@@ -421,7 +421,7 @@ for reps in range(REPS):
 
     for scene in range(analyse_every-1, total_scenes_per_shear, analyse_every):
         counter = 0
-
+        print(f"{scene+1}/{total_scenes_per_shear} scenes")
         for mag in range(len(magnitudes_list)):
 
             if mag == len(magnitudes_list) - 1:
@@ -559,37 +559,27 @@ for reps in range(REPS):
                                        deviation, sigma=np.array(output_err)[filter], absolute_sigma=True)
 
                 error = np.sqrt(np.diag(pcov))
+
+                if reps == REPS - 1:
+                    # Plot the fit
+                    mm = 1 / 25.4
+                    fig, ax = plt.subplots(figsize=(88 * mm, 88 * mm))
+
+                    ax.errorbar(np.array(shears)[filter], deviation, np.array(output_err)[filter], fmt="+--",
+                                markersize=5,
+                                capsize=2, elinewidth=0.5)
+                    ax.plot(np.linspace(-0.1, 0.1, 10), linear_function(np.linspace(-0.1, 0.1, 10), *popt), alpha=0.7)
+
+
+                    ax.hlines(0.0, -0.1, 0.1, linestyle="dashed", alpha=0.8)
+
+                    ax.set_xlabel("$g_1^t$")
+                    ax.set_ylabel("$<g_1^{obs}>-g_1^t$")
+                    fig.savefig(subfolder + f"/plots/{scene}_{mag}.png", dpi=200, bbox_inches="tight")
+                    plt.close()
             else:
                 popt = [-1, -1]
                 error = [-1, -1]
-
-            if reps == REPS-1:
-                # Plot the fit
-                mm = 1 / 25.4
-                fig, ax = plt.subplots(figsize=(88 * mm, 88 * mm))
-
-                ax.errorbar(np.array(shears)[filter], deviation, np.array(output_err)[filter], fmt="+--", markersize=5,
-                            capsize=2, elinewidth=0.5)
-                ax.plot(np.linspace(-0.1, 0.1, 10), linear_function(np.linspace(-0.1, 0.1, 10), *popt), alpha=0.7)
-
-                # # Selection Bias
-                # try:
-                #     popt, pcov = curve_fit(linear_function, np.array(shears),
-                #                            np.average(input_shears[:, :, :scene], weights=input_weights[:, :, :scene], axis=2)[
-                #                            :,
-                #                            mag])
-                #     r = np.average(input_shears[:, :, :scene], weights=input_weights[:, :, :scene], axis=2)[:,
-                #         mag] - linear_function(np.array(shears), *popt)
-                #     ax.plot(np.array(shears), r, "+")
-                # except ZeroDivisionError:
-                #     pass
-
-                ax.hlines(0.0, -0.1, 0.1, linestyle="dashed", alpha=0.8)
-
-                ax.set_xlabel("$g_1^t$")
-                ax.set_ylabel("$<g_1^{obs}>-g_1^t$")
-                fig.savefig(subfolder + f"/plots/{scene}_{mag}.png", dpi=200, bbox_inches="tight")
-                plt.close()
 
             if num_shears == 11:
                 filter = np.where(np.array(output_shear[4:7:2]) != -1)[0]
@@ -739,39 +729,23 @@ for reps in range(REPS):
                 c_bias_err_err_s = c_bias_err_err
                 popt_s = popt
 
-            # WRITE RESULTS TO FILE
-            with open(path + "output/rp_simulations/fits.txt", "a") as file:
-                file.write(
-                    "%s\t %d\t %d\t %d\t %.7f\t %.7f\t %.7f\t %.7f\t %.7f\t %.7f\t %d\t %.4f\t %.7f\t %.7f\t %.7f\t "
-                    "%.7f\t %.7f\t %.7f\t %.7f\t %.7f\t %.7f\t %.7f\t %.7f\t %.7f\t %.1f\t %d\t %.7f\t %.7f\t %.7f\t %.7f\n" %
-                    ("pujol", complete_image_size, galaxy_number, scene + 1, bias, err, c_bias,
-                     c_bias_err,
-                     results_values[0], results_values[1], int(timeit.default_timer() - start),
-                     (scene + 1) * galaxy_number * num_shears * (1 + noise_plus_meas) +
-                     (scene + 1) * num_shears * scene_creation, bias_small, bias_small_err, c_bias_s, c_bias_err_s,
-                     popt[0], error_fit_m_large, popt[1], error_fit_c_large, popt_s[0], error_fit_m_small, popt_s[1], error_fit_c_small,
-                     magnitudes_list[counter], np.sum(meas0_weights[mag][:int((scene + 1) / division)]), err_err,
-                     c_bias_err_err, bias_small_err_err,
-                     c_bias_err_err_s))
 
             blended_fraction = len(data_complete[
-                                       (data_complete["scene_index"] <= scene) &
-                                       (data_complete["scene_index"] > scene - analyse_every) &
-                                       (data_complete[bin_type] < upper_limit) &
-                                       (data_complete[bin_type] >= lower_limit) &
-                                       (data_complete["se_flag"] > 0)])
+                                       (data_complete["scene_index"] == scene) & (
+                                               data_complete[bin_type] < upper_limit) & (
+                                               data_complete[bin_type] >= lower_limit) & (
+                                               data_complete["se_flag"] > 0)])
 
             blended_kron = len(data_complete[
-                                   (data_complete["scene_index"] == scene) & (
-                                           data_complete[bin_type] < upper_limit) & (
-                                           data_complete[bin_type] >= lower_limit) & (
-                                           data_complete["kron_blend"] > 0)])
-
+                                       (data_complete["scene_index"] == scene) & (
+                                               data_complete[bin_type] < upper_limit) & (
+                                               data_complete[bin_type] >= lower_limit) & (
+                                               data_complete["kron_blend"] > 0)])
             complete_length = len(data_complete[
-                                      (data_complete["scene_index"] <= scene) &
-                                      (data_complete["scene_index"] > scene - analyse_every) &
-                                      (data_complete[bin_type] < upper_limit) &
-                                      (data_complete[bin_type] >= lower_limit)])
+                                      (data_complete["scene_index"] == scene) & (
+                                              data_complete[bin_type] < upper_limit) & (
+                                              data_complete[bin_type] >= lower_limit)])
+
             if complete_length == 0:
                 complete_length = 1
 
