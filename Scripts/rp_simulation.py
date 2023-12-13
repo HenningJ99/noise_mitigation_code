@@ -53,6 +53,8 @@ from scipy.optimize import curve_fit
 import scipy
 import matplotlib.pyplot as plt
 import datetime
+import pyvinecopulib as pv
+import pickle
 
 
 def do_kdtree(combined_x_y_arrays, points, k=1):
@@ -159,7 +161,7 @@ if psf_config["psf"] == "EUCLID":
 elif psf_config["psf"] == "AIRY":
     psf = galsim.Airy(lam * 1.e-9 / tel_diam * 206265)  # galsim.Gaussian(fwhm=0.15, flux=1.)
 elif psf_config["psf"] == "GAUSS":
-    psf = galsim.Gaussian(fwhm=0.15)
+    psf = galsim.Gaussian(fwhm=0.08)
 
 psf_image = psf.drawImage(nx=stamp_xsize, ny=stamp_ysize, scale=pixel_scale)
 galsim.fits.write(psf_image, "psf_cosmos.fits")
@@ -183,14 +185,32 @@ psf_ref = ray.put(psf)
 config_ref = ray.put(config)
 argv_ref = ray.put(sys.argv)
 
+# ----------- Create the PSF model if not already existent -------------------------------------------------------------
+if not os.path.isfile(path + "/output/source_extractor/euclid.psf"):
+    fct.create_psf_with_psfex(config, sys.argv, path + "/output/source_extractor", psf)
+
 # ----------- Load the flagship catalog --------------------------------------------------------------------------------
 hdul = fits.open("../Simulations/input/flagship.fits")
 flagship = hdul[1].data
-
+del hdul
 patches = shear_bins * total_scenes_per_shear
 
 CATALOG_LIMITS = np.min(flagship["dec_gal"]), np.max(flagship["dec_gal"]), np.min(flagship["ra_gal"]), np.max(
     flagship["ra_gal"])  # DEC_MIN, DEC_MAX, RA_MIN, RA_MAX
+
+# ----------- Learn the copula from GOODS ------------------------------------------------------------------------------
+if not os.path.isfile(path + "/input/copula.json"):
+    cop, X = fct.generate_cops(path)
+    cop.to_json(filename=path + "/input/copula.json")
+    pickle.dump(X, open(path + "input/reference_array.p", "wb"))
+else:
+    cop = pv.Vinecop(filename=path+"/input/copula.json")
+    X = pickle.load(open(path + "input/reference_array.p", "rb"))
+
+
+# Limit flagship to the max magnitude
+#flagship = flagship[(-2.5 * np.log10(flagship["euclid_vis"]) - 48.6 < 31) &
+#                    (-2.5 * np.log10(flagship["euclid_vis"]) - 48.6 > 17)]
 
 # ----------- Create the catalog ---------------------------------------------------------------------------------------
 none_measures = []
@@ -257,6 +277,11 @@ for scene in range(total_scenes_per_shear):
     start_scene = timeit.default_timer()
     failure_counter = 0
     for m in range(shear_bins):
+        # Sample from the copula
+        u_sample = cop.simulate(10000, seeds=[1, 2, 3, 4])
+        # Transform back simulations to the original scale
+        cop_sample = np.asarray([np.quantile(X[:, i], u_sample[:, i]) for i in range(4)]).T
+
         # --------------------------------- CREATE GALAXY LIST FOR EACH RUN -------------------------------------------
         start_input_building = timeit.default_timer()
         count = 0
@@ -309,8 +334,8 @@ for scene in range(total_scenes_per_shear):
             ellips = flagship_cut["bulge_axis_ratio"][i]
             betas = flagship_cut["disk_angle"][i] * galsim.degrees
 
-            res = fct.generate_gal_from_flagship(flagship_cut, betas, exp_time, gain, zp, pixel_scale,
-                                                 sky_level, read_noise, i)
+            res = fct.generate_gal_from_goods(flagship_cut, betas, exp_time, gain, zp, pixel_scale,
+                                                 sky_level, read_noise, i, cop_sample)
 
             gal_list[scene * shear_bins + m].append(res[0])
             magnitudes.append(res[2])
@@ -445,8 +470,8 @@ while ids:
                      else 1 if (np.abs(magnitudes_npn[gal][0] - magnitudes_npn[gal][1]) > 2) and (
                              len(np.unique(nearest_positional_neighbors[gal])) == 2)
                      else 2, np.array(x[11])[filter][gal], np.array(x[12])[filter][gal], np.array(x[13])[filter][gal],
-                     redshifts_npn[gal][0], np.array(x[14])[filter][gal], np.array(x[15])[filter][gal][0],
-                     np.array(x[15])[filter][gal][1], int(se_flag_binary[-2]) + int(se_flag_binary[-1]), np.array(x[-4])[filter][gal],
+                     redshifts_npn[gal][0], np.array(x[14])[filter][gal], np.array(x[15])[filter][gal], np.array(x[16])[filter][gal][0],
+                     np.array(x[16])[filter][gal][1], int(se_flag_binary[-2]) + int(se_flag_binary[-1]), np.array(x[-4])[filter][gal],
                      np.array(x[-3])[filter][gal], np.array(x[-2])[filter][gal], np.array(x[-1])[filter][gal]])
             else:
                 columns.append(
@@ -468,12 +493,12 @@ while ids:
 columns = np.array(columns, dtype=float)
 
 if simulation.getboolean("source_extractor_morph"):
-    length = 26
+    length = 27
     shear_results = Table([columns[:, i] for i in range(length)], names=(
         'scene_index', 'shear_index', 'cancel_index', 'input_g1', 'position_x', 'position_y', 'meas_g1', 'mag_auto',
         'mag_gems', 'mag_gems_optimized', 'S/N', 'matching_index', 'matching_index_optimized', 'blending_flag',
         'sersic_n',
-        'sersic_re', 'sersic_e', 'matched_z', 'class_star', 'ra', 'dec', 'se_flag', 'kron_radius', 'a_image', 'b_image',
+        'sersic_re', 'sersic_e', 'matched_z', 'class_star', 'aspect_ratio', 'ra', 'dec', 'se_flag', 'kron_radius', 'a_image', 'b_image',
     'elongation'))
 else:
     length = 22

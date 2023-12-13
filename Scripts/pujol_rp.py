@@ -51,10 +51,12 @@ import configparser
 import functions as fct
 import math
 import ray
+import pickle
 import psutil
 from scipy.optimize import curve_fit
 import scipy
 import datetime
+import pyvinecopulib as pv
 
 # ---------------------------- INITIALIZATION --------------------------------------------------------------------------
 path = sys.argv[4] + "/"
@@ -205,6 +207,20 @@ patches = total_scenes_per_shear
 CATALOG_LIMITS = np.min(flagship["dec_gal"]), np.max(flagship["dec_gal"]), np.min(flagship["ra_gal"]), np.max(
     flagship["ra_gal"])  # DEC_MIN, DEC_MAX, RA_MIN, RA_MAX
 
+
+# ----------- Learn the copula from GOODS ------------------------------------------------------------------------------
+if not os.path.isfile(path + "/input/copula.json"):
+    cop, X = fct.generate_cops(path)
+    cop.to_json(filename=path + "/input/copula.json")
+    pickle.dump(X, open(path + "input/reference_array.p", "wb"))
+else:
+    cop = pv.Vinecop(filename=path+"/input/copula.json")
+    X = pickle.load(open(path + "input/reference_array.p", "rb"))
+
+# Limit flagship to the max magnitude
+#flagship = flagship[(-2.5 * np.log10(flagship["euclid_vis"]) - 48.6 < 31) &
+#                    (-2.5 * np.log10(flagship["euclid_vis"]) - 48.6 > 17)]
+
 # ----------- Create the catalog ---------------------------------------------------------------------------------------
 responses = []
 weights = []
@@ -276,6 +292,11 @@ grid_counter = 0
 
 for total_scene_count in range(total_scenes_per_shear):
     # ------------------------------------ CREATE THE GALAXY LIST RANDOMLY PER SCENE ----------------------------------
+    # Sample from the copula
+    u_sample = cop.simulate(10000, seeds=[1, 2, 3, 4])
+    # Transform back simulations to the original scale
+    cop_sample = np.asarray([np.quantile(X[:, i], u_sample[:, i]) for i in range(4)]).T
+
     count = 0
 
     ra_min = grid_x[grid_counter]
@@ -311,8 +332,8 @@ for total_scene_count in range(total_scenes_per_shear):
         ellips = flagship_cut["bulge_axis_ratio"][i]
         betas = flagship_cut["disk_angle"][i] * galsim.degrees
 
-        res = fct.generate_gal_from_flagship(flagship_cut, betas, exp_time, gain, zp, pixel_scale,
-                                             sky_level, read_noise, i)
+        res = fct.generate_gal_from_goods(flagship_cut, betas, exp_time, gain, zp, pixel_scale,
+                                          sky_level, read_noise, i, cop_sample)
 
         gal_list[total_scene_count].append(res[0])
         magnitudes.append(res[2])
@@ -400,7 +421,8 @@ while ids:
                  else 1 if (np.abs(magnitudes_npn[m][0] - magnitudes_npn[m][1]) > 2) and (
                              len(np.unique(nearest_positional_neighbors[m])) == 2)
                  else 2, np.array(results[0][6])[filter][m], np.array(results[0][7])[filter][m],
-                 np.array(results[0][8])[filter][m], redshifts_npn[m][0], np.array(results[0][9])[filter][m], int(se_flag_binary[-2]) + int(se_flag_binary[-1]),
+                 np.array(results[0][8])[filter][m], redshifts_npn[m][0], np.array(results[0][9])[filter][m],
+                 np.array(results[0][10])[filter][m], int(se_flag_binary[-2]) + int(se_flag_binary[-1]),
                  np.array(results[0][-4])[filter][m], np.array(results[0][-3])[filter][m], np.array(results[0][-2])[filter][m],
                  np.array(results[0][-1])[filter][m]])
         else:
@@ -424,11 +446,11 @@ while ids:
 columns = np.array(columns, dtype=float)
 
 if simulation.getboolean("source_extractor_morph"):
-    shear_results = Table([columns[:, i] for i in range(22)],
+    shear_results = Table([columns[:, i] for i in range(23)],
                           names=('scene_index', 'shear_index', 'meas_g1', 'position_x', 'position_y', 'mag_auto',
                                  'mag_gems', 'mag_gems_optimized', 'S/N', 'matching_index', 'matching_index_optimized',
                                  'blending_flag', 'sersic_n', 'sersic_re', 'sersic_e', 'matched_z', 'class_star',
-                                 'se_flag', 'kron_radius', 'a_image', 'b_image', 'elongation'))
+                                 'aspect_ratio', 'se_flag', 'kron_radius', 'a_image', 'b_image', 'elongation'))
 else:
     shear_results = Table([columns[:, i] for i in range(18)],
                           names=('scene_index', 'shear_index', 'meas_g1', 'position_x', 'position_y', 'mag_auto',

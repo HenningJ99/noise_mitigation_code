@@ -11,6 +11,12 @@ import math
 import os
 import timeit
 from galsim.errors import GalSimFFTSizeError
+from astropy.table import Table
+import pandas as pd
+from scipy import stats
+import pyvinecopulib as pv
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 try:
     import ksb_distort as ksb_h
@@ -1420,7 +1426,7 @@ def one_scene_pujol(m, total_scene_count, gal, positions, argv, config, path, ps
         try:
             stamp = final.drawImage(center=image_pos, nx=stamp_xsize, ny=stamp_ysize, scale=pixel_scale)
         except GalSimFFTSizeError:
-            return -1
+            continue
 
         stamp = galsim.Image(np.abs(stamp.array.copy()),
                              bounds=stamp.bounds)  # Avoid slightly negative values after FFT
@@ -1449,29 +1455,29 @@ def one_scene_pujol(m, total_scene_count, gal, positions, argv, config, path, ps
         # Add this to the corresponding location in the large image.
         image_none[bounds] += stamps[i][bounds]
 
-    if simulation.getboolean("source_extractor_morph"):
-        # Add stars
-        n_stars = 30
-        positions = complete_image_size * np.random.random_sample((n_stars, 2))
-
-        with open(path + f"output/source_extractor/star_positions_{total_scene_count}_{m}.txt",
-                  "w") as file:
-            for i in range(n_stars):
-                file.write("%.4f %.4f\n" % (positions[i][0], positions[i][1]))
-
-        for i in range(n_stars):
-            try:
-                psf_stamp = psf.withFlux(exp_time / gain * 10 ** (-0.4 * (np.random.random() * 3 + 21 - zp))).drawImage(
-                    center=positions[i], nx=64, ny=64, scale=pixel_scale)
-            except GalSimFFTSizeError:
-                return -1
-
-            psf_stamp = galsim.Image(np.abs(psf_stamp.array.copy()),
-                                     bounds=psf_stamp.bounds)  # Avoid slightly negative values after FFT
-
-            bounds = psf_stamp.bounds & image_none.bounds
-
-            image_none[bounds] += psf_stamp[bounds]
+    # if simulation.getboolean("source_extractor_morph"):
+    #     # Add stars
+    #     n_stars = 15 #int(2 / 3 * complete_image_size ** 2 * pixel_scale ** 2 / 3600)
+    #     positions = complete_image_size * np.random.random_sample((n_stars, 2))
+    #
+    #     with open(path + f"output/source_extractor/star_positions_{total_scene_count}_{m}.txt",
+    #               "w") as file:
+    #         for i in range(n_stars):
+    #             file.write("%.4f %.4f\n" % (positions[i][0], positions[i][1]))
+    #
+    #     for i in range(n_stars):
+    #         try:
+    #             psf_stamp = psf.withFlux(exp_time / gain * 10 ** (-0.4 * (np.random.random() * 3 + 24 - zp))).drawImage(
+    #                 center=positions[i], nx=stamp_xsize, ny=stamp_ysize, scale=pixel_scale)
+    #         except GalSimFFTSizeError:
+    #             continue
+    #
+    #         psf_stamp = galsim.Image(np.abs(psf_stamp.array.copy()),
+    #                                  bounds=psf_stamp.bounds)  # Avoid slightly negative values after FFT
+    #
+    #         bounds = psf_stamp.bounds & image_none.bounds
+    #
+    #         image_none[bounds] += psf_stamp[bounds]
 
     # Ensure the same seed for the versions belonging to one run
     rng = galsim.UniformDeviate(random_seed + 1 + 2 * total_scene_count)
@@ -1491,16 +1497,8 @@ def one_scene_pujol(m, total_scene_count, gal, positions, argv, config, path, ps
         os.chdir(SOURCE_EXTRACTOR_DIR)
 
         if simulation.getboolean("source_extractor_morph"):
-            com = "source-extractor " + image + " -c " + "default_mysims.sex" + \
-                  " -CATALOG_NAME " + f"{output.split('.cat')[-2]}.fits" + " -ASSOC_NAME " + SOURCE_EXTRACTOR_DIR + \
-                  f"/star_positions_{total_scene_count}_{m}.txt -CATALOG_TYPE FITS_LDAC -PARAMETERS_NAME mysims_psf_final.param"
-            os.system(com)
-
-            com = "psfex " + f"{output.split('.cat')[-2]}.fits" + " -c default.psfex -XML_NAME psfex_PSF_UDF.xml"
-            os.system(com)
-
             com = "source-extractor -c default_mysims.sex " + image + " -CATALOG_NAME " + output + \
-                  " -PARAMETERS_NAME sersic.param -PSF_NAME " + f"{output.split('.cat')[-2]}.psf -CATALOG_TYPE ASCII" + \
+                  " -PARAMETERS_NAME sersic.param -PSF_NAME " + SOURCE_EXTRACTOR_DIR + "/euclid.psf -CATALOG_TYPE ASCII" + \
                   " -CHECKIMAGE_TYPE SEGMENTATION -CHECKIMAGE_NAME " + f"seg_{total_scene_count}_{m}.fits"
 
             os.system(com)
@@ -1520,8 +1518,6 @@ def one_scene_pujol(m, total_scene_count, gal, positions, argv, config, path, ps
 
     # ---------------------------- Extract stamps and measure ---------------------------------------------------------
     meas = []
-    x_pos = []
-    y_pos = []
 
     if simulation["shear_meas"] == "KSB" or simulation["shear_meas"] == "KSB_HENK":
         # Filter the PSF with a top hat at pixel scale
@@ -1571,6 +1567,7 @@ def one_scene_pujol(m, total_scene_count, gal, positions, argv, config, path, ps
         a_image = data[:, 28][filter]
         b_image = data[:, 29][filter]
         elongation = data[:, 30][filter]
+        aspect_ratio = data[:, 31][filter]
 
     else:
         filter = np.where(
@@ -1588,19 +1585,9 @@ def one_scene_pujol(m, total_scene_count, gal, positions, argv, config, path, ps
     y_cen = data[:, 8][filter]
     mag_auto = data[:, 1][filter]
 
-
-
-
-
     measures = []
-    images = []
+    signal_to_noises = []
     magnitudes = []
-    S_N = []
-    flags = []
-    kron_radii = []
-    a_images = []
-    b_images = []
-    elongations = []
 
     edge = list(gal_image.array[0]) + list([i[-1] for i in gal_image.array[1:-1]]) + list(
         reversed(gal_image.array[-1])) + \
@@ -1669,8 +1656,7 @@ def one_scene_pujol(m, total_scene_count, gal, positions, argv, config, path, ps
                 signal_to_noise = -1
 
             measures.append(e1_cor)
-            x_pos.append(x_cen[i])
-            y_pos.append(y_cen[i])
+            signal_to_noises.append(signal_to_noise)
 
             if bin_type == "MAG_ADAMOM":
                 magnitudes.append(mag_adamom)
@@ -1678,12 +1664,6 @@ def one_scene_pujol(m, total_scene_count, gal, positions, argv, config, path, ps
                 magnitudes.append(mag_auto[i])
 
             meas.append(e1_cor)
-            S_N.append(signal_to_noise)
-            flags.append(flag[i])
-            kron_radii.append(kron_radius[i])
-            a_images.append(a_image[i])
-            b_images.append(b_image[i])
-            elongations.append(elongation[i])
 
     elif simulation["shear_meas"] == "LENSMC":
         if not lens_mc_avai:
@@ -1715,10 +1695,9 @@ def one_scene_pujol(m, total_scene_count, gal, positions, argv, config, path, ps
             mag_adamom = zp - 2.5 * np.log10(flux * gain / exp_time)
 
             signal_to_noise = snr
-
+            signal_to_noises.append(signal_to_noise)
             measures.append(e1)
-            x_pos.append(x_cen[i])
-            y_pos.append(y_cen[i])
+
 
             if bin_type == "MAG_ADAMOM":
                 magnitudes.append(mag_adamom)
@@ -1726,21 +1705,16 @@ def one_scene_pujol(m, total_scene_count, gal, positions, argv, config, path, ps
                 magnitudes.append(mag_auto[i])
 
             meas.append(e1)
-            S_N.append(signal_to_noise)
-            flags.append(flag[i])
-            kron_radii.append(kron_radius[i])
-            a_images.append(a_image[i])
-            b_images.append(b_image[i])
-            elongations.append(elongation[i])
+
         print(f"LensMC: {timeit.default_timer() - start_lens_mc}")
     os.system(f"rm {SOURCE_EXTRACTOR_DIR}/seg_{total_scene_count}_{m}.fits")
 
     if simulation.getboolean("source_extractor_morph"):
-        return (meas, np.dstack((x_pos, y_pos))[0], m, total_scene_count, magnitudes, S_N, sersic_index,
-                effective_radius, ellipticity_sextractor, class_star, flags, kron_radii, a_images, b_images, elongations)
+        return (meas, np.dstack((x_cen, y_cen))[0], m, total_scene_count, magnitudes, signal_to_noises, sersic_index,
+                effective_radius, ellipticity_sextractor, class_star, aspect_ratio, flag, kron_radius, a_image, b_image, elongation)
     else:
-        return meas, np.dstack((x_pos, y_pos))[
-            0], m, total_scene_count, magnitudes, S_N, flags, kron_radii, a_images, b_images, elongations
+        return meas, np.dstack((x_cen, y_cen))[
+            0], m, total_scene_count, magnitudes, signal_to_noises, flag, kron_radius, a_image, b_image, elongation
 
 
 
@@ -1874,7 +1848,8 @@ def one_scene_lf(m, gal, positions, positions2, scene, argv, config, path, psf, 
             try:
                 stamp_norm = final.drawImage(center=image_pos, nx=stamp_xsize, ny=stamp_ysize, scale=pixel_scale)
             except GalSimFFTSizeError:
-                return -1
+                print(gal[i].original.half_light_radius, gal[i].original.flux, gal[i].original.n)
+                continue
 
             stamp_norm = galsim.Image(np.abs(stamp_norm.array.copy()),
                                       bounds=stamp_norm.bounds)  # Avoid slightly negative values after FFT
@@ -1887,7 +1862,10 @@ def one_scene_lf(m, gal, positions, positions2, scene, argv, config, path, psf, 
                 stamp_rotated = rotated_final.drawImage(center=image_pos_2, nx=stamp_xsize, ny=stamp_ysize,
                                                         scale=pixel_scale)
             except GalSimFFTSizeError:
-                return -1
+                with open(path + f"output/failed_ffts.txt",
+                          "w") as file:
+                    file.write(f"{gal[i].original.half_light_radius}\t{gal[i].original.flux}\t{gal[i].original.n}\n")
+                continue
 
             stamp_rotated = galsim.Image(np.abs(stamp_rotated.array.copy()), bounds=stamp_rotated.bounds)
 
@@ -1910,29 +1888,29 @@ def one_scene_lf(m, gal, positions, positions2, scene, argv, config, path, psf, 
 
     image, wcs = SimpleCanvas(ra_min, ra_max, dec_min, dec_max, pixel_scale,
                               rotate=True if index % 2 != 0 and argv[5] == "True" else False, image_size=complete_image_size)
-    if simulation.getboolean("source_extractor_morph"):
-        # Add stars
-        n_stars = 30
-        positions = complete_image_size * np.random.random_sample((n_stars, 2))
-
-        with open(path + f"output/source_extractor/star_positions_{scene}_{m}_{index}.txt",
-                  "w") as file:
-            for i in range(n_stars):
-                file.write("%.4f %.4f\n" % (positions[i][0], positions[i][1]))
-
-        for i in range(n_stars):
-            try:
-                psf_stamp = psf.withFlux(exp_time / gain * 10 ** (-0.4 * (np.random.random() * 3 + 21 - zp))).drawImage(
-                    center=positions[i], nx=64, ny=64, scale=pixel_scale)
-            except GalSimFFTSizeError:
-                return -1
-
-            psf_stamp = galsim.Image(np.abs(psf_stamp.array.copy()),
-                                     bounds=psf_stamp.bounds)  # Avoid slightly negative values after FFT
-
-            bounds = psf_stamp.bounds & image.bounds
-
-            image[bounds] += psf_stamp[bounds]
+    # if simulation.getboolean("source_extractor_morph"):
+    #     # Add stars
+    #     n_stars = 15 #int(2 / 3 * complete_image_size ** 2 * pixel_scale ** 2 / 3600)
+    #     positions = complete_image_size * np.random.random_sample((n_stars, 2))
+    #
+    #     with open(path + f"output/source_extractor/star_positions_{scene}_{m}_{index}.txt",
+    #               "w") as file:
+    #         for i in range(n_stars):
+    #             file.write("%.4f %.4f\n" % (positions[i][0], positions[i][1]))
+    #
+    #     for i in range(n_stars):
+    #         try:
+    #             psf_stamp = psf.withFlux(exp_time / gain * 10 ** (-0.4 * (np.random.random() * 3 + 24 - zp))).drawImage(
+    #                 center=positions[i], nx=stamp_xsize, ny=stamp_ysize, scale=pixel_scale)
+    #         except GalSimFFTSizeError:
+    #             continue
+    #
+    #         psf_stamp = galsim.Image(np.abs(psf_stamp.array.copy()),
+    #                                  bounds=psf_stamp.bounds)  # Avoid slightly negative values after FFT
+    #
+    #         bounds = psf_stamp.bounds & image.bounds
+    #
+    #         image[bounds] += psf_stamp[bounds]
 
     SOURCE_EXTRACTOR_DIR = path + "output/source_extractor"
 
@@ -1942,24 +1920,13 @@ def one_scene_lf(m, gal, positions, positions2, scene, argv, config, path, psf, 
         os.chdir(SOURCE_EXTRACTOR_DIR)
 
         if simulation.getboolean("source_extractor_morph"):
-            com = "source-extractor " + image + " -c " + "default_mysims.sex" + \
-                  " -CATALOG_NAME " + f"{output.split('.cat')[-2]}.fits" + " -ASSOC_NAME " + SOURCE_EXTRACTOR_DIR + \
-                  f"/star_positions_{scene}_{m}_{index}.txt -CATALOG_TYPE FITS_LDAC -PARAMETERS_NAME mysims_psf_final.param"
-
-            os.system(com)
-
-            com = "psfex " + f"{output.split('.cat')[-2]}.fits" + " -c default.psfex -XML_NAME psfex_PSF_UDF.xml"
-            os.system(com)
-
             com = "source-extractor -c default_mysims.sex " + image + " -CATALOG_NAME " + output + \
-                  " -PARAMETERS_NAME sersic.param -PSF_NAME " + f"{output.split('.cat')[-2]}.psf -CATALOG_TYPE ASCII" + \
+                  " -PARAMETERS_NAME sersic.param -PSF_NAME " + SOURCE_EXTRACTOR_DIR +"/euclid.psf -CATALOG_TYPE ASCII" + \
                   " -CHECKIMAGE_TYPE SEGMENTATION -CHECKIMAGE_NAME " + f"seg_{scene}_{m}_{index}.fits"
 
             os.system(com)
 
             os.system(f"rm star_positions_{scene}_{m}_{index}.txt")
-
-
         else:
             com = "source-extractor " + image + " -c " + SOURCE_EXTRACTOR_DIR + "/default.sex" + \
                   " -CATALOG_NAME " + output + " -CHECKIMAGE_TYPE SEGMENTATION -CHECKIMAGE_NAME " + f"seg_{scene}_{m}_{index}.fits"
@@ -2007,12 +1974,6 @@ def one_scene_lf(m, gal, positions, positions2, scene, argv, config, path, psf, 
     else:
         image_sampled_psf = psf.drawImage(nx=stamp_xsize, ny=stamp_ysize, scale=pixel_scale)
 
-    measurements = []
-
-    x_pos = []
-    y_pos = []
-    ra_pos = []
-    dec_pos = []
     # start = timeit.default_timer()
     gal_image = galsim.fits.read(path + f"output/FITS{index_fits}/catalog_" + f"{scene}_{m}_{index}.fits")
 
@@ -2053,6 +2014,7 @@ def one_scene_lf(m, gal, positions, positions2, scene, argv, config, path, psf, 
         a_image = data[:, 28][filter]
         b_image = data[:, 29][filter]
         elongation = data[:, 30][filter]
+        aspect_image = data[:, 31][filter]
     else:
         filter = np.where((data[:, 7] > cut_size) & (data[:, 7] < complete_image_size - cut_size) &
                           (data[:, 8] > cut_size) & (data[:, 8] < complete_image_size - cut_size))
@@ -2071,19 +2033,11 @@ def one_scene_lf(m, gal, positions, positions2, scene, argv, config, path, psf, 
     dec_cen = data[:, 10][filter]
     mag_auto = data[:, 1][filter]
 
-
-
-
+    measurements = []
 
     measures = []
     magnitudes = []
-    s_n = []
-    flags = []
-    kron_radii = []
-    a_images = []
-    b_images = []
-    elongations = []
-    # images = []
+    signal_to_noises = []
 
     edge = list(gal_image.array[0]) + list([i[-1] for i in gal_image.array[1:-1]]) + list(
         reversed(gal_image.array[-1])) + \
@@ -2146,20 +2100,12 @@ def one_scene_lf(m, gal, positions, positions2, scene, argv, config, path, psf, 
                 signal_to_noise = -1
 
             measures.append(e1_cor)
-            s_n.append(signal_to_noise)
+            signal_to_noises.append(signal_to_noise)
             if bin_type == "MAG_ADAMOM":
                 magnitudes.append(mag_adamom)
             else:
                 magnitudes.append(mag_auto[i])
-            x_pos.append(x_cen[i])
-            y_pos.append(y_cen[i])
-            ra_pos.append(ra_cen[i])
-            dec_pos.append(dec_cen[i])
-            flags.append(flag[i])
-            kron_radii.append(kron_radius[i])
-            a_images.append(a_image[i])
-            b_images.append(b_image[i])
-            elongations.append(elongation[i])
+
 
     elif simulation["shear_meas"] == "LENSMC":
         if not lens_mc_avai:
@@ -2197,35 +2143,27 @@ def one_scene_lf(m, gal, positions, positions2, scene, argv, config, path, psf, 
             mag_adamom = zp - 2.5 * np.log10(flux * gain / exp_time)
 
             signal_to_noise = snr
-
+            signal_to_noises.append(signal_to_noise)
             measures.append(e1)
-            s_n.append(signal_to_noise)
+
             if bin_type == "MAG_ADAMOM":
                 magnitudes.append(mag_adamom)
             else:
                 magnitudes.append(mag_auto[i])
-            x_pos.append(x_cen[i])
-            y_pos.append(y_cen[i])
-            ra_pos.append(ra_cen[i])
-            dec_pos.append(dec_cen[i])
-            flags.append(flag[i])
-            kron_radii.append(kron_radius[i])
-            a_images.append(a_image[i])
-            b_images.append(b_image[i])
-            elongations.append(elongation[i])
+
         print(f"LensMC: {timeit.default_timer() - start_lens_mc}")
     error_specific = bootstrap(measures, int(simulation['bootstrap_repetitions']))
 
     if simulation.getboolean("source_extractor_morph"):
         measurements.append(
-            [g1, np.average(measures), error_specific, len(measures), m, scene, np.dstack((x_pos, y_pos))[0],
-             measures, magnitudes, s_n, index, sersic_index, effective_radius, ellipticity_sextractor, class_star,
-             np.dstack((ra_pos, dec_pos))[0], flags, kron_radii, a_images, b_images, elongations])
+            [g1, np.average(measures), error_specific, len(measures), m, scene, np.dstack((x_cen, y_cen))[0],
+             measures, magnitudes, signal_to_noises, index, sersic_index, effective_radius, ellipticity_sextractor, class_star, aspect_image,
+             np.dstack((ra_cen, dec_cen))[0], flag, kron_radius, a_image, b_image, elongation])
     else:
         measurements.append(
-            [g1, np.average(measures), error_specific, len(measures), m, scene, np.dstack((x_pos, y_pos))[0],
-             measures, magnitudes, s_n, index, np.dstack((ra_pos, dec_pos))[0], flags, kron_radii, a_images, b_images,
-             elongations])
+            [g1, np.average(measures), error_specific, len(measures), m, scene, np.dstack((x_cen, y_cen))[0],
+             measures, magnitudes, signal_to_noises, index, np.dstack((ra_cen, dec_cen))[0], flag, kron_radius, a_image, b_image,
+             elongation])
 
     os.system(f"rm {SOURCE_EXTRACTOR_DIR}/seg_{scene}_{m}_{index}.fits")
     return measurements
@@ -2501,7 +2439,6 @@ def one_shear_analysis(m, config, argv, meas_comp, meas_weights, meas_comp_bs, m
 
 def generate_gal_from_flagship(flagship_cut, betas, exp_time, gain, zp, pixel_scale, sky_level, read_noise, index):
     magnitude = -2.5 * np.log10(flagship_cut["euclid_vis"][index]) - 48.6
-
     gal_flux = exp_time / gain * 10 ** (-0.4 * (magnitude - zp))
 
     if flagship_cut['dominant_shape'][index] == 0:
@@ -2563,3 +2500,204 @@ def generate_gal_from_flagship(flagship_cut, betas, exp_time, gain, zp, pixel_sc
                                3 * flagship_cut["bulge_r50"][index] / pixel_scale) ** 2))
 
     return galaxy, theo_sn, magnitude
+
+
+def generate_gal_from_goods(flagship_cut, betas, exp_time, gain, zp, pixel_scale, sky_level, read_noise, index, cop_sample):
+    magnitude = -2.5 * np.log10(flagship_cut["euclid_vis"][index]) - 48.6
+
+    morphology = cop_sample[np.argmin(np.abs(cop_sample[:, 0]-magnitude))]
+
+    n_gal = morphology[1]
+    re_gal = morphology[2] * 0.03
+    gal_flux = exp_time / gain * 10 ** (-0.4 * (magnitude - zp))
+    ### sersic profile
+    # allowed sersic index range
+    if (n_gal < 0.3) or (n_gal > 6.2):
+        # print(f'Warning...........n_gal {n_gal} outrange of ({SERSIC_N_MIN}, {SERSIC_N_MAX})!')
+        n_gal = float(np.where(n_gal < 0.3, 0.3, 6.2))
+        # print(f'...........assign {n_gal} for now!')
+    q_gal = morphology[3] #flagship_cut['bulge_axis_ratio'][index]
+
+    if (q_gal < 0.05) or (q_gal > 1.0):
+        # print(f"Warning...........q_gal {q_gal} outrange of ({Q_MIN}, {Q_MAX})!")
+        q_gal = float(np.where(q_gal < 0.05, 0.05, 1.0))
+        # print(f'...........assign {q_gal} for now!')
+
+    galaxy = galsim.Sersic(n=n_gal, half_light_radius=re_gal * np.sqrt(q_gal), flux=gal_flux,
+                           trunc=10 * re_gal * np.sqrt(q_gal),
+                           flux_untruncated=True)
+    # intrinsic ellipticity
+    galaxy = galaxy.shear(q=q_gal, beta=betas)
+
+    theo_sn = exp_time * 10 ** (-0.4 * (magnitude - zp)) / \
+              np.sqrt((exp_time * 10 ** (-0.4 * (magnitude - zp)) +
+                       sky_level * gain * math.pi * (3 * re_gal * np.sqrt(q_gal) / pixel_scale) ** 2 +
+                       (read_noise ** 2 + (gain / 2) ** 2) * math.pi * (
+                               3 * re_gal * np.sqrt(q_gal) / pixel_scale) ** 2))
+
+    return galaxy, theo_sn, magnitude
+
+
+def generate_cops(path):
+    goodsn = Table.read(path + "/input/final_f606w.fits",
+        hdu=2)
+    goodsn = goodsn[(goodsn["SPHEROID_ASPECT_IMAGE"] > 0) & (goodsn["SPHEROID_ASPECT_IMAGE"] < 1)
+                    & (goodsn["SNR_WIN"] > 25) & (goodsn["FLAGS"] <= 3)]
+
+    goodsn["SPHEROID_SERSICN"] = np.where(goodsn["SPHEROID_SERSICN"] > 6.2, 6.2, goodsn["SPHEROID_SERSICN"])
+    goodsn["SPHEROID_SERSICN"] = np.where(goodsn["SPHEROID_SERSICN"] < 0.3, 0.3, goodsn["SPHEROID_SERSICN"])
+
+    X = np.array([goodsn["MAG_AUTO"],
+                  goodsn["SPHEROID_SERSICN"],
+                  goodsn["SPHEROID_REFF_IMAGE"],
+                  goodsn["SPHEROID_ASPECT_IMAGE"],
+                  goodsn["CLASS_STAR"]]).T
+
+    goodsn_pd = pd.DataFrame(X, columns=["MAG_AUTO", "SPHEROID_SERSICN", "SPHEROID_REFF_IMAGE", "B/A", "CLASS_STAR"])
+
+    udf = Table.read(path + "/input/final_udf_f606w_new.fits", hdu=2)
+    udf["SPHEROID_SERSICN"] = np.where(udf["SPHEROID_SERSICN"] > 6.2, 6.2, udf["SPHEROID_SERSICN"])
+    udf["SPHEROID_SERSICN"] = np.where(udf["SPHEROID_SERSICN"] < 0.3, 0.3, udf["SPHEROID_SERSICN"])
+    udf = udf[(udf["SNR_WIN"] > 25) & (udf["FLAGS"] <= 3)]
+    udf = np.array(
+        [udf["MAG_AUTO"], udf["SPHEROID_SERSICN"], udf["SPHEROID_REFF_IMAGE"], udf["SPHEROID_ASPECT_IMAGE"],
+         udf["CLASS_STAR"]]).T
+    udf_pd = pd.DataFrame(udf, columns=["MAG_AUTO", "SPHEROID_SERSICN", "SPHEROID_REFF_IMAGE", "B/A", "CLASS_STAR"])
+
+
+    frames = [goodsn_pd, udf_pd]
+
+    measured_pd = pd.concat(frames)
+    measured_pd = measured_pd[(measured_pd["CLASS_STAR"] < 0.5) & (measured_pd["MAG_AUTO"] > 17) & (measured_pd["MAG_AUTO"] < 31)]
+
+    flagship = Table.read(path + "/input/flagship.fits")
+    flagship_pd = flagship.to_pandas()
+
+    flagship_pd["MAG_AUTO"] = -2.5 * np.log10(flagship["euclid_vis"]) - 48.6
+    flagship_pd = flagship_pd[(flagship_pd["MAG_AUTO"] > 17) &
+                              (flagship_pd["MAG_AUTO"] < 31)]
+
+    hist_meas, bin_edges = np.histogram(measured_pd["MAG_AUTO"], bins=200, range=(16.9, 31.1), density=True)
+
+    new_bin_edges = bin_edges[1:][hist_meas != 0]
+    bin_edges = np.insert(new_bin_edges, 0, bin_edges[0])
+    hist_meas = hist_meas[hist_meas != 0]
+    hist_flagship, _ = np.histogram(flagship_pd["MAG_AUTO"], bins=bin_edges, density=True)
+
+    binned_weights = hist_flagship / hist_meas
+
+    measured_pd.loc[:, "WEIGHT"] = np.take(binned_weights, np.digitize(measured_pd["MAG_AUTO"], bin_edges) - 1)
+
+    pds = []
+    for i in range(len(bin_edges) - 1):
+        tmp_pd = measured_pd[(measured_pd["MAG_AUTO"] > bin_edges[i]) & (measured_pd["MAG_AUTO"] < bin_edges[i + 1])]
+        if tmp_pd["WEIGHT"].iloc[0] > 1:
+            pds.append(tmp_pd.sample(frac=tmp_pd["WEIGHT"].iloc[0], replace=True))
+        else:
+            pds.append(tmp_pd.sample(frac=tmp_pd["WEIGHT"].iloc[0], replace=True))
+
+    measured_pd = pd.concat(pds)
+
+    X = np.array([measured_pd["MAG_AUTO"],
+                  measured_pd["SPHEROID_SERSICN"],
+                  measured_pd["SPHEROID_REFF_IMAGE"],
+                  measured_pd["B/A"]]).T
+
+    u = pv.to_pseudo_obs(X)
+
+    # Fit a copula (structure and family decided by the package)
+    controls = pv.FitControlsVinecop(weights=np.array(measured_pd["WEIGHT"]))
+    cop = pv.Vinecop(data=u, controls=controls)
+
+    sns.kdeplot(data=goodsn_pd[(goodsn_pd["CLASS_STAR"] < 0.5) & (goodsn_pd["MAG_AUTO"] > 10)], x="MAG_AUTO",
+                color="C1", label="GOODS-N")
+
+    sns.kdeplot(data=flagship_pd, x="MAG_AUTO", color="C2", label="Flagship")
+    sns.kdeplot(data=udf_pd[(udf_pd["CLASS_STAR"] < 0.5) & (udf_pd["MAG_AUTO"] > 10)], x="MAG_AUTO", color="C0",
+                label="HST-UDF")
+
+    sns.kdeplot(data=measured_pd, x="MAG_AUTO", color="C3", label="Combined")
+
+    plt.xlim(18, 33)
+    plt.hist(udf_pd[(udf_pd["CLASS_STAR"] < 0.5) & (udf_pd["MAG_AUTO"] > 10)]["MAG_AUTO"],
+             density=True, bins=bin_edges, histtype="step", alpha=0.5)
+    plt.hist(goodsn_pd[(goodsn_pd["CLASS_STAR"] < 0.5) & (goodsn_pd["MAG_AUTO"] > 10)]["MAG_AUTO"],
+             bins=bin_edges, density=True, histtype="step", alpha=0.5)
+    plt.hist(flagship_pd["MAG_AUTO"], density=True, bins=bin_edges, histtype="step", alpha=0.5)
+    plt.hist(measured_pd["MAG_AUTO"], density=True, bins=bin_edges, histtype="step", alpha=0.5)
+
+    plt.legend(loc="upper left")
+    plt.savefig("goods_udf_combined.pdf", dpi=300, bbox_inches="tight")
+
+    return cop, X
+
+
+def create_psf_with_psfex(config, argv, output, psf):
+    """
+    A little bit more sophisticated, but still pretty basic:
+      - Use a sheared, exponential profile for the galaxy.
+      - Convolve it by a circular Moffat PSF.
+      - Add Poisson noise to the image.
+    """
+    image = config['IMAGE']
+    simulation = config["SIMULATION"]
+
+    complete_image_size = int(argv[1])
+    gain = float(image['gain'])
+    sky = float(image['sky'])
+    pixel_scale = float(image['pixel_scale'])
+    image = config["IMAGE"]
+
+    stamp_size = 200
+
+    zp = float(image['zp'])
+    exp_time = float(image['exp_time'])
+    min_mag = float(simulation["min_mag"])
+    max_mag = float(simulation["max_mag"])
+
+
+    sky_level = exp_time / gain * 10 ** (-0.4 * (sky - zp))
+
+    random_seed = 1534225
+
+    random_seed = galsim.BaseDeviate(random_seed).raw()
+
+    rng = galsim.BaseDeviate(random_seed + 1)
+
+    times = math.ceil(complete_image_size / stamp_size)
+    magnitudes = np.linspace(min_mag, max_mag, 10)
+    gal_image = galsim.ImageF(times * stamp_size, stamp_size * times, scale=pixel_scale)
+    for i in range(times):
+        for j in range(times):
+            b = galsim.BoundsI(i * stamp_size + 1, (i + 1) * stamp_size - 1,
+                               j * stamp_size + 1, (j + 1) * stamp_size - 1)
+
+            sub_gal_image = gal_image[b]
+
+            with open(output + "/star_positions.txt", "a") as file:
+                file.write("%.4f %.4f\n" % (sub_gal_image.bounds.center.x, sub_gal_image.bounds.center.y))
+
+            magnitude = np.random.choice(magnitudes)
+            gal_flux = exp_time / gain * 10 ** (-0.4 * (magnitude - zp))  # counts
+
+            psf.withFlux(gal_flux).drawImage(sub_gal_image)
+
+            sky_level_pixel = sky_level * pixel_scale ** 2
+            noise = galsim.CCDNoise(rng, gain=gain, read_noise=4.2, sky_level=sky_level_pixel)
+            sub_gal_image.addNoise(noise)
+
+    file_name = os.path.join(output, 'psf_demo.fits')
+    gal_image.write(file_name)
+
+    current = os.getcwd()
+    os.chdir(output)
+    com = "source-extractor -c default_mysims.sex  psf_demo.fits -ASSOC_NAME star_positions.txt -CATALOG_NAME euclid.fits -CATALOG_TYPE FITS_LDAC -PARAMETERS_NAME mysims_psf_final.param"
+    os.system(com)
+
+    com = "psfex euclid.fits -c default.psfex"
+    os.system(com)
+
+    os.system("rm euclid.fits")
+    os.system("rm star_positions.txt")
+    os.system("rm psfex.xml")
+    os.chdir(current)
