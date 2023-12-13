@@ -282,6 +282,7 @@ for scene in range(total_scenes_per_shear):
         # Transform back simulations to the original scale
         cop_sample = np.asarray([np.quantile(X[:, i], u_sample[:, i]) for i in range(4)]).T
 
+
         # --------------------------------- CREATE GALAXY LIST FOR EACH RUN -------------------------------------------
         start_input_building = timeit.default_timer()
         count = 0
@@ -300,31 +301,56 @@ for scene in range(total_scenes_per_shear):
 
         flagship_cut = flagship[mask]
 
-        positions[scene * shear_bins + m] = np.vstack([flagship_cut["ra_gal"], flagship_cut["dec_gal"]])
+        if simulation["positions"] == "GRID":
+            normal_pos, rot_pos = fct.generate_2d_grid(complete_image_size // stamp_xsize, complete_image_size //
+                                                       stamp_xsize, stamp_xsize)
+            positions[scene * shear_bins + m] = normal_pos
 
-        positions_2[scene * shear_bins + m] = positions[scene * shear_bins + m]
+            if sys.argv[5] == "True":
+                positions_2[scene * shear_bins + m] = rot_pos
+            else:
+                positions_2[scene * shear_bins + m] = normal_pos
 
-        # Convert positions from WCS to image
-        canvas, wcs_astropy = fct.SimpleCanvas(ra_min, ra_max, dec_min, dec_max, pixel_scale,
-                                               image_size=complete_image_size)
-        full_image = canvas.copy()
-        wcs = full_image.wcs
+        elif simulation["positions"] == "FLAGSHIP":
+            positions[scene * shear_bins + m] = np.vstack([flagship_cut["ra_gal"], flagship_cut["dec_gal"]])
 
-        x_gals, y_gals = wcs.toImage(positions[scene * shear_bins + m][0], positions[scene * shear_bins + m][1],
-                                     units=galsim.degrees)
-        positions[scene * shear_bins + m] = np.vstack([x_gals, y_gals]).T
+            positions_2[scene * shear_bins + m] = positions[scene * shear_bins + m]
 
-        if sys.argv[5] == "True":
-            canvas, wcs_astropy = fct.SimpleCanvas(ra_min, ra_max, dec_min, dec_max, pixel_scale, rotate=True,
+            # Convert positions from WCS to image
+            canvas, wcs_astropy = fct.SimpleCanvas(ra_min, ra_max, dec_min, dec_max, pixel_scale,
                                                    image_size=complete_image_size)
             full_image = canvas.copy()
             wcs = full_image.wcs
 
-        x_gals, y_gals = wcs.toImage(positions_2[scene * shear_bins + m][0], positions_2[scene * shear_bins + m][1],
-                                     units=galsim.degrees)
-        positions_2[scene * shear_bins + m] = np.vstack([x_gals, y_gals]).T
+            x_gals, y_gals = wcs.toImage(positions[scene * shear_bins + m][0], positions[scene * shear_bins + m][1],
+                                         units=galsim.degrees)
+            positions[scene * shear_bins + m] = np.vstack([x_gals, y_gals]).T
 
-        del full_image, canvas, wcs
+            if sys.argv[5] == "True":
+                canvas, wcs_astropy = fct.SimpleCanvas(ra_min, ra_max, dec_min, dec_max, pixel_scale, rotate=True,
+                                                       image_size=complete_image_size)
+                full_image = canvas.copy()
+                wcs = full_image.wcs
+
+            x_gals, y_gals = wcs.toImage(positions_2[scene * shear_bins + m][0], positions_2[scene * shear_bins + m][1],
+                                         units=galsim.degrees)
+            positions_2[scene * shear_bins + m] = np.vstack([x_gals, y_gals]).T
+
+            del full_image, canvas, wcs
+
+        elif simulation["positions"] == "RANDOM":
+            positions[scene * shear_bins + m] = ((complete_image_size - stamp_xsize) *
+                                                 np.random.random_sample((len(flagship_cut), 2)) + cut_size)
+            #print(positions[scene * shear_bins + m])
+            if sys.argv[5] == "True":
+                positions_2[scene * shear_bins + m] = positions[scene * shear_bins + m].copy()
+                tmp = positions_2[scene * shear_bins + m][:, 0].copy()
+                positions_2[scene * shear_bins + m][:, 0] = complete_image_size - positions_2[scene * shear_bins + m][:, 1]
+                positions_2[scene * shear_bins + m][:, 1] = tmp
+                del tmp
+
+            else:
+                positions_2[scene * shear_bins + m] = positions[scene * shear_bins + m]
 
         input_positions.append(positions[scene * shear_bins + m])
         input_positions_2.append(positions_2[scene * shear_bins + m])

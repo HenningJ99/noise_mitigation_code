@@ -310,16 +310,26 @@ for total_scene_count in range(total_scenes_per_shear):
 
     flagship_cut = flagship[mask]
 
-    positions[total_scene_count] = np.vstack([flagship_cut["ra_gal"], flagship_cut["dec_gal"]])
+    if simulation["positions"] == "GRID":
+        normal_pos, rot_pos = fct.generate_2d_grid(complete_image_size // stamp_xsize, complete_image_size //
+                                                   stamp_xsize, stamp_xsize)
+        positions[total_scene_count] = normal_pos
 
-    # Convert positions from WCS to image
-    canvas, wcs_astropy = fct.SimpleCanvas(ra_min, ra_max, dec_min, dec_max, pixel_scale, image_size=complete_image_size)
-    full_image = canvas.copy()
-    wcs = full_image.wcs
+    elif simulation["positions"] == "FLAGSHIP":
+        positions[total_scene_count] = np.vstack([flagship_cut["ra_gal"], flagship_cut["dec_gal"]])
 
-    x_gals, y_gals = wcs.toImage(positions[total_scene_count][0], positions[total_scene_count][1],
-                                 units=galsim.degrees)
-    positions[total_scene_count] = np.vstack([x_gals, y_gals]).T
+        # Convert positions from WCS to image
+        canvas, wcs_astropy = fct.SimpleCanvas(ra_min, ra_max, dec_min, dec_max, pixel_scale, image_size=complete_image_size)
+        full_image = canvas.copy()
+        wcs = full_image.wcs
+
+        x_gals, y_gals = wcs.toImage(positions[total_scene_count][0], positions[total_scene_count][1],
+                                     units=galsim.degrees)
+        positions[total_scene_count] = np.vstack([x_gals, y_gals]).T
+
+    elif simulation["positions"] == "RANDOM":
+        positions[total_scene_count] = ((complete_image_size - stamp_xsize) *
+                                             np.random.random_sample((len(flagship_cut), 2)) + cut_size)
 
     input_positions.append(positions[total_scene_count])
     input_shears = []

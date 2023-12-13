@@ -108,6 +108,37 @@ def jackknife(array):
     return np.sqrt(len(array) - 1) * np.std(temp)
 
 
+def generate_2d_grid(rows, columns, spacing=1):
+    """
+    Generate a 2D grid of positions.
+
+    Parameters:
+    - rows (int): Number of rows in the grid.
+    - columns (int): Number of columns in the grid.
+    - spacing (float): Optional spacing between positions.
+
+    Returns:
+    - list of tuples: List of 2D positions.
+    """
+    positions = []
+    rotated_positions = []
+
+    for row in range(rows):
+        for col in range(columns):
+            x = col * spacing + spacing // 2
+            y = row * spacing + spacing // 2
+            positions.append([x, y])
+
+            # Rotate the position by 90 degrees
+            center = rows / 2 * spacing
+            x_rotated = 2 * center - y
+            y_rotated = x
+
+            rotated_positions.append([x_rotated, y_rotated])
+
+    return np.array(positions), np.array(rotated_positions)
+
+
 def bootstrap_puyol(array_1, array_2, n, shear_diff, weights_1, weights_2):
     """
     Takes the two arrays of positive and negative shear and returns the standard deviation of the
