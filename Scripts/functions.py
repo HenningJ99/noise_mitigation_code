@@ -2573,7 +2573,7 @@ def generate_cops(path):
     goodsn = Table.read(path + "/input/final_f606w_assoc.fits",
         hdu=1)
     goodsn = goodsn[(goodsn["SPHEROID_ASPECT_IMAGE"] > 0) & (goodsn["SPHEROID_ASPECT_IMAGE"] < 1)
-                    & (goodsn["SNR_WIN"] > 25) & (goodsn["FLAGS"] <= 3)]
+                    & (goodsn["SNR_WIN"] > 10) & (goodsn["FLAGS"] <= 3)]
 
     goodsn["SPHEROID_SERSICN"] = np.where(goodsn["SPHEROID_SERSICN"] > 6.2, 6.2, goodsn["SPHEROID_SERSICN"])
     goodsn["SPHEROID_SERSICN"] = np.where(goodsn["SPHEROID_SERSICN"] < 0.3, 0.3, goodsn["SPHEROID_SERSICN"])
@@ -2590,7 +2590,7 @@ def generate_cops(path):
     udf = Table.read(path + "/input/final_udf_f606w_assoc.fits", hdu=1)
     udf["SPHEROID_SERSICN"] = np.where(udf["SPHEROID_SERSICN"] > 6.2, 6.2, udf["SPHEROID_SERSICN"])
     udf["SPHEROID_SERSICN"] = np.where(udf["SPHEROID_SERSICN"] < 0.3, 0.3, udf["SPHEROID_SERSICN"])
-    udf = udf[(udf["SNR_WIN"] > 25) & (udf["FLAGS"] <= 3)]
+    udf = udf[(udf["SNR_WIN"] > 10) & (udf["FLAGS"] <= 3)]
     udf = np.array(
         [udf["MAG_AUTO"], udf["SPHEROID_SERSICN"], udf["SPHEROID_REFF_IMAGE"], udf["SPHEROID_ASPECT_IMAGE"],
          udf["CLASS_STAR"], udf["Z_BEST"]]).T
