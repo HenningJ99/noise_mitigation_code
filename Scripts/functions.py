@@ -2570,8 +2570,8 @@ def generate_gal_from_goods(flagship_cut, betas, exp_time, gain, zp, pixel_scale
 
 
 def generate_cops(path):
-    goodsn = Table.read(path + "/input/final_f606w.fits",
-        hdu=2)
+    goodsn = Table.read(path + "/input/final_f606w_assoc.fits",
+        hdu=1)
     goodsn = goodsn[(goodsn["SPHEROID_ASPECT_IMAGE"] > 0) & (goodsn["SPHEROID_ASPECT_IMAGE"] < 1)
                     & (goodsn["SNR_WIN"] > 25) & (goodsn["FLAGS"] <= 3)]
 
@@ -2582,18 +2582,19 @@ def generate_cops(path):
                   goodsn["SPHEROID_SERSICN"],
                   goodsn["SPHEROID_REFF_IMAGE"],
                   goodsn["SPHEROID_ASPECT_IMAGE"],
-                  goodsn["CLASS_STAR"]]).T
+                  goodsn["CLASS_STAR"],
+                  goodsn["Z_BEST"]]).T
 
-    goodsn_pd = pd.DataFrame(X, columns=["MAG_AUTO", "SPHEROID_SERSICN", "SPHEROID_REFF_IMAGE", "B/A", "CLASS_STAR"])
+    goodsn_pd = pd.DataFrame(X, columns=["MAG_AUTO", "SPHEROID_SERSICN", "SPHEROID_REFF_IMAGE", "B/A", "CLASS_STAR", "Z_BEST"])
 
-    udf = Table.read(path + "/input/final_udf_f606w_new.fits", hdu=2)
+    udf = Table.read(path + "/input/final_udf_f606w_assoc.fits", hdu=1)
     udf["SPHEROID_SERSICN"] = np.where(udf["SPHEROID_SERSICN"] > 6.2, 6.2, udf["SPHEROID_SERSICN"])
     udf["SPHEROID_SERSICN"] = np.where(udf["SPHEROID_SERSICN"] < 0.3, 0.3, udf["SPHEROID_SERSICN"])
     udf = udf[(udf["SNR_WIN"] > 25) & (udf["FLAGS"] <= 3)]
     udf = np.array(
         [udf["MAG_AUTO"], udf["SPHEROID_SERSICN"], udf["SPHEROID_REFF_IMAGE"], udf["SPHEROID_ASPECT_IMAGE"],
-         udf["CLASS_STAR"]]).T
-    udf_pd = pd.DataFrame(udf, columns=["MAG_AUTO", "SPHEROID_SERSICN", "SPHEROID_REFF_IMAGE", "B/A", "CLASS_STAR"])
+         udf["CLASS_STAR"], udf["Z_BEST"]]).T
+    udf_pd = pd.DataFrame(udf, columns=["MAG_AUTO", "SPHEROID_SERSICN", "SPHEROID_REFF_IMAGE", "B/A", "CLASS_STAR", "Z_BEST"])
 
 
     frames = [goodsn_pd, udf_pd]
@@ -2632,7 +2633,8 @@ def generate_cops(path):
     X = np.array([measured_pd["MAG_AUTO"],
                   measured_pd["SPHEROID_SERSICN"],
                   measured_pd["SPHEROID_REFF_IMAGE"],
-                  measured_pd["B/A"]]).T
+                  measured_pd["B/A"],
+                  measured_pd["Z_BEST"]]).T
 
     u = pv.to_pseudo_obs(X)
 
