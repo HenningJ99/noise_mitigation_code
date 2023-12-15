@@ -278,7 +278,7 @@ for scene in range(total_scenes_per_shear):
     failure_counter = 0
     for m in range(shear_bins):
         # Sample from the copula
-        u_sample = cop.simulate(10000, seeds=[1, 2, 3, 4])
+        u_sample = cop.simulate(10000)
         # Transform back simulations to the original scale
         cop_sample = np.asarray([np.quantile(X[:, i], u_sample[:, i]) for i in range(4)]).T
 

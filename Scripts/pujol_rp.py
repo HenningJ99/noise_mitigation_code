@@ -293,7 +293,7 @@ grid_counter = 0
 for total_scene_count in range(total_scenes_per_shear):
     # ------------------------------------ CREATE THE GALAXY LIST RANDOMLY PER SCENE ----------------------------------
     # Sample from the copula
-    u_sample = cop.simulate(10000, seeds=[1, 2, 3, 4])
+    u_sample = cop.simulate(10000)
     # Transform back simulations to the original scale
     cop_sample = np.asarray([np.quantile(X[:, i], u_sample[:, i]) for i in range(4)]).T
 
