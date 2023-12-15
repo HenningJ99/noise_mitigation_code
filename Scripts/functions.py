@@ -2487,10 +2487,17 @@ def generate_gal_from_flagship(flagship_cut, betas, exp_time, gain, zp, pixel_sc
             q_gal = float(np.where(q_gal < 0.05, 0.05, 1.0))
             # print(f'...........assign {q_gal} for now!')
 
-        galaxy = galsim.Sersic(n=n_gal, half_light_radius=re_gal, flux=gal_flux, trunc=5 * re_gal,
+        galaxy = galsim.Sersic(n=n_gal, half_light_radius=re_gal * np.sqrt(q_gal), flux=gal_flux, trunc=10 * re_gal * np.sqrt(q_gal),
                                flux_untruncated=True)
         # intrinsic ellipticity
         galaxy = galaxy.shear(q=q_gal, beta=betas)
+
+        theo_sn = exp_time * 10 ** (-0.4 * (-2.5 * np.log10(flagship_cut["euclid_vis"][index]) - 48.6 - zp)) / \
+                  np.sqrt((exp_time * 10 ** (-0.4 * (-2.5 * np.log10(flagship_cut["euclid_vis"][index]) - 48.6 - zp)) +
+                           sky_level * gain * math.pi * (
+                                       3 * flagship_cut["bulge_r50"][index] * np.sqrt(q_gal) / pixel_scale) ** 2 +
+                           (read_noise ** 2 + (gain / 2) ** 2) * math.pi * (
+                                   3 * flagship_cut["bulge_r50"][index] * np.sqrt(q_gal) / pixel_scale) ** 2))
     else:
         ### bulge + disk
         # bulge
@@ -2501,11 +2508,11 @@ def generate_gal_from_flagship(flagship_cut, betas, exp_time, gain, zp, pixel_sc
             bulge_q = float(np.where(bulge_q < 0.05, 0.05, 1.0))
         bulge_Re = flagship_cut['bulge_r50'][index]
         if (abs(bulge_n - 4.) < 1e-2):
-            bulge_gal = galsim.DeVaucouleurs(half_light_radius=bulge_Re, flux=1.0,
-                                             trunc=5 * bulge_Re, flux_untruncated=True)
+            bulge_gal = galsim.DeVaucouleurs(half_light_radius=bulge_Re * np.sqrt(bulge_q), flux=1.0,
+                                             trunc=10 * bulge_Re * np.sqrt(bulge_q), flux_untruncated=True)
         else:
-            bulge_gal = galsim.Sersic(n=bulge_n, half_light_radius=bulge_Re, flux=1.0,
-                                      trunc=5 * bulge_Re, flux_untruncated=True)
+            bulge_gal = galsim.Sersic(n=bulge_n, half_light_radius=bulge_Re * np.sqrt(bulge_q), flux=1.0,
+                                      trunc=10 * bulge_Re * np.sqrt(bulge_q), flux_untruncated=True)
         # intrinsic ellipticity
         bulge_gal = bulge_gal.shear(q=bulge_q, beta=betas)
 
@@ -2515,7 +2522,7 @@ def generate_gal_from_flagship(flagship_cut, betas, exp_time, gain, zp, pixel_sc
             if (disk_q < 0.05) or (disk_q > 1.0):
                 disk_q = float(np.where(disk_q < 0.05, 0.05, 1))
             disk_Re = flagship_cut['disk_r50'][index]
-            disk_gal = galsim.Exponential(half_light_radius=disk_Re, flux=1.0)
+            disk_gal = galsim.Exponential(half_light_radius=disk_Re * np.sqrt(disk_q), flux=1.0)
             # intrinsic ellipticity
             disk_gal = disk_gal.shear(q=disk_q, beta=betas)
 
@@ -2524,11 +2531,11 @@ def generate_gal_from_flagship(flagship_cut, betas, exp_time, gain, zp, pixel_sc
         else:
             galaxy = gal_flux * bulge_gal
 
-    theo_sn = exp_time * 10 ** (-0.4 * (-2.5 * np.log10(flagship_cut["euclid_vis"][index]) - 48.6 - zp)) / \
-              np.sqrt((exp_time * 10 ** (-0.4 * (-2.5 * np.log10(flagship_cut["euclid_vis"][index]) - 48.6 - zp)) +
-                       sky_level * gain * math.pi * (3 * flagship_cut["bulge_r50"][index] / pixel_scale) ** 2 +
-                       (read_noise ** 2 + (gain / 2) ** 2) * math.pi * (
-                               3 * flagship_cut["bulge_r50"][index] / pixel_scale) ** 2))
+        theo_sn = exp_time * 10 ** (-0.4 * (-2.5 * np.log10(flagship_cut["euclid_vis"][index]) - 48.6 - zp)) / \
+                  np.sqrt((exp_time * 10 ** (-0.4 * (-2.5 * np.log10(flagship_cut["euclid_vis"][index]) - 48.6 - zp)) +
+                           sky_level * gain * math.pi * (3 * flagship_cut["bulge_r50"][index] * np.sqrt(bulge_q) / pixel_scale) ** 2 +
+                           (read_noise ** 2 + (gain / 2) ** 2) * math.pi * (
+                                   3 * flagship_cut["bulge_r50"][index] * np.sqrt(bulge_q) / pixel_scale) ** 2))
 
     return galaxy, theo_sn, magnitude
 
