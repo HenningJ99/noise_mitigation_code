@@ -2487,7 +2487,7 @@ def generate_gal_from_flagship(flagship_cut, betas, exp_time, gain, zp, pixel_sc
             q_gal = float(np.where(q_gal < 0.05, 0.05, 1.0))
             # print(f'...........assign {q_gal} for now!')
 
-        galaxy = galsim.Sersic(n=n_gal, half_light_radius=re_gal * np.sqrt(q_gal), flux=gal_flux, trunc=10 * re_gal * np.sqrt(q_gal),
+        galaxy = galsim.Sersic(n=n_gal, half_light_radius=re_gal * np.sqrt(q_gal), flux=gal_flux, trunc=5 * re_gal * np.sqrt(q_gal),
                                flux_untruncated=True)
         # intrinsic ellipticity
         galaxy = galaxy.shear(q=q_gal, beta=betas)
@@ -2509,10 +2509,10 @@ def generate_gal_from_flagship(flagship_cut, betas, exp_time, gain, zp, pixel_sc
         bulge_Re = flagship_cut['bulge_r50'][index]
         if (abs(bulge_n - 4.) < 1e-2):
             bulge_gal = galsim.DeVaucouleurs(half_light_radius=bulge_Re * np.sqrt(bulge_q), flux=1.0,
-                                             trunc=10 * bulge_Re * np.sqrt(bulge_q), flux_untruncated=True)
+                                             trunc=5 * bulge_Re * np.sqrt(bulge_q), flux_untruncated=True)
         else:
             bulge_gal = galsim.Sersic(n=bulge_n, half_light_radius=bulge_Re * np.sqrt(bulge_q), flux=1.0,
-                                      trunc=10 * bulge_Re * np.sqrt(bulge_q), flux_untruncated=True)
+                                      trunc=5 * bulge_Re * np.sqrt(bulge_q), flux_untruncated=True)
         # intrinsic ellipticity
         bulge_gal = bulge_gal.shear(q=bulge_q, beta=betas)
 
