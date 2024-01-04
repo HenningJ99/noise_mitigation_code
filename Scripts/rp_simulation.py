@@ -62,6 +62,11 @@ def do_kdtree(combined_x_y_arrays, points, k=1):
     # dist, indexes = mytree.query(points, k)
     return mytree.query(points, k=k)
 
+def do_balltree(points, r=10):
+    mytree = scipy.spatial.cKDTree(points)
+
+    return mytree.query_ball_point(points, r=r)
+
 
 # ---------------------------- INITIALIZATION --------------------------------------------------------------------------
 print(psutil.cpu_count())
@@ -360,8 +365,14 @@ for scene in range(total_scenes_per_shear):
             ellips = flagship_cut["bulge_axis_ratio"][i]
             betas = flagship_cut["disk_angle"][i] * galsim.degrees
 
-            res = fct.generate_gal_from_goods(flagship_cut, betas, exp_time, gain, zp, pixel_scale,
-                                                 sky_level, read_noise, i, cop_sample)
+            if simulation["morphology"] == "GOODS":
+                res = fct.generate_gal_from_goods(flagship_cut, betas, exp_time, gain, zp, pixel_scale,
+                                                     sky_level, read_noise, i, cop_sample)
+            elif simulation["morphology"] == "FLAGSHIP":
+                res = fct.generate_gal_from_flagship(flagship_cut, betas, exp_time, gain, zp, pixel_scale,
+                                                  sky_level, read_noise, i)
+            else:
+                raise ValueError("Morphology can only be GOODS or FLAGSHIP")
 
             gal_list[scene * shear_bins + m].append(res[0])
             magnitudes.append(res[2])
@@ -449,6 +460,11 @@ while ids:
             init_positions = input_positions_2[x[5] * shear_bins + x[4]]
 
         kd_results = np.array(do_kdtree(init_positions, x[6], k=MAX_NEIGHBORS))
+
+        # Nearest neighbor search for clustering properties
+        self_query = do_balltree(x[6], r=float(config["MATCHING"]["dist_ball"])) 
+        nn_except_self = np.array(do_kdtree(x[6], x[6], k=[2])[1])
+        
         nearest_positional_neighbors = np.where(kd_results[0] <= MAX_DIST, kd_results[1], -1)
 
         # Filter out galaxies with no neighbours within MAX_DIST
@@ -485,7 +501,7 @@ while ids:
             min_deviation = np.argmin(np.abs(np.subtract(magnitudes_npn[gal], np.array(x[8])[filter][gal])))
             gems_magnitude_optimized = np.array(magnitudes_npn[gal])[min_deviation]
             matching_index = np.array(nearest_positional_neighbors[gal])[min_deviation]
-
+          
             if simulation.getboolean("source_extractor_morph"):
                 columns.append(
                     [x[5], x[4], x[10], x[0], np.array(x[6])[filter][gal][0], np.array(x[6])[filter][gal][1],
@@ -498,7 +514,8 @@ while ids:
                      else 2, np.array(x[11])[filter][gal], np.array(x[12])[filter][gal], np.array(x[13])[filter][gal],
                      redshifts_npn[gal][0], np.array(x[14])[filter][gal], np.array(x[15])[filter][gal], np.array(x[16])[filter][gal][0],
                      np.array(x[16])[filter][gal][1], int(se_flag_binary[-2]) + int(se_flag_binary[-1]), np.array(x[-4])[filter][gal],
-                     np.array(x[-3])[filter][gal], np.array(x[-2])[filter][gal], np.array(x[-1])[filter][gal]])
+                     np.array(x[-3])[filter][gal], np.array(x[-2])[filter][gal], np.array(x[-1])[filter][gal], len(self_query[filter][gal])-1,
+                     np.array(x[8])[nn_except_self[filter][gal][0]]])
             else:
                 columns.append(
                     [x[5], x[4], x[10], x[0], np.array(x[6])[filter][gal][0], np.array(x[6])[filter][gal][1],
@@ -511,7 +528,7 @@ while ids:
                      else 2, redshifts_npn[gal][0], np.array(x[11])[filter][gal][0],
                      np.array(x[11])[filter][gal][1], int(se_flag_binary[-2]) + int(se_flag_binary[-1]),
                      np.array(x[-4])[filter][gal], np.array(x[-3])[filter][gal], np.array(x[-2])[filter][gal],
-                     np.array(x[-1])[filter][gal]])
+                     np.array(x[-1])[filter][gal], len(self_query[filter][gal])-1, np.array(x[8])[nn_except_self[filter][gal][0]]])
 
 
     ids = not_ready
@@ -519,19 +536,19 @@ while ids:
 columns = np.array(columns, dtype=float)
 
 if simulation.getboolean("source_extractor_morph"):
-    length = 27
+    length = 29
     shear_results = Table([columns[:, i] for i in range(length)], names=(
         'scene_index', 'shear_index', 'cancel_index', 'input_g1', 'position_x', 'position_y', 'meas_g1', 'mag_auto',
         'mag_gems', 'mag_gems_optimized', 'S/N', 'matching_index', 'matching_index_optimized', 'blending_flag',
         'sersic_n',
         'sersic_re', 'sersic_e', 'matched_z', 'class_star', 'aspect_ratio', 'ra', 'dec', 'se_flag', 'kron_radius', 'a_image', 'b_image',
-    'elongation'))
+    'elongation', 'n_neigh', 'mag_neigh'))
 else:
-    length = 22
+    length = 24
     shear_results = Table([columns[:, i] for i in range(length)], names=(
         'scene_index', 'shear_index', 'cancel_index', 'input_g1', 'position_x', 'position_y', 'meas_g1', 'mag_auto',
         'mag_gems', 'mag_gems_optimized', 'S/N', 'matching_index', 'matching_index_optimized', 'blending_flag', 'matched_z', 'ra', 'dec', 'se_flag', 'kron_radius',
-    'a_image', 'b_image', 'elongation'))
+    'a_image', 'b_image', 'elongation', 'n_neigh', 'mag_neigh'))
 
 
 now = datetime.datetime.now()
