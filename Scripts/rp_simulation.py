@@ -195,7 +195,7 @@ if not os.path.isfile(path + "/output/source_extractor/euclid.psf"):
     fct.create_psf_with_psfex(config, sys.argv, path + "/output/source_extractor", psf)
 
 # ----------- Load the flagship catalog --------------------------------------------------------------------------------
-hdul = fits.open("../Simulations/input/flagship.fits")
+hdul = fits.open("../../simulations/input/flagship.fits")
 flagship = hdul[1].data
 del hdul
 patches = shear_bins * total_scenes_per_shear
