@@ -183,7 +183,7 @@ Y_WORLD                   #Barycenter position along world y axis               
 #ISO5                     Isophotal area at level 5                                 [pixel**2]
 #ISO6                     Isophotal area at level 6                                 [pixel**2]
 #ISO7                     Isophotal area at level 7                                 [pixel**2]
-#FLAGS                    Extraction flags                                         
+FLAGS                    Extraction flags                                         
 #FLAGS_WEIGHT             Weighted extraction flags                                
 #FLAGS_WIN                Flags for WINdowed parameters                            
 #IMAFLAGS_ISO             FLAG-image flags OR'ed over the iso. profile             
@@ -419,3 +419,8 @@ Y_WORLD                   #Barycenter position along world y axis               
 #FLUXERR_DETMODEL         RMS error on detection model-fitting flux                 [count]
 #MAG_DETMODEL             Magnitude from detection model-fitting                    [mag]
 #MAGERR_DETMODEL          RMS error on detection model-fitting magnitude            [mag]
+KRON_RADIUS
+A_IMAGE
+B_IMAGE
+ELONGATION
+THETA_IMAGE
