@@ -73,18 +73,18 @@ then
     fi
   fi
 
-  #echo "Analysing the Kron radius blending for $puj_folder"
-  #if [[ $compare -eq 1 ]]
-  #  then
-  #    python3 kron_radius_blending.py $puj_folder $run_rm 2 RM
-  #  else
-  #    python3 kron_radius_blending.py $puj_folder $run_rm 11 RM
-  #fi
+  echo "Analysing the Kron radius blending for $puj_folder"
+  if [[ $compare -eq 1 ]]
+    then
+      python3 kron_radius_blending.py $puj_folder $run_rm 2 RM
+    else
+      python3 kron_radius_blending.py $puj_folder $run_rm 11 RM
+  fi
 
   for shape_options in $lf_folder_local $lf_folder_global
   do
-    #echo "Analysing the Kron radius blending for $shape_shape_options"
-    #python3 kron_radius_blending.py $shape_options $run_lf 20 LF
+    echo "Analysing the Kron radius blending for $shape_options"
+    python3 kron_radius_blending.py $shape_options $run_lf 20 LF
 
     for binning in MAG_AUTO GEMS # Do the analysis for GEMS and MAG_AUTO Binning for comparison
     do
