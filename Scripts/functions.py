@@ -2581,7 +2581,7 @@ def generate_gal_from_goods(flagship_cut, betas, exp_time, gain, zp, pixel_scale
 
 
 def generate_cops(path):
-    goodsn = Table.read(path + "/input/final_f606w_assoc.fits",
+    goodsn = Table.read(path + "/input/GOODSN_F775W.fits",
         hdu=1)
     goodsn = goodsn[(goodsn["SPHEROID_ASPECT_IMAGE"] > 0) & (goodsn["SPHEROID_ASPECT_IMAGE"] < 1)
                     & (goodsn["SNR_WIN"] > 20) & (goodsn["FLAGS"] <= 3)]
@@ -2594,17 +2594,17 @@ def generate_cops(path):
                   goodsn["SPHEROID_REFF_IMAGE"],
                   goodsn["SPHEROID_ASPECT_IMAGE"],
                   goodsn["CLASS_STAR"],
-                  goodsn["Z_BEST"]]).T
+                  goodsn["z"]]).T
 
     goodsn_pd = pd.DataFrame(X, columns=["MAG_AUTO", "SPHEROID_SERSICN", "SPHEROID_REFF_IMAGE", "B/A", "CLASS_STAR", "Z_BEST"])
 
-    udf = Table.read(path + "/input/final_udf_f606w_assoc.fits", hdu=1)
+    udf = Table.read(path + "/input/UDF_F775W.fits", hdu=1)
     udf["SPHEROID_SERSICN"] = np.where(udf["SPHEROID_SERSICN"] > 6.2, 6.2, udf["SPHEROID_SERSICN"])
     udf["SPHEROID_SERSICN"] = np.where(udf["SPHEROID_SERSICN"] < 0.3, 0.3, udf["SPHEROID_SERSICN"])
     udf = udf[(udf["SNR_WIN"] > 20) & (udf["FLAGS"] <= 3)]
     udf = np.array(
         [udf["MAG_AUTO"], udf["SPHEROID_SERSICN"], udf["SPHEROID_REFF_IMAGE"], udf["SPHEROID_ASPECT_IMAGE"],
-         udf["CLASS_STAR"], udf["Z_BEST"]]).T
+         udf["CLASS_STAR"], udf["z"]]).T
     udf_pd = pd.DataFrame(udf, columns=["MAG_AUTO", "SPHEROID_SERSICN", "SPHEROID_REFF_IMAGE", "B/A", "CLASS_STAR", "Z_BEST"])
 
 
@@ -2639,7 +2639,7 @@ def generate_cops(path):
         else:
             pds.append(tmp_pd.sample(frac=tmp_pd["WEIGHT"].iloc[0], replace=True))
 
-    measured_pd = pd.concat(pds)
+    measured_pd = pd.concat(pds).sample(10000)
 
     X = np.array([measured_pd["MAG_AUTO"],
                   measured_pd["SPHEROID_SERSICN"],
