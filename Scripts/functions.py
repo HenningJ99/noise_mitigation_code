@@ -2632,7 +2632,8 @@ def generate_cops(path):
     frames = [goodsn_pd, goodss_pd, udf_pd]
 
     measured_pd = pd.concat(frames)
-    measured_pd = measured_pd[(measured_pd["CLASS_STAR"] < 0.5) & (measured_pd["MAG_AUTO"] > 17) & (measured_pd["MAG_AUTO"] < 31)]
+    measured_pd = measured_pd[(measured_pd["CLASS_STAR"] < 0.5) & (measured_pd["MAG_AUTO"] > 17) &
+                              (measured_pd["MAG_AUTO"] < 31) & (measured_pd["Z_BEST"] <= 3)]
 
     flagship = Table.read(path + "/input/flagship.fits")
     flagship_pd = flagship.to_pandas()
