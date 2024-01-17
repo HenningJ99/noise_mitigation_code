@@ -2639,7 +2639,7 @@ def generate_cops(path):
         else:
             pds.append(tmp_pd.sample(frac=tmp_pd["WEIGHT"].iloc[0], replace=True))
 
-    measured_pd = pd.concat(pds).sample(10000)
+    measured_pd = pd.concat(pds)
 
     X = np.array([measured_pd["MAG_AUTO"],
                   measured_pd["SPHEROID_SERSICN"],
