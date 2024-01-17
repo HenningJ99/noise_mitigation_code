@@ -2675,21 +2675,26 @@ def generate_cops(path):
     cop = pv.Vinecop(data=u, controls=controls)
 
     sns.kdeplot(data=goodsn_pd[(goodsn_pd["CLASS_STAR"] < 0.5) & (goodsn_pd["MAG_AUTO"] > 10)], x="MAG_AUTO",
-                color="C1", label="GOODS-N")
+                color="C0", label="GOODS-N")
+
+    sns.kdeplot(data=goodss_pd[(goodss_pd["CLASS_STAR"] < 0.5) & (goodss_pd["MAG_AUTO"] > 10)], x="MAG_AUTO",
+                color="C1", label="GOODS-S")
 
     sns.kdeplot(data=flagship_pd, x="MAG_AUTO", color="C2", label="Flagship")
-    sns.kdeplot(data=udf_pd[(udf_pd["CLASS_STAR"] < 0.5) & (udf_pd["MAG_AUTO"] > 10)], x="MAG_AUTO", color="C0",
+    sns.kdeplot(data=udf_pd[(udf_pd["CLASS_STAR"] < 0.5) & (udf_pd["MAG_AUTO"] > 10)], x="MAG_AUTO", color="C3",
                 label="HST-UDF")
 
-    sns.kdeplot(data=measured_pd, x="MAG_AUTO", color="C3", label="Combined")
+    sns.kdeplot(data=measured_pd, x="MAG_AUTO", color="C4", label="Combined")
 
     plt.xlim(18, 33)
     plt.hist(udf_pd[(udf_pd["CLASS_STAR"] < 0.5) & (udf_pd["MAG_AUTO"] > 10)]["MAG_AUTO"],
-             density=True, bins=bin_edges, histtype="step", alpha=0.5)
+             density=True, bins=bin_edges, histtype="step", alpha=0.5, color="C3")
     plt.hist(goodsn_pd[(goodsn_pd["CLASS_STAR"] < 0.5) & (goodsn_pd["MAG_AUTO"] > 10)]["MAG_AUTO"],
-             bins=bin_edges, density=True, histtype="step", alpha=0.5)
-    plt.hist(flagship_pd["MAG_AUTO"], density=True, bins=bin_edges, histtype="step", alpha=0.5)
-    plt.hist(measured_pd["MAG_AUTO"], density=True, bins=bin_edges, histtype="step", alpha=0.5)
+             bins=bin_edges, density=True, histtype="step", alpha=0.5, color="C0")
+    plt.hist(goodss_pd[(goodss_pd["CLASS_STAR"] < 0.5) & (goodss_pd["MAG_AUTO"] > 10)]["MAG_AUTO"],
+             bins=bin_edges, density=True, histtype="step", alpha=0.5, color="C1")
+    plt.hist(flagship_pd["MAG_AUTO"], density=True, bins=bin_edges, histtype="step", alpha=0.5, color="C2")
+    plt.hist(measured_pd["MAG_AUTO"], density=True, bins=bin_edges, histtype="step", alpha=0.5, color="C4")
 
     plt.legend(loc="upper left")
     plt.savefig("goods_udf_combined.pdf", dpi=300, bbox_inches="tight")
