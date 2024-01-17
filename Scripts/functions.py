@@ -2581,6 +2581,8 @@ def generate_gal_from_goods(flagship_cut, betas, exp_time, gain, zp, pixel_scale
 
 
 def generate_cops(path):
+
+    # GOODS-N
     goodsn = Table.read(path + "/input/GOODSN_F775W.fits",
         hdu=1)
     goodsn = goodsn[(goodsn["SPHEROID_ASPECT_IMAGE"] > 0) & (goodsn["SPHEROID_ASPECT_IMAGE"] < 1)
@@ -2598,6 +2600,25 @@ def generate_cops(path):
 
     goodsn_pd = pd.DataFrame(X, columns=["MAG_AUTO", "SPHEROID_SERSICN", "SPHEROID_REFF_IMAGE", "B/A", "CLASS_STAR", "Z_BEST"])
 
+    # GOODS-S
+    goodss = Table.read(path + "/input/GOODSS_F775W.fits",
+                        hdu=1)
+    goodss = goodss[(goodss["SPHEROID_ASPECT_IMAGE"] > 0) & (goodss["SPHEROID_ASPECT_IMAGE"] < 1)
+                    & (goodss["SNR_WIN"] > 10) & (goodss["FLAGS"] <= 3)]
+
+    goodss["SPHEROID_SERSICN"] = np.where(goodss["SPHEROID_SERSICN"] > 6.2, 6.2, goodss["SPHEROID_SERSICN"])
+    goodss["SPHEROID_SERSICN"] = np.where(goodss["SPHEROID_SERSICN"] < 0.3, 0.3, goodss["SPHEROID_SERSICN"])
+
+    X = np.array([goodss["MAG_AUTO"],
+                  goodss["SPHEROID_SERSICN"],
+                  goodss["SPHEROID_REFF_IMAGE"],
+                  goodss["SPHEROID_ASPECT_IMAGE"],
+                  goodss["CLASS_STAR"],
+                  goodss["z"]]).T
+
+    goodss_pd = pd.DataFrame(X, columns=["MAG_AUTO", "SPHEROID_SERSICN", "SPHEROID_REFF_IMAGE", "B/A", "CLASS_STAR",
+                                         "Z_BEST"])
+    # UDF
     udf = Table.read(path + "/input/UDF_F775W.fits", hdu=1)
     udf["SPHEROID_SERSICN"] = np.where(udf["SPHEROID_SERSICN"] > 6.2, 6.2, udf["SPHEROID_SERSICN"])
     udf["SPHEROID_SERSICN"] = np.where(udf["SPHEROID_SERSICN"] < 0.3, 0.3, udf["SPHEROID_SERSICN"])
@@ -2608,7 +2629,7 @@ def generate_cops(path):
     udf_pd = pd.DataFrame(udf, columns=["MAG_AUTO", "SPHEROID_SERSICN", "SPHEROID_REFF_IMAGE", "B/A", "CLASS_STAR", "Z_BEST"])
 
 
-    frames = [goodsn_pd, udf_pd]
+    frames = [goodsn_pd, goodss_pd, udf_pd]
 
     measured_pd = pd.concat(frames)
     measured_pd = measured_pd[(measured_pd["CLASS_STAR"] < 0.5) & (measured_pd["MAG_AUTO"] > 17) & (measured_pd["MAG_AUTO"] < 31)]
@@ -2639,7 +2660,7 @@ def generate_cops(path):
         else:
             pds.append(tmp_pd.sample(frac=tmp_pd["WEIGHT"].iloc[0], replace=True))
 
-    measured_pd = pd.concat(pds)
+    measured_pd = pd.concat(pds).sample(10000)
 
     X = np.array([measured_pd["MAG_AUTO"],
                   measured_pd["SPHEROID_SERSICN"],
