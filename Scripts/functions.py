@@ -1530,7 +1530,7 @@ def one_scene_pujol(m, total_scene_count, gal, positions, argv, config, path, ps
         os.chdir(SOURCE_EXTRACTOR_DIR)
 
         if simulation.getboolean("source_extractor_morph"):
-            com = "source-extractor -c default_mysims.sex " + image + " -CATALOG_NAME " + output + \
+            com = "source-extractor -c default.sex " + image + " -CATALOG_NAME " + output + \
                   " -PARAMETERS_NAME sersic.param -PSF_NAME " + SOURCE_EXTRACTOR_DIR + "/euclid.psf -CATALOG_TYPE ASCII" + \
                   " -CHECKIMAGE_TYPE SEGMENTATION -CHECKIMAGE_NAME " + f"seg_{total_scene_count}_{m}.fits"
 
@@ -1954,7 +1954,7 @@ def one_scene_lf(m, gal, positions, positions2, scene, argv, config, path, psf, 
         os.chdir(SOURCE_EXTRACTOR_DIR)
 
         if simulation.getboolean("source_extractor_morph"):
-            com = "source-extractor -c default_mysims.sex " + image + " -CATALOG_NAME " + output + \
+            com = "source-extractor -c default.sex " + image + " -CATALOG_NAME " + output + \
                   " -PARAMETERS_NAME sersic.param -PSF_NAME " + SOURCE_EXTRACTOR_DIR +"/euclid.psf -CATALOG_TYPE ASCII" + \
                   " -CHECKIMAGE_TYPE SEGMENTATION -CHECKIMAGE_NAME " + f"seg_{scene}_{m}_{index}.fits"
 
@@ -2776,7 +2776,7 @@ def create_psf_with_psfex(config, argv, output, psf):
 
     current = os.getcwd()
     os.chdir(output)
-    com = "source-extractor -c default_mysims.sex  psf_demo.fits -ASSOC_NAME star_positions.txt -CATALOG_NAME euclid.fits -CATALOG_TYPE FITS_LDAC -PARAMETERS_NAME mysims_psf_final.param"
+    com = "source-extractor -c default.sex  psf_demo.fits -ASSOC_NAME star_positions.txt -CATALOG_NAME euclid.fits -CATALOG_TYPE FITS_LDAC -PARAMETERS_NAME mysims_psf_final.param"
     os.system(com)
 
     com = "psfex euclid.fits -c default.psfex"
