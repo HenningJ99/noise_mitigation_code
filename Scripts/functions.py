@@ -2604,7 +2604,7 @@ def generate_cops(path):
     goodss = Table.read(path + "/input/GOODSS_F775W.fits",
                         hdu=1)
     goodss = goodss[(goodss["SPHEROID_ASPECT_IMAGE"] > 0) & (goodss["SPHEROID_ASPECT_IMAGE"] < 1)
-                    & (goodss["SNR_WIN"] > 10) & (goodss["FLAGS"] <= 3)]
+                    & (goodss["SNR_WIN"] > 20) & (goodss["FLAGS"] <= 3)]
 
     goodss["SPHEROID_SERSICN"] = np.where(goodss["SPHEROID_SERSICN"] > 6.2, 6.2, goodss["SPHEROID_SERSICN"])
     goodss["SPHEROID_SERSICN"] = np.where(goodss["SPHEROID_SERSICN"] < 0.3, 0.3, goodss["SPHEROID_SERSICN"])
@@ -2660,7 +2660,7 @@ def generate_cops(path):
         else:
             pds.append(tmp_pd.sample(frac=tmp_pd["WEIGHT"].iloc[0], replace=True))
 
-    measured_pd = pd.concat(pds).sample(10000)
+    measured_pd = pd.concat(pds)
 
     X = np.array([measured_pd["MAG_AUTO"],
                   measured_pd["SPHEROID_SERSICN"],
