@@ -496,9 +496,10 @@ def worker(k, ellip_gal, psf, image_sampled_psf, config, argv, input_shear):
     gal_image = galsim.ImageF(stamp_xsize * nx_tiles - 1, stamp_ysize * ny_tiles - 1, scale=pixel_scale)
     column = ny_tiles
 
-    psf_par = ksb_h.ksb_moments(image_sampled_psf.array, xc=None, yc=None, sigw=5*3)
-    psf_par['Psm11'] = 25. * psf_par['Psm11']
-    psf_par['Psm22'] = 25. * psf_par['Psm22']
+    if ksb_henk_avai:
+        psf_par = ksb_h.ksb_moments(image_sampled_psf.array, xc=None, yc=None, sigw=5*3)
+        psf_par['Psm11'] = 25. * psf_par['Psm11']
+        psf_par['Psm22'] = 25. * psf_par['Psm22']
 
     ''' These arrays store the KSB measurements for each of the stamps. The lists are 2 dimensional in order to select 
         shape noise pairs or don't do depending on what shall be tested. '''
@@ -856,9 +857,10 @@ def one_galaxy(k, input_g1, ellip_gal, image_sampled_psf, psf, config, argv):
     gal_image = galsim.ImageF(stamp_xsize * num_shears - 1, stamp_ysize * noise_repetitions - 1,
                               scale=pixel_scale)
 
-    psf_par = ksb_h.ksb_moments(image_sampled_psf.array, xc=None, yc=None, sigw=3*5)
-    psf_par['Psm11'] = 25. * psf_par['Psm11']
-    psf_par['Psm22'] = 25. * psf_par['Psm22']
+    if ksb_henk_avai:
+        psf_par = ksb_h.ksb_moments(image_sampled_psf.array, xc=None, yc=None, sigw=3*5)
+        psf_par['Psm11'] = 25. * psf_par['Psm11']
+        psf_par['Psm22'] = 25. * psf_par['Psm22']
 
     count = 0
 
@@ -1570,9 +1572,10 @@ def one_scene_pujol(m, total_scene_count, gal, positions, argv, config, path, ps
 
     seg_map = galsim.fits.read(path + f"output/source_extractor/seg_{total_scene_count}_{m}.fits")
 
-    psf_par = ksb_h.ksb_moments(image_sampled_psf.array, xc=None, yc=None, sigw=3*5)
-    psf_par['Psm11'] = 25. * psf_par['Psm11']
-    psf_par['Psm22'] = 25. * psf_par['Psm22']
+    if ksb_henk_avai:
+        psf_par = ksb_h.ksb_moments(image_sampled_psf.array, xc=None, yc=None, sigw=3*5)
+        psf_par['Psm11'] = 25. * psf_par['Psm11']
+        psf_par['Psm22'] = 25. * psf_par['Psm22']
 
     data = np.genfromtxt(path + f"output/source_extractor/{index_fits}/" + f"none_pujol_{total_scene_count}_{m}.cat")
 
@@ -2008,9 +2011,10 @@ def one_scene_lf(m, gal, positions, positions2, scene, argv, config, path, psf, 
     # start = timeit.default_timer()
     gal_image = galsim.fits.read(path + f"output/FITS{index_fits}/catalog_" + f"{scene}_{m}_{index}.fits")
 
-    psf_par = ksb_h.ksb_moments(image_sampled_psf.array, xc=None, yc=None, sigw=3*5)
-    psf_par['Psm11'] = 25. * psf_par['Psm11']
-    psf_par['Psm22'] = 25. * psf_par['Psm22']
+    if ksb_henk_avai:
+        psf_par = ksb_h.ksb_moments(image_sampled_psf.array, xc=None, yc=None, sigw=3*5)
+        psf_par['Psm11'] = 25. * psf_par['Psm11']
+        psf_par['Psm22'] = 25. * psf_par['Psm22']
 
     seg_map = galsim.fits.read(path + f"output/source_extractor/seg_{scene}_{m}_{index}.fits")
 
