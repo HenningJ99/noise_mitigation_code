@@ -2544,13 +2544,27 @@ def generate_gal_from_flagship(flagship_cut, betas, exp_time, gain, zp, pixel_sc
     return galaxy, theo_sn, magnitude
 
 
-def generate_gal_from_goods(flagship_cut, betas, exp_time, gain, zp, pixel_scale, sky_level, read_noise, index, cop_sample):
+def generate_gal_from_goods(flagship_cut, betas, exp_time, gain, zp, pixel_scale, sky_level, read_noise, index, X, cop):
     magnitude = -2.5 * np.log10(flagship_cut["euclid_vis"][index]) - 48.6
+    redshift = flagship_cut["observed_redshift_gal"][index]
 
-    morphology = cop_sample[np.argmin(np.abs(cop_sample[:, 0]-magnitude))]
+    mag_perc = stats.percentileofscore(X[:, 0], magnitude) / 100
+    red_perc = stats.percentileofscore(X[:, 4], redshift) / 100
 
-    n_gal = morphology[1]
-    re_gal = morphology[2] * 0.03
+    transform = cop.rosenblatt([[mag_perc, 0.5, 0.5, 0.5, red_perc]])
+    mag_trans = transform[0, 0]
+    red_trans = transform[0, 4]
+
+    morphology = []
+    randoms = np.random.random(3)
+
+    for i in range(1, 4):
+        inv_trans = np.quantile(X[:, i], cop.inverse_rosenblatt([[mag_trans, randoms[0], randoms[1], randoms[2], red_trans]])[:, i])[0]
+        morphology.append(inv_trans)
+
+
+    n_gal = morphology[0]
+    re_gal = morphology[1] * 0.03
     gal_flux = exp_time / gain * 10 ** (-0.4 * (magnitude - zp))
     ### sersic profile
     # allowed sersic index range
@@ -2558,7 +2572,7 @@ def generate_gal_from_goods(flagship_cut, betas, exp_time, gain, zp, pixel_scale
         # print(f'Warning...........n_gal {n_gal} outrange of ({SERSIC_N_MIN}, {SERSIC_N_MAX})!')
         n_gal = float(np.where(n_gal < 0.3, 0.3, 6.2))
         # print(f'...........assign {n_gal} for now!')
-    q_gal = morphology[3] #flagship_cut['bulge_axis_ratio'][index]
+    q_gal = morphology[2] #flagship_cut['bulge_axis_ratio'][index]
 
     if (q_gal < 0.05) or (q_gal > 1.0):
         # print(f"Warning...........q_gal {q_gal} outrange of ({Q_MIN}, {Q_MAX})!")

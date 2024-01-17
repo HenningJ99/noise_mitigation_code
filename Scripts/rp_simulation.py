@@ -367,7 +367,7 @@ for scene in range(total_scenes_per_shear):
 
             if simulation["morphology"] == "GOODS":
                 res = fct.generate_gal_from_goods(flagship_cut, betas, exp_time, gain, zp, pixel_scale,
-                                                     sky_level, read_noise, i, cop_sample)
+                                                     sky_level, read_noise, i, X, cop)
             elif simulation["morphology"] == "FLAGSHIP":
                 res = fct.generate_gal_from_flagship(flagship_cut, betas, exp_time, gain, zp, pixel_scale,
                                                   sky_level, read_noise, i)
