@@ -1393,8 +1393,8 @@ def one_galaxy_whole_matrix(k, input_g1, ellip_gal, image_sampled_psf, psf, conf
 
 
 @ray.remote
-def one_scene_pujol(m, total_scene_count, gal, positions, argv, config, path, psf, num_shears, index_fits, ra_min,
-                    dec_min):
+def one_scene_pujol(m, total_scene_count, argv, config, path, psf, num_shears, index_fits, gal=None, positions=None,
+                    ra_min=None, dec_min=None):
     image = config['IMAGE']
     simulation = config['SIMULATION']
 
@@ -1413,115 +1413,119 @@ def one_scene_pujol(m, total_scene_count, gal, positions, argv, config, path, ps
     bin_type = simulation['bin_type']
     dec_min_org = float(image["dec_min"])
 
-    # ------------------------ Create the stamps ---------------------------------------------------------------------
-    stamps = []
-    for i in range(len(positions)):
-        x = positions[i][0]
-        y = positions[i][1]
+    if argv[5] == "False":
+        # ------------------------ Create the stamps ---------------------------------------------------------------------
+        stamps = []
+        for i in range(len(positions)):
+            x = positions[i][0]
+            y = positions[i][1]
 
-        image_pos = galsim.PositionD(x, y)
+            image_pos = galsim.PositionD(x, y)
 
-        if num_shears == 2:
-            shears = [-0.02, 0.02]
-        else:
-            shears = [-0.1 + 0.2 / (num_shears - 1) * k for k in range(num_shears)]
+            if num_shears == 2:
+                shears = [-0.02, 0.02]
+            else:
+                shears = [-0.1 + 0.2 / (num_shears - 1) * k for k in range(num_shears)]
 
-        if simulation.getboolean("same_but_shear"):
-            if argv[6] == "rand":
-                central_shear = np.random.rand() * float(simulation["variable_field_mag"]) - float(
-                    simulation["variable_field_mag"]) / 2
-            elif argv[6] == "zero":
-                central_shear = 0
-            shears = [central_shear + k * float(simulation["same_but_shear_diff"]) / 2 for k in
-                      [-1, 1]]  # Slightly vary the (random) shear field
+            if simulation.getboolean("same_but_shear"):
+                if argv[6] == "rand":
+                    central_shear = np.random.rand() * float(simulation["variable_field_mag"]) - float(
+                        simulation["variable_field_mag"]) / 2
+                elif argv[6] == "zero":
+                    central_shear = 0
+                shears = [central_shear + k * float(simulation["same_but_shear_diff"]) / 2 for k in
+                          [-1, 1]]  # Slightly vary the (random) shear field
 
-        if simulation["g2"] == "ZERO":
-            draw = 0
-        elif simulation["g2"] == "GAUSS":
-            # Draw as long as a value between -0.1 and 0.1 is created
-            draw = -1
-            while (draw > 0.1) or (draw < -0.1):
-                draw = np.random.normal(loc=0.0, scale=0.03)
-        elif simulation["g2"] == "UNIFORM":
-            draw = -1
-            while (draw > 0.1) or (draw < -0.1):
-                draw = np.random.random() * 0.2 - 0.1
+            if simulation["g2"] == "ZERO":
+                draw = 0
+            elif simulation["g2"] == "GAUSS":
+                # Draw as long as a value between -0.1 and 0.1 is created
+                draw = -1
+                while (draw > 0.1) or (draw < -0.1):
+                    draw = np.random.normal(loc=0.0, scale=0.03)
+            elif simulation["g2"] == "UNIFORM":
+                draw = -1
+                while (draw > 0.1) or (draw < -0.1):
+                    draw = np.random.random() * 0.2 - 0.1
 
-        g2 = draw
+            g2 = draw
 
-        # Extrinsic shear
-        normal_gal = gal[i].shear(g1=shears[m], g2=g2)
+            # Extrinsic shear
+            normal_gal = gal[i].shear(g1=shears[m], g2=g2)
 
-        # Convolution with the PSF
-        final = galsim.Convolve([normal_gal, psf])
+            # Convolution with the PSF
+            final = galsim.Convolve([normal_gal, psf])
 
-        # Drawing on the stamp
-        try:
-            stamp = final.drawImage(center=image_pos, nx=stamp_xsize, ny=stamp_ysize, scale=pixel_scale)
-        except GalSimFFTSizeError:
-            continue
+            # Drawing on the stamp
+            try:
+                stamp = final.drawImage(center=image_pos, nx=stamp_xsize, ny=stamp_ysize, scale=pixel_scale)
+            except GalSimFFTSizeError:
+                continue
 
-        stamp = galsim.Image(np.abs(stamp.array.copy()),
-                             bounds=stamp.bounds)  # Avoid slightly negative values after FFT
-        # without_noise = stamp.array.copy()
-        # stamp.addNoise(galsim.noise.CCDNoiseHenning(rng, gain=gain, read_noise=0., sky_level=0.))
+            stamp = galsim.Image(np.abs(stamp.array.copy()),
+                                 bounds=stamp.bounds)  # Avoid slightly negative values after FFT
+            # without_noise = stamp.array.copy()
+            # stamp.addNoise(galsim.noise.CCDNoiseHenning(rng, gain=gain, read_noise=0., sky_level=0.))
 
-        stamps.append(stamp)
+            stamps.append(stamp)
 
-    # -------------------------------- Create the scene --------------------------------------------------------------
-    # Calculate sky level
-    sky_level = pixel_scale ** 2 * exp_time / gain * 10 ** (-0.4 * (sky - zp))
+        # -------------------------------- Create the scene --------------------------------------------------------------
+        # Calculate sky level
+        sky_level = pixel_scale ** 2 * exp_time / gain * 10 ** (-0.4 * (sky - zp))
 
-    # Build the two large images for none and shape and add sky level and Gaussian RON to them
-    angular_size = (complete_image_size - 2. * cut_size) * pixel_scale / 3600
+        # Build the two large images for none and shape and add sky level and Gaussian RON to them
+        angular_size = (complete_image_size - 2. * cut_size) * pixel_scale / 3600
 
-    ra_max = ra_min + angular_size * np.cos(dec_min_org * np.pi / 180)
+        ra_max = ra_min + angular_size * np.cos(dec_min_org * np.pi / 180)
 
-    dec_max = dec_min + angular_size
+        dec_max = dec_min + angular_size
 
-    image_none, wcs = SimpleCanvas(ra_min, ra_max, dec_min, dec_max, pixel_scale, image_size=complete_image_size)
+        image_none, wcs = SimpleCanvas(ra_min, ra_max, dec_min, dec_max, pixel_scale, image_size=complete_image_size)
 
-    for i in range(len(stamps)):
-        # Find the overlapping bounds between the large image and the individual stamp.
-        bounds = stamps[i].bounds & image_none.bounds
+        for i in range(len(stamps)):
+            # Find the overlapping bounds between the large image and the individual stamp.
+            bounds = stamps[i].bounds & image_none.bounds
 
-        # Add this to the corresponding location in the large image.
-        image_none[bounds] += stamps[i][bounds]
+            # Add this to the corresponding location in the large image.
+            image_none[bounds] += stamps[i][bounds]
 
-    # if simulation.getboolean("source_extractor_morph"):
-    #     # Add stars
-    #     n_stars = 15 #int(2 / 3 * complete_image_size ** 2 * pixel_scale ** 2 / 3600)
-    #     positions = complete_image_size * np.random.random_sample((n_stars, 2))
-    #
-    #     with open(path + f"output/source_extractor/star_positions_{total_scene_count}_{m}.txt",
-    #               "w") as file:
-    #         for i in range(n_stars):
-    #             file.write("%.4f %.4f\n" % (positions[i][0], positions[i][1]))
-    #
-    #     for i in range(n_stars):
-    #         try:
-    #             psf_stamp = psf.withFlux(exp_time / gain * 10 ** (-0.4 * (np.random.random() * 3 + 24 - zp))).drawImage(
-    #                 center=positions[i], nx=stamp_xsize, ny=stamp_ysize, scale=pixel_scale)
-    #         except GalSimFFTSizeError:
-    #             continue
-    #
-    #         psf_stamp = galsim.Image(np.abs(psf_stamp.array.copy()),
-    #                                  bounds=psf_stamp.bounds)  # Avoid slightly negative values after FFT
-    #
-    #         bounds = psf_stamp.bounds & image_none.bounds
-    #
-    #         image_none[bounds] += psf_stamp[bounds]
+        # if simulation.getboolean("source_extractor_morph"):
+        #     # Add stars
+        #     n_stars = 15 #int(2 / 3 * complete_image_size ** 2 * pixel_scale ** 2 / 3600)
+        #     positions = complete_image_size * np.random.random_sample((n_stars, 2))
+        #
+        #     with open(path + f"output/source_extractor/star_positions_{total_scene_count}_{m}.txt",
+        #               "w") as file:
+        #         for i in range(n_stars):
+        #             file.write("%.4f %.4f\n" % (positions[i][0], positions[i][1]))
+        #
+        #     for i in range(n_stars):
+        #         try:
+        #             psf_stamp = psf.withFlux(exp_time / gain * 10 ** (-0.4 * (np.random.random() * 3 + 24 - zp))).drawImage(
+        #                 center=positions[i], nx=stamp_xsize, ny=stamp_ysize, scale=pixel_scale)
+        #         except GalSimFFTSizeError:
+        #             continue
+        #
+        #         psf_stamp = galsim.Image(np.abs(psf_stamp.array.copy()),
+        #                                  bounds=psf_stamp.bounds)  # Avoid slightly negative values after FFT
+        #
+        #         bounds = psf_stamp.bounds & image_none.bounds
+        #
+        #         image_none[bounds] += psf_stamp[bounds]
 
-    # Ensure the same seed for the versions belonging to one run
-    rng = galsim.UniformDeviate(random_seed + 1 + 2 * total_scene_count)
-    image_none.addNoise(galsim.noise.CCDNoiseHenning(rng, gain=gain, read_noise=read_noise, sky_level=sky_level))
+        # Ensure the same seed for the versions belonging to one run
+        rng = galsim.UniformDeviate(random_seed + 1 + 2 * total_scene_count)
+        image_none.addNoise(galsim.noise.CCDNoiseHenning(rng, gain=gain, read_noise=read_noise, sky_level=sky_level))
 
-    # Write the image to the output directory
-    image_none.write(path + f"output/FITS{index_fits}/catalog_none_pujol_{total_scene_count}_{m}.fits")
+        # Write the image to the output directory
+        image_none.write(path + f"output/FITS{index_fits}/catalog_none_pujol_{total_scene_count}_{m}.fits")
 
+        IMAGE_DIRECTORY_NONE = path + f"output/FITS{index_fits}/catalog_none_pujol_{total_scene_count}_{m}.fits"
     # --------------------------------- SOURCE EXTRACTOR --------------------------------------------------------------
 
-    IMAGE_DIRECTORY_NONE = path + f"output/FITS{index_fits}/catalog_none_pujol_{total_scene_count}_{m}.fits"
+    else:
+        IMAGE_DIRECTORY_NONE = argv[6]+f"/FITS_org/catalog_none_pujol_{total_scene_count}_{m}.fits"
+
     SOURCE_EXTRACTOR_DIR = path + "output/source_extractor"
 
     def sex(image, output):
@@ -1568,7 +1572,7 @@ def one_scene_pujol(m, total_scene_count, gal, positions, argv, config, path, ps
         image_sampled_psf = psf.drawImage(nx=stamp_xsize, ny=stamp_ysize, scale=pixel_scale)
 
     # ----------------- ANALYSE THE CATALOGS --------------------------------------------------------------------------
-    gal_image = galsim.fits.read(path + f"output/FITS{index_fits}/catalog_none_pujol_{total_scene_count}_{m}.fits")
+    gal_image = galsim.fits.read(IMAGE_DIRECTORY_NONE)
 
     seg_map = galsim.fits.read(path + f"output/source_extractor/seg_{total_scene_count}_{m}.fits")
 
@@ -1584,7 +1588,7 @@ def one_scene_pujol(m, total_scene_count, gal, positions, argv, config, path, ps
         # Exclude the outer pixels of each large scenes because the stamps would be incomplete
         filter = np.where(
             (data[:, 7] > cut_size) & (data[:, 7] < complete_image_size - cut_size) & (data[:, 8] > cut_size) & (
-                    data[:, 8] < complete_image_size - cut_size) & (class_star < 0.5))
+                    data[:, 8] < complete_image_size - cut_size))
 
         class_star = class_star[filter]
 
@@ -1804,8 +1808,8 @@ def SimpleCanvas(RA_min, RA_max, DEC_min, DEC_max, pixel_scale, edge_sep=1.5, ro
 
 
 @ray.remote
-def one_scene_lf(m, gal, positions, positions2, scene, argv, config, path, psf, index, index_fits, seed, ra_min,
-                 dec_min):
+def one_scene_lf(m, scene, argv, config, path, psf, index, index_fits, seed, gal=None, positions=None,
+                 positions2=None, ra_min=None, dec_min=None):
     image = config['IMAGE']
     simulation = config['SIMULATION']
 
@@ -1836,116 +1840,130 @@ def one_scene_lf(m, gal, positions, positions2, scene, argv, config, path, psf, 
     rng = galsim.UniformDeviate()
     rng1 = rng.duplicate()
 
-    # ------------------------------- Create the stamps ---------------------------------------------------------------
-    stamp = []
+    if argv[6] == "False":
+        # ------------------------------- Create the stamps ---------------------------------------------------------------
+        stamp = []
 
-    for i in range(len(positions)):
-        g1 = shear_min + m * (shear_max - shear_min) / (shear_bins - 1)
+        for i in range(len(positions)):
+            g1 = shear_min + m * (shear_max - shear_min) / (shear_bins - 1)
 
-        if simulation["g2"] == "ZERO":
-            draw = 0
-        elif simulation["g2"] == "GAUSS":
-            # Draw as long as a value between -0.1 and 0.1 is created
-            draw = -1
-            while (draw > 0.1) or (draw < -0.1):
-                draw = np.random.normal(loc=0.0, scale=0.03)
-        elif simulation["g2"] == "UNIFORM":
-            draw = -1
-            while (draw > 0.1) or (draw < -0.1):
-                draw = np.random.random() * 0.2 - 0.1
+            if simulation["g2"] == "ZERO":
+                draw = 0
+            elif simulation["g2"] == "GAUSS":
+                # Draw as long as a value between -0.1 and 0.1 is created
+                draw = -1
+                while (draw > 0.1) or (draw < -0.1):
+                    draw = np.random.normal(loc=0.0, scale=0.03)
+            elif simulation["g2"] == "UNIFORM":
+                draw = -1
+                while (draw > 0.1) or (draw < -0.1):
+                    draw = np.random.random() * 0.2 - 0.1
 
-        g2 = draw
+            g2 = draw
 
-        x = positions[i][0]
-        y = positions[i][1]
+            x = positions[i][0]
+            y = positions[i][1]
 
-        image_pos = galsim.PositionD(x, y)
-        image_pos_2 = galsim.PositionD(positions2[i][0], positions2[i][1])
+            image_pos = galsim.PositionD(x, y)
+            image_pos_2 = galsim.PositionD(positions2[i][0], positions2[i][1])
 
-        # Add extrinsic shear
-        normal_gal = gal[i].shear(g1=g1, g2=g2)
+            # Add extrinsic shear
+            normal_gal = gal[i].shear(g1=g1, g2=g2)
 
-        # Convolve the sheared version with the
-        final = galsim.Convolve([normal_gal, psf])
+            # Convolve the sheared version with the
+            final = galsim.Convolve([normal_gal, psf])
 
-        # Rotate the unsheared galaxy
-        rotated_galaxy = gal[i].rotate(90 * galsim.degrees)
+            # Rotate the unsheared galaxy
+            rotated_galaxy = gal[i].rotate(90 * galsim.degrees)
 
-        # Add the shear also that rotated galaxy
-        rotated_galaxy = rotated_galaxy.shear(g1=g1, g2=g2)
+            # Add the shear also that rotated galaxy
+            rotated_galaxy = rotated_galaxy.shear(g1=g1, g2=g2)
 
-        # Convolve the rotated version with the PSF
-        rotated_final = galsim.Convolve([rotated_galaxy, psf])
+            # Convolve the rotated version with the PSF
+            rotated_final = galsim.Convolve([rotated_galaxy, psf])
 
-        if index % 2 == 0:
-            # Draw the normal version on a stamp
-            try:
-                stamp_norm = final.drawImage(center=image_pos, nx=stamp_xsize, ny=stamp_ysize, scale=pixel_scale)
-            except GalSimFFTSizeError:
-                print(gal[i].original.half_light_radius, gal[i].original.flux, gal[i].original.n)
-                continue
+            if index % 2 == 0:
+                # Draw the normal version on a stamp
+                try:
+                    stamp_norm = final.drawImage(center=image_pos, nx=stamp_xsize, ny=stamp_ysize, scale=pixel_scale)
+                except GalSimFFTSizeError:
+                    print(gal[i].original.half_light_radius, gal[i].original.flux, gal[i].original.n)
+                    continue
 
-            stamp_norm = galsim.Image(np.abs(stamp_norm.array.copy()),
-                                      bounds=stamp_norm.bounds)  # Avoid slightly negative values after FFT
+                stamp_norm = galsim.Image(np.abs(stamp_norm.array.copy()),
+                                          bounds=stamp_norm.bounds)  # Avoid slightly negative values after FFT
 
-            stamp.append(stamp_norm)
+                stamp.append(stamp_norm)
 
-        else:
-            # Draw the rotated version on a stamp
-            try:
-                stamp_rotated = rotated_final.drawImage(center=image_pos_2, nx=stamp_xsize, ny=stamp_ysize,
-                                                        scale=pixel_scale)
-            except GalSimFFTSizeError:
-                with open(path + f"output/failed_ffts.txt",
-                          "w") as file:
-                    file.write(f"{gal[i].original.half_light_radius}\t{gal[i].original.flux}\t{gal[i].original.n}\n")
-                continue
+            else:
+                # Draw the rotated version on a stamp
+                try:
+                    stamp_rotated = rotated_final.drawImage(center=image_pos_2, nx=stamp_xsize, ny=stamp_ysize,
+                                                            scale=pixel_scale)
+                except GalSimFFTSizeError:
+                    with open(path + f"output/failed_ffts.txt",
+                              "w") as file:
+                        file.write(f"{gal[i].original.half_light_radius}\t{gal[i].original.flux}\t{gal[i].original.n}\n")
+                    continue
 
-            stamp_rotated = galsim.Image(np.abs(stamp_rotated.array.copy()), bounds=stamp_rotated.bounds)
+                stamp_rotated = galsim.Image(np.abs(stamp_rotated.array.copy()), bounds=stamp_rotated.bounds)
 
-            stamp.append(stamp_rotated)
+                stamp.append(stamp_rotated)
 
-    # -------------------------------- Create the scenes -------------------------------------------------------------
-    print(index, m, scene, index_fits)
+        # -------------------------------- Create the scenes -------------------------------------------------------------
+        print(index, m, scene, index_fits)
 
-    rng = galsim.UniformDeviate(seed)
+        rng = galsim.UniformDeviate(seed)
 
-    # Calculate sky level
-    sky_level = pixel_scale ** 2 * exp_time / gain * 10 ** (-0.4 * (sky - zp))
+        # Calculate sky level
+        sky_level = pixel_scale ** 2 * exp_time / gain * 10 ** (-0.4 * (sky - zp))
 
-    # Build the two large images for none and shape and add sky level and Gaussian RON to them
-    angular_size = (complete_image_size - 2. * cut_size) * pixel_scale / 3600
+        # Build the two large images for none and shape and add sky level and Gaussian RON to them
+        angular_size = (complete_image_size - 2. * cut_size) * pixel_scale / 3600
 
-    ra_max = ra_min + angular_size / np.cos(dec_min_org * np.pi / 180)
+        ra_max = ra_min + angular_size / np.cos(dec_min_org * np.pi / 180)
 
-    dec_max = dec_min + angular_size
+        dec_max = dec_min + angular_size
 
-    image, wcs = SimpleCanvas(ra_min, ra_max, dec_min, dec_max, pixel_scale,
-                              rotate=True if index % 2 != 0 and argv[5] == "True" else False, image_size=complete_image_size)
-    # if simulation.getboolean("source_extractor_morph"):
-    #     # Add stars
-    #     n_stars = 15 #int(2 / 3 * complete_image_size ** 2 * pixel_scale ** 2 / 3600)
-    #     positions = complete_image_size * np.random.random_sample((n_stars, 2))
-    #
-    #     with open(path + f"output/source_extractor/star_positions_{scene}_{m}_{index}.txt",
-    #               "w") as file:
-    #         for i in range(n_stars):
-    #             file.write("%.4f %.4f\n" % (positions[i][0], positions[i][1]))
-    #
-    #     for i in range(n_stars):
-    #         try:
-    #             psf_stamp = psf.withFlux(exp_time / gain * 10 ** (-0.4 * (np.random.random() * 3 + 24 - zp))).drawImage(
-    #                 center=positions[i], nx=stamp_xsize, ny=stamp_ysize, scale=pixel_scale)
-    #         except GalSimFFTSizeError:
-    #             continue
-    #
-    #         psf_stamp = galsim.Image(np.abs(psf_stamp.array.copy()),
-    #                                  bounds=psf_stamp.bounds)  # Avoid slightly negative values after FFT
-    #
-    #         bounds = psf_stamp.bounds & image.bounds
-    #
-    #         image[bounds] += psf_stamp[bounds]
+        image, wcs = SimpleCanvas(ra_min, ra_max, dec_min, dec_max, pixel_scale,
+                                  rotate=True if index % 2 != 0 and argv[5] == "True" else False, image_size=complete_image_size)
+        # if simulation.getboolean("source_extractor_morph"):
+        #     # Add stars
+        #     n_stars = 15 #int(2 / 3 * complete_image_size ** 2 * pixel_scale ** 2 / 3600)
+        #     positions = complete_image_size * np.random.random_sample((n_stars, 2))
+        #
+        #     with open(path + f"output/source_extractor/star_positions_{scene}_{m}_{index}.txt",
+        #               "w") as file:
+        #         for i in range(n_stars):
+        #             file.write("%.4f %.4f\n" % (positions[i][0], positions[i][1]))
+        #
+        #     for i in range(n_stars):
+        #         try:
+        #             psf_stamp = psf.withFlux(exp_time / gain * 10 ** (-0.4 * (np.random.random() * 3 + 24 - zp))).drawImage(
+        #                 center=positions[i], nx=stamp_xsize, ny=stamp_ysize, scale=pixel_scale)
+        #         except GalSimFFTSizeError:
+        #             continue
+        #
+        #         psf_stamp = galsim.Image(np.abs(psf_stamp.array.copy()),
+        #                                  bounds=psf_stamp.bounds)  # Avoid slightly negative values after FFT
+        #
+        #         bounds = psf_stamp.bounds & image.bounds
+        #
+        #         image[bounds] += psf_stamp[bounds]
 
+        # ----------------------------- ANALYSE THE CATALOGS --------------------------------------------------------------
+
+        for i in range(len(stamp)):
+            # Find the overlapping bounds between the large image and the individual stamp.
+            bounds = stamp[i].bounds & image.bounds
+
+            image[bounds] += stamp[i][bounds]
+
+        image.addNoise(galsim.noise.CCDNoiseHenning(rng, gain=gain, read_noise=read_noise, sky_level=sky_level,
+                                                    inv=True if index > 1 else False))
+        image.write(path + f"output/FITS{index_fits}/catalog_" + f"{scene}_{m}_{index}.fits")
+
+    # --------------------------- SOURCE EXTRACTOR ----------------------------------------------------------------
     SOURCE_EXTRACTOR_DIR = path + "output/source_extractor"
 
     def sex(image, output):
@@ -1955,7 +1973,7 @@ def one_scene_lf(m, gal, positions, positions2, scene, argv, config, path, psf, 
 
         if simulation.getboolean("source_extractor_morph"):
             com = "source-extractor -c default.sex " + image + " -CATALOG_NAME " + output + \
-                  " -PARAMETERS_NAME sersic.param -PSF_NAME " + SOURCE_EXTRACTOR_DIR +"/euclid.psf -CATALOG_TYPE ASCII" + \
+                  " -PARAMETERS_NAME sersic.param -PSF_NAME " + SOURCE_EXTRACTOR_DIR + "/euclid.psf -CATALOG_TYPE ASCII" + \
                   " -CHECKIMAGE_TYPE SEGMENTATION -CHECKIMAGE_NAME " + f"seg_{scene}_{m}_{index}.fits"
 
             os.system(com)
@@ -1965,28 +1983,15 @@ def one_scene_lf(m, gal, positions, positions2, scene, argv, config, path, psf, 
             com = "source-extractor " + image + " -c " + SOURCE_EXTRACTOR_DIR + "/default.sex" + \
                   " -CATALOG_NAME " + output + " -CHECKIMAGE_TYPE SEGMENTATION -CHECKIMAGE_NAME " + f"seg_{scene}_{m}_{index}.fits"
 
-
-
-
         res = os.system(com)
 
         return res
 
-    # ----------------------------- ANALYSE THE CATALOGS --------------------------------------------------------------
+    if argv[6] == "False":
+        IMAGE_DIRECTORY = path + f"output/FITS{index_fits}/catalog_" + f"{scene}_{m}_{index}.fits"
+    else:
+        IMAGE_DIRECTORY = argv[7] + f"/FITS_org/catalog_{scene}_{m}_{index}.fits"
 
-    for i in range(len(stamp)):
-        # Find the overlapping bounds between the large image and the individual stamp.
-        bounds = stamp[i].bounds & image.bounds
-
-        image[bounds] += stamp[i][bounds]
-
-    image.addNoise(galsim.noise.CCDNoiseHenning(rng, gain=gain, read_noise=read_noise, sky_level=sky_level,
-                                                inv=True if index > 1 else False))
-    image.write(path + f"output/FITS{index_fits}/catalog_" + f"{scene}_{m}_{index}.fits")
-
-    # --------------------------- SOURCE EXTRACTOR ----------------------------------------------------------------
-
-    IMAGE_DIRECTORY = path + f"output/FITS{index_fits}/catalog_" + f"{scene}_{m}_{index}.fits"
 
     sex(IMAGE_DIRECTORY, SOURCE_EXTRACTOR_DIR + f"/{index_fits}/" + f"{scene}_{m}_{index}.cat")
 
@@ -2009,7 +2014,7 @@ def one_scene_lf(m, gal, positions, positions2, scene, argv, config, path, psf, 
         image_sampled_psf = psf.drawImage(nx=stamp_xsize, ny=stamp_ysize, scale=pixel_scale)
 
     # start = timeit.default_timer()
-    gal_image = galsim.fits.read(path + f"output/FITS{index_fits}/catalog_" + f"{scene}_{m}_{index}.fits")
+    gal_image = galsim.fits.read(IMAGE_DIRECTORY)
 
     if ksb_henk_avai:
         psf_par = ksb_h.ksb_moments(image_sampled_psf.array, xc=None, yc=None, sigw=3*5)
@@ -2032,7 +2037,7 @@ def one_scene_lf(m, gal, positions, positions2, scene, argv, config, path, psf, 
         class_star = data[:, 25]
 
         filter = np.where((data[:, 7] > cut_size) & (data[:, 7] < complete_image_size - cut_size) &
-                          (data[:, 8] > cut_size) & (data[:, 8] < complete_image_size - cut_size) & (class_star < 0.5))
+                          (data[:, 8] > cut_size) & (data[:, 8] < complete_image_size - cut_size))
 
         class_star = class_star[filter]
 

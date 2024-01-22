@@ -30,19 +30,19 @@ if [ $analysis_only == "n" ]
 then
   echo "Starting global cancellation simulations!"
   # -------------------------- CATALOG GENERATION --------------------------------#
-  python3 rp_simulation.py $sim_size $run_lf $path $shear_interval True
+  python3 rp_simulation.py $sim_size $run_lf $path $shear_interval True False
   lf_folder_global=$(ls -td $path/output/rp_simulations/*/ | head -1)
 
   echo "Starting local cancellation simulations!"
-  python3 rp_simulation.py $sim_size $run_lf $path $shear_interval False
+  python3 rp_simulation.py $sim_size $run_lf $path $shear_interval False False
   lf_folder_local=$(ls -td $path/output/rp_simulations/*/ | head -1)
 
   echo "Starting response method simulations!"
   if [[ $compare -eq 1 ]]
   then
-    python3 pujol_rp.py $sim_size $run_rm 2 $path
+    python3 pujol_rp.py $sim_size $run_rm 2 $path False
   else
-    python3 pujol_rp.py $sim_size $run_rm 11 $path
+    python3 pujol_rp.py $sim_size $run_rm 11 $path False
   fi
 
   puj_folder=$(ls -td $path/output/rp_simulations/*/ | head -1)
@@ -53,6 +53,8 @@ then
 
   if [ $analysis_only == "y" ]
   then
+
+    read -p "Rerun SourceExtractor? (y/n): " rerun_sextractor
     read -p "Linear fit folder (global): " lf_folder_global
     read -p "Linear fit folder (local): " lf_folder_local
     read -p "Pujol folder: " puj_folder
@@ -69,6 +71,31 @@ then
       ###  Control will jump here if $DIR does NOT exists ###
       echo "Error: ${lf_folder_global} or ${puj_folder} or ${lf_folder_local} not found. Can not continue."
       exit 1
+    fi
+
+    if [ $rerun_sextractor == "y" ]
+    then
+      if [ -d "$lf_folder_global/FITS_org" ] && [ -d "$puj_folder/FITS_org" ] && [ -d "$lf_folder_local/FITS_org" ]; then
+        ### Take action if $DIR exists ###
+        echo "Files found! Continuing"
+      else
+        ###  Control will jump here if $DIR does NOT exists ###
+        echo "Error: ${lf_folder_global}FITS_org or ${puj_folder}FITS_org or ${lf_folder_local}FITS_org not found. Can not continue."
+        exit 1
+      fi
+      echo "Rerunning detection global cancellation simulations!"
+      python3 rp_simulation.py $sim_size $run_lf $path $shear_interval True True $lf_folder_global
+
+      echo "Rerunning detection local cancellation simulations!"
+      python3 rp_simulation.py $sim_size $run_lf $path $shear_interval False True $lf_folder_local
+
+      echo "Rerunning detection response method simulations!"
+      if [[ $compare -eq 1 ]]
+      then
+        python3 pujol_rp.py $sim_size $run_rm 2 $path True $puj_folder
+      else
+        python3 pujol_rp.py $sim_size $run_rm 11 $path True $puj_folder
+      fi
     fi
   fi
 
