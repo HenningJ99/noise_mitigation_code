@@ -96,6 +96,12 @@ for reps in range(REPS):
     print(f"{reps + 1}/{REPS}")
     data_compl = []
 
+    cancels = 1
+    if simulation["cancellation"] == "SHAPE":
+        cancels = 2
+    elif simulation["cancellation"] == "BOTH":
+        cancels = 4
+
     rand_ind = np.random.randint(0, file_number, size=file_number)
     # rand_ind = np.repeat(0, file_number)
 
@@ -106,10 +112,10 @@ for reps in range(REPS):
     for run in range(file_number):
 
         data_compl.append(
-            numpy_data[rand_ind[run] * (mag_bins + 1) * shear_bins * 4:(rand_ind[run] + 1) * (
-                        mag_bins + 1) * shear_bins * 4].reshape(
-                numpy_data[rand_ind[run] * (mag_bins + 1) * shear_bins * 4:(rand_ind[run] + 1) * (
-                            mag_bins + 1) * shear_bins * 4].size, 1))
+            numpy_data[rand_ind[run] * (mag_bins + 1) * shear_bins * cancels:(rand_ind[run] + 1) * (
+                        mag_bins + 1) * shear_bins * cancels].reshape(
+                numpy_data[rand_ind[run] * (mag_bins + 1) * shear_bins * cancels:(rand_ind[run] + 1) * (
+                            mag_bins + 1) * shear_bins * cancels].size, 1))
         data = np.hstack(data_compl)
 
         if run >= int(simulation["skip_first_lf"]):
@@ -122,7 +128,7 @@ for reps in range(REPS):
             magnitudes_list = [min_mag + k * (max_mag - min_mag) / (mag_bins) for k in range(mag_bins + 1)]
 
             # INDIVIDUAL UNCERTAINTIES
-            for j in range(4):
+            for j in range(cancels):
                 for i in range(shear_bins):
                     for mag in range(mag_bins + 1):
                         bootstrap_array = np.take(data_complete["mean_g1"][
@@ -141,183 +147,191 @@ for reps in range(REPS):
                         uncertainties.append(bootstrap_results[0])
                         uncertainties_errors.append(bootstrap_results[1])
 
-            # SHAPE UNCERTAINTY
-            for i in range(shear_bins):
-                for j in range(mag_bins + 1):
-                    try:
-                        shape_noise_av = np.take(
-                            np.average([data_complete["mean_g1"][(data_complete["shear_index"] == i)
-                                                                 & (data_complete["cancel_index"] == 0) & (
-                                                                         data_complete[bin_type] ==
-                                                                         magnitudes_list[j])],
-                                        data_complete["mean_g1"][(data_complete["shear_index"] == i)
-                                                                 & (
-                                                                         data_complete[
-                                                                             "cancel_index"] == 1) & (
-                                                                         data_complete[bin_type] ==
-                                                                         magnitudes_list[j])]], weights=
-                                       [data_complete["weight"][(data_complete["shear_index"] == i)
-                                                                & (data_complete["cancel_index"] == 0) & (
-                                                                        data_complete[bin_type] == magnitudes_list[
-                                                                    j])],
-                                        data_complete["weight"][(data_complete["shear_index"] == i)
-                                                                & (
-                                                                        data_complete["cancel_index"] == 1) & (
-                                                                        data_complete[bin_type] ==
-                                                                        magnitudes_list[j])]], axis=0),
-                            rand_ind[:(run + 1)])
+            if cancels >= 2:
+                # SHAPE UNCERTAINTY
+                for i in range(shear_bins):
+                    for j in range(mag_bins + 1):
+                        try:
+                            shape_noise_av = np.take(
+                                np.average([data_complete["mean_g1"][(data_complete["shear_index"] == i)
+                                                                     & (data_complete["cancel_index"] == 0) & (
+                                                                             data_complete[bin_type] ==
+                                                                             magnitudes_list[j])],
+                                            data_complete["mean_g1"][(data_complete["shear_index"] == i)
+                                                                     & (
+                                                                             data_complete[
+                                                                                 "cancel_index"] == 1) & (
+                                                                             data_complete[bin_type] ==
+                                                                             magnitudes_list[j])]], weights=
+                                           [data_complete["weight"][(data_complete["shear_index"] == i)
+                                                                    & (data_complete["cancel_index"] == 0) & (
+                                                                            data_complete[bin_type] == magnitudes_list[
+                                                                        j])],
+                                            data_complete["weight"][(data_complete["shear_index"] == i)
+                                                                    & (
+                                                                            data_complete["cancel_index"] == 1) & (
+                                                                            data_complete[bin_type] ==
+                                                                            magnitudes_list[j])]], axis=0),
+                                rand_ind[:(run + 1)])
 
-                    except ZeroDivisionError:
-                        shape_noise_av = np.take(
-                            np.average([data_complete["mean_g1"][(data_complete["shear_index"] == i)
-                                                                 & (data_complete["cancel_index"] == 0) & (
-                                                                         data_complete[bin_type] ==
-                                                                         magnitudes_list[j])],
-                                        data_complete["mean_g1"][(data_complete["shear_index"] == i)
-                                                                 & (
-                                                                         data_complete[
-                                                                             "cancel_index"] == 1) & (
-                                                                         data_complete[bin_type] ==
-                                                                         magnitudes_list[j])]], axis=0),
-                            rand_ind[:(run + 1)])
+                        except ZeroDivisionError:
+                            shape_noise_av = np.take(
+                                np.average([data_complete["mean_g1"][(data_complete["shear_index"] == i)
+                                                                     & (data_complete["cancel_index"] == 0) & (
+                                                                             data_complete[bin_type] ==
+                                                                             magnitudes_list[j])],
+                                            data_complete["mean_g1"][(data_complete["shear_index"] == i)
+                                                                     & (
+                                                                             data_complete[
+                                                                                 "cancel_index"] == 1) & (
+                                                                             data_complete[bin_type] ==
+                                                                             magnitudes_list[j])]], axis=0),
+                                rand_ind[:(run + 1)])
 
-                    weights = np.take(np.sum(
-                        [data_complete["weight"][(data_complete["shear_index"] == i)
-                                                 & (data_complete["cancel_index"] == 0) & (
-                                                         data_complete[bin_type] == magnitudes_list[j])],
-                         data_complete["weight"][(data_complete["shear_index"] == i)
-                                                 & (
-                                                         data_complete["cancel_index"] == 1) & (
-                                                         data_complete[bin_type] ==
-                                                         magnitudes_list[j])]], axis=0), rand_ind[:(run + 1)])
+                        weights = np.take(np.sum(
+                            [data_complete["weight"][(data_complete["shear_index"] == i)
+                                                     & (data_complete["cancel_index"] == 0) & (
+                                                             data_complete[bin_type] == magnitudes_list[j])],
+                             data_complete["weight"][(data_complete["shear_index"] == i)
+                                                     & (
+                                                             data_complete["cancel_index"] == 1) & (
+                                                             data_complete[bin_type] ==
+                                                             magnitudes_list[j])]], axis=0), rand_ind[:(run + 1)])
 
-                    try:
-                        shape_noise_all.append(
-                            np.average(shape_noise_av, weights=weights) - float(data_complete["g1"][
-                                (data_complete["shear_index"] == i) & (data_complete["scene_index"] == 0) & (
-                                        data_complete["cancel_index"] == 0) & (
-                                        data_complete[bin_type] == magnitudes_list[j])]))
-                    except ZeroDivisionError:
-                        shape_noise_all.append(0)
+                        try:
+                            shape_noise_all.append(
+                                np.average(shape_noise_av, weights=weights) - float(data_complete["g1"][
+                                    (data_complete["shear_index"] == i) & (data_complete["scene_index"] == 0) & (
+                                            data_complete["cancel_index"] == 0) & (
+                                            data_complete[bin_type] == magnitudes_list[j])]))
+                        except ZeroDivisionError:
+                            shape_noise_all.append(0)
 
-                    bootstrap_results = bootstrap(shape_noise_av, weights, BOOTSTRAP_REPETITIONS)
-                    uncertainties.append(bootstrap_results[0])
-                    uncertainties_errors.append(bootstrap_results[1])
+                        bootstrap_results = bootstrap(shape_noise_av, weights, BOOTSTRAP_REPETITIONS)
+                        uncertainties.append(bootstrap_results[0])
+                        uncertainties_errors.append(bootstrap_results[1])
 
 
+            if cancels == 4:
+                # BOTH UNCERTAINTY
+                for i in range(shear_bins):
+                    for j in range(mag_bins + 1):
+                        try:
+                            both_noise_av = np.take(
+                                np.average([data_complete["mean_g1"][(data_complete["shear_index"] == i)
+                                                                     & (data_complete[
+                                                                            "cancel_index"] == 0) & (
+                                                                             data_complete[bin_type] ==
+                                                                             magnitudes_list[j])],
+                                            data_complete["mean_g1"][(data_complete["shear_index"] == i)
+                                                                     & (
+                                                                             data_complete[
+                                                                                 "cancel_index"] == 1) & (
+                                                                             data_complete[bin_type] ==
+                                                                             magnitudes_list[j])],
+                                            data_complete["mean_g1"][(data_complete["shear_index"] == i)
+                                                                     & (data_complete[
+                                                                            "cancel_index"] == 2) & (
+                                                                             data_complete[bin_type] ==
+                                                                             magnitudes_list[j])],
+                                            data_complete["mean_g1"][(data_complete["shear_index"] == i)
+                                                                     & (
+                                                                             data_complete[
+                                                                                 "cancel_index"] == 3) & (
+                                                                             data_complete[bin_type] ==
+                                                                             magnitudes_list[j])]],
+                                           weights=
+                                           [data_complete["weight"][(data_complete["shear_index"] == i)
+                                                                    & (data_complete[
+                                                                           "cancel_index"] == 0) & (
+                                                                            data_complete[bin_type] ==
+                                                                            magnitudes_list[j])],
+                                            data_complete["weight"][(data_complete["shear_index"] == i)
+                                                                    & (
+                                                                            data_complete[
+                                                                                "cancel_index"] == 1) & (
+                                                                            data_complete[bin_type] ==
+                                                                            magnitudes_list[j])],
+                                            data_complete["weight"][(data_complete["shear_index"] == i)
+                                                                    & (data_complete[
+                                                                           "cancel_index"] == 2) & (
+                                                                            data_complete[bin_type] ==
+                                                                            magnitudes_list[j])],
+                                            data_complete["weight"][(data_complete["shear_index"] == i)
+                                                                    & (
+                                                                            data_complete[
+                                                                                "cancel_index"] == 3) & (
+                                                                            data_complete[bin_type] ==
+                                                                            magnitudes_list[j])]],
+                                           axis=0), rand_ind[:(run + 1)])
+                        except ZeroDivisionError:
+                            both_noise_av = np.take(
+                                np.average([data_complete["mean_g1"][(data_complete["shear_index"] == i)
+                                                                     & (data_complete[
+                                                                            "cancel_index"] == 0) & (
+                                                                             data_complete[bin_type] ==
+                                                                             magnitudes_list[j])],
+                                            data_complete["mean_g1"][(data_complete["shear_index"] == i)
+                                                                     & (
+                                                                             data_complete[
+                                                                                 "cancel_index"] == 1) & (
+                                                                             data_complete[bin_type] ==
+                                                                             magnitudes_list[j])],
+                                            data_complete["mean_g1"][(data_complete["shear_index"] == i)
+                                                                     & (data_complete[
+                                                                            "cancel_index"] == 2) & (
+                                                                             data_complete[bin_type] ==
+                                                                             magnitudes_list[j])],
+                                            data_complete["mean_g1"][(data_complete["shear_index"] == i)
+                                                                     & (
+                                                                             data_complete[
+                                                                                 "cancel_index"] == 3) & (
+                                                                             data_complete[bin_type] ==
+                                                                             magnitudes_list[j])]],
+                                           axis=0), rand_ind[:(run + 1)])
 
-            # BOTH UNCERTAINTY
-            for i in range(shear_bins):
-                for j in range(mag_bins + 1):
-                    try:
-                        both_noise_av = np.take(np.average([data_complete["mean_g1"][(data_complete["shear_index"] == i)
-                                                                                     & (data_complete[
-                                                                                            "cancel_index"] == 0) & (
-                                                                                             data_complete[bin_type] ==
-                                                                                             magnitudes_list[j])],
-                                                            data_complete["mean_g1"][(data_complete["shear_index"] == i)
-                                                                                     & (
-                                                                                             data_complete[
-                                                                                                 "cancel_index"] == 1) & (
-                                                                                             data_complete[bin_type] ==
-                                                                                             magnitudes_list[j])],
-                                                            data_complete["mean_g1"][(data_complete["shear_index"] == i)
-                                                                                     & (data_complete[
-                                                                                            "cancel_index"] == 2) & (
-                                                                                             data_complete[bin_type] ==
-                                                                                             magnitudes_list[j])],
-                                                            data_complete["mean_g1"][(data_complete["shear_index"] == i)
-                                                                                     & (
-                                                                                             data_complete[
-                                                                                                 "cancel_index"] == 3) & (
-                                                                                             data_complete[bin_type] ==
-                                                                                             magnitudes_list[j])]],
-                                                           weights=
-                                                           [data_complete["weight"][(data_complete["shear_index"] == i)
-                                                                                    & (data_complete[
-                                                                                           "cancel_index"] == 0) & (
-                                                                                            data_complete[bin_type] ==
-                                                                                            magnitudes_list[j])],
-                                                            data_complete["weight"][(data_complete["shear_index"] == i)
-                                                                                    & (
-                                                                                            data_complete[
-                                                                                                "cancel_index"] == 1) & (
-                                                                                            data_complete[bin_type] ==
-                                                                                            magnitudes_list[j])],
-                                                            data_complete["weight"][(data_complete["shear_index"] == i)
-                                                                                    & (data_complete[
-                                                                                           "cancel_index"] == 2) & (
-                                                                                            data_complete[bin_type] ==
-                                                                                            magnitudes_list[j])],
-                                                            data_complete["weight"][(data_complete["shear_index"] == i)
-                                                                                    & (
-                                                                                            data_complete[
-                                                                                                "cancel_index"] == 3) & (
-                                                                                            data_complete[bin_type] ==
-                                                                                            magnitudes_list[j])]],
-                                                           axis=0), rand_ind[:(run + 1)])
-                    except ZeroDivisionError:
-                        both_noise_av = np.take(np.average([data_complete["mean_g1"][(data_complete["shear_index"] == i)
-                                                                                     & (data_complete[
-                                                                                            "cancel_index"] == 0) & (
-                                                                                             data_complete[bin_type] ==
-                                                                                             magnitudes_list[j])],
-                                                            data_complete["mean_g1"][(data_complete["shear_index"] == i)
-                                                                                     & (
-                                                                                             data_complete[
-                                                                                                 "cancel_index"] == 1) & (
-                                                                                             data_complete[bin_type] ==
-                                                                                             magnitudes_list[j])],
-                                                            data_complete["mean_g1"][(data_complete["shear_index"] == i)
-                                                                                     & (data_complete[
-                                                                                            "cancel_index"] == 2) & (
-                                                                                             data_complete[bin_type] ==
-                                                                                             magnitudes_list[j])],
-                                                            data_complete["mean_g1"][(data_complete["shear_index"] == i)
-                                                                                     & (
-                                                                                             data_complete[
-                                                                                                 "cancel_index"] == 3) & (
-                                                                                             data_complete[bin_type] ==
-                                                                                             magnitudes_list[j])]],
-                                                           axis=0), rand_ind[:(run + 1)])
+                        weights = np.take(np.sum(
+                            [data_complete["weight"][(data_complete["shear_index"] == i)
+                                                     & (data_complete["cancel_index"] == 0) & (
+                                                             data_complete[bin_type] == magnitudes_list[j])],
+                             data_complete["weight"][(data_complete["shear_index"] == i)
+                                                     & (
+                                                             data_complete["cancel_index"] == 1) & (
+                                                             data_complete[bin_type] ==
+                                                             magnitudes_list[j])],
+                             data_complete["weight"][(data_complete["shear_index"] == i)
+                                                     & (data_complete["cancel_index"] == 2) & (
+                                                             data_complete[bin_type] == magnitudes_list[j])],
+                             data_complete["weight"][(data_complete["shear_index"] == i)
+                                                     & (
+                                                             data_complete["cancel_index"] == 3) & (
+                                                             data_complete[bin_type] ==
+                                                             magnitudes_list[j])]], axis=0), rand_ind[:(run + 1)])
 
-                    weights = np.take(np.sum(
-                        [data_complete["weight"][(data_complete["shear_index"] == i)
-                                                 & (data_complete["cancel_index"] == 0) & (
-                                                         data_complete[bin_type] == magnitudes_list[j])],
-                         data_complete["weight"][(data_complete["shear_index"] == i)
-                                                 & (
-                                                         data_complete["cancel_index"] == 1) & (
-                                                         data_complete[bin_type] ==
-                                                         magnitudes_list[j])],
-                         data_complete["weight"][(data_complete["shear_index"] == i)
-                                                 & (data_complete["cancel_index"] == 2) & (
-                                                         data_complete[bin_type] == magnitudes_list[j])],
-                         data_complete["weight"][(data_complete["shear_index"] == i)
-                                                 & (
-                                                         data_complete["cancel_index"] == 3) & (
-                                                         data_complete[bin_type] ==
-                                                         magnitudes_list[j])]], axis=0), rand_ind[:(run + 1)])
+                        try:
+                            both_noise_all.append(
+                                np.average(both_noise_av, weights=weights) - float(data_complete["g1"][
+                                    (data_complete["shear_index"] == i) & (data_complete["scene_index"] == 0) & (
+                                            data_complete["cancel_index"] == 0) & (
+                                            data_complete[bin_type] == magnitudes_list[j])]))
+                        except ZeroDivisionError:
+                            both_noise_all.append(0)
 
-                    try:
-                        both_noise_all.append(
-                            np.average(both_noise_av, weights=weights) - float(data_complete["g1"][
-                                (data_complete["shear_index"] == i) & (data_complete["scene_index"] == 0) & (
-                                        data_complete["cancel_index"] == 0) & (
-                                        data_complete[bin_type] == magnitudes_list[j])]))
-                    except ZeroDivisionError:
-                        both_noise_all.append(0)
-
-                    bootstrap_results = bootstrap(both_noise_av, weights, BOOTSTRAP_REPETITIONS)
-                    uncertainties.append(bootstrap_results[0])
-                    uncertainties_errors.append(bootstrap_results[1])
+                        bootstrap_results = bootstrap(both_noise_av, weights, BOOTSTRAP_REPETITIONS)
+                        uncertainties.append(bootstrap_results[0])
+                        uncertainties_errors.append(bootstrap_results[1])
 
             uncertainties = np.array(uncertainties)
             uncertainties_errors = np.array(uncertainties_errors)
             bootstrapping += timeit.default_timer() - start_bootstrap
+
+            # Summarize the runs to one input against output shear plot
+            # Note that the data array is flattened and horizontally stacked here
             new_data = []
 
             weights = data[3]
+
+            # Going row by row here
             for i in range(len(data)):
                 if (i - 3) % 5 == 0:
                     try:
@@ -337,22 +351,25 @@ for reps in range(REPS):
                 data = data_run[m::(mag_bins + 1)]
                 # print(data.reshape(-1, 100))
 
-                shape_noise = np.array(shape_noise_all[m::(mag_bins + 1)]).flatten()
-                both_noise = np.array(both_noise_all[m::(mag_bins + 1)]).flatten()
+                if cancels >= 2:
+                    shape_noise = np.array(shape_noise_all[m::(mag_bins + 1)]).flatten()
+                    shape_noise_err = np.array(
+                        uncertainties[(mag_bins + 1) * 4 * shear_bins:(mag_bins + 1) * 5 * shear_bins][
+                        m::(mag_bins + 1)])
+                    shape_noise_err_err = np.array(
+                        uncertainties_errors[(mag_bins + 1) * 4 * shear_bins:(mag_bins + 1) * 5 * shear_bins][
+                        m::(mag_bins + 1)])
+                if cancels == 4:
+                    both_noise = np.array(both_noise_all[m::(mag_bins + 1)]).flatten()
 
-                shape_noise_err = np.array(
-                    uncertainties[(mag_bins + 1) * 4 * shear_bins:(mag_bins + 1) * 5 * shear_bins][
-                    m::(mag_bins + 1)])
-                both_noise_err = np.array(
-                    uncertainties[(mag_bins + 1) * 5 * shear_bins:(mag_bins + 1) * 6 * shear_bins][
-                    m::(mag_bins + 1)])
+                    both_noise_err = np.array(
+                        uncertainties[(mag_bins + 1) * 5 * shear_bins:(mag_bins + 1) * 6 * shear_bins][
+                        m::(mag_bins + 1)])
 
-                shape_noise_err_err = np.array(
-                    uncertainties_errors[(mag_bins + 1) * 4 * shear_bins:(mag_bins + 1) * 5 * shear_bins][
-                    m::(mag_bins + 1)])
-                both_noise_err_err = np.array(
-                    uncertainties_errors[(mag_bins + 1) * 5 * shear_bins:(mag_bins + 1) * 6 * shear_bins][
-                    m::(mag_bins + 1)])
+
+                    both_noise_err_err = np.array(
+                        uncertainties_errors[(mag_bins + 1) * 5 * shear_bins:(mag_bins + 1) * 6 * shear_bins][
+                        m::(mag_bins + 1)])
 
                 if reps == REPS - 1:
                     mm = 1 / 25.4  # millimeter in inches
@@ -431,7 +448,8 @@ for reps in range(REPS):
                     chisq = np.sum((r / data[:, 2][i * shear_bins:(i + 1) * shear_bins][filter] ** 2))
                     chisq_red = chisq / (len(r) - 2)
                     if reps == REPS - 1:
-                        ax.plot(data[:, 0][0:shear_bins], linear_function(data[:, 0][0:shear_bins], *popt), color="C0")
+                        ax.plot(data[:, 0][0:shear_bins], linear_function(data[:, 0][0:shear_bins], *popt),
+                                color="C0")
 
                 else:
 
@@ -440,113 +458,120 @@ for reps in range(REPS):
                                 shear_bins * galaxy_num * (run + 1) * (1 + noise_plus_meas)
                                 + shear_bins * (run + 1) * scene_creation, magnitudes_list[m], 0.0, 0.0])
 
-                # SHAPE NOISE FITS
-                if len(np.where((shape_noise_err != -1) & (shape_noise_err != 0))[0]) > 3:
-                    popt, pcov = curve_fit(linear_function,
-                                           data[:, 0][0:shear_bins][(shape_noise_err != 0) & (shape_noise_err != -1)],
-                                           shape_noise[(shape_noise_err != -1) & (shape_noise_err != 0)],
-                                           sigma=shape_noise_err[(shape_noise_err != -1) & (shape_noise_err != 0)],
-                                           absolute_sigma=True)
+                if cancels >=2:
+                    # SHAPE NOISE FITS
+                    if len(np.where((shape_noise_err != -1) & (shape_noise_err != 0))[0]) > 3:
+                        popt, pcov = curve_fit(linear_function,
+                                               data[:, 0][0:shear_bins][(shape_noise_err != 0) & (shape_noise_err != -1)],
+                                               shape_noise[(shape_noise_err != -1) & (shape_noise_err != 0)],
+                                               sigma=shape_noise_err[(shape_noise_err != -1) & (shape_noise_err != 0)],
+                                               absolute_sigma=True)
 
-                    error = np.sqrt(np.diag(pcov))
-                    errors_m[1][run][m].append(error[0])
-                    errors_c[1][run][m].append(error[1])
-                    popt_plus, pcov_plus = curve_fit(linear_function,
-                                                     data[:, 0][0:shear_bins][
-                                                         (shape_noise_err != 0) & (shape_noise_err != -1)],
-                                                     shape_noise[(shape_noise_err != -1) & (shape_noise_err != 0)],
-                                                     sigma=shape_noise_err[
-                                                               (shape_noise_err != -1) & (shape_noise_err != 0)] +
-                                                           shape_noise_err_err[
-                                                               (shape_noise_err != -1) & (shape_noise_err != 0)],
-                                                     absolute_sigma=True)
+                        error = np.sqrt(np.diag(pcov))
+                        errors_m[1][run][m].append(error[0])
+                        errors_c[1][run][m].append(error[1])
+                        popt_plus, pcov_plus = curve_fit(linear_function,
+                                                         data[:, 0][0:shear_bins][
+                                                             (shape_noise_err != 0) & (shape_noise_err != -1)],
+                                                         shape_noise[(shape_noise_err != -1) & (shape_noise_err != 0)],
+                                                         sigma=shape_noise_err[
+                                                                   (shape_noise_err != -1) & (shape_noise_err != 0)] +
+                                                               shape_noise_err_err[
+                                                                   (shape_noise_err != -1) & (shape_noise_err != 0)],
+                                                         absolute_sigma=True)
 
-                    error_plus = np.sqrt(np.diag(pcov_plus))
+                        error_plus = np.sqrt(np.diag(pcov_plus))
 
-                    popt_minus, pcov_minus = curve_fit(linear_function, data[:, 0][0:shear_bins][
-                        (shape_noise_err != 0) & (shape_noise_err != -1)],
-                                                       shape_noise[(shape_noise_err != -1) & (shape_noise_err != 0)],
-                                                       sigma=shape_noise_err[
-                                                                 (shape_noise_err != -1) & (shape_noise_err != 0)] -
-                                                             shape_noise_err_err[
-                                                                 (shape_noise_err != -1) & (shape_noise_err != 0)],
-                                                       absolute_sigma=True)
+                        popt_minus, pcov_minus = curve_fit(linear_function, data[:, 0][0:shear_bins][
+                            (shape_noise_err != 0) & (shape_noise_err != -1)],
+                                                           shape_noise[(shape_noise_err != -1) & (shape_noise_err != 0)],
+                                                           sigma=shape_noise_err[
+                                                                     (shape_noise_err != -1) & (shape_noise_err != 0)] -
+                                                                 shape_noise_err_err[
+                                                                     (shape_noise_err != -1) & (shape_noise_err != 0)],
+                                                           absolute_sigma=True)
 
-                    error_minus = np.sqrt(np.diag(pcov_minus))
+                        error_minus = np.sqrt(np.diag(pcov_minus))
 
-                    if reps == REPS - 1:
-                        ax.errorbar(data[:, 0][0:shear_bins][(shape_noise_err != 0) & (shape_noise_err != -1)] + 0.0004,
-                                    shape_noise[(shape_noise_err != -1) & (shape_noise_err != 0)],
-                                    shape_noise_err[(shape_noise_err != -1) & (shape_noise_err != 0)], fmt="+",
-                                    capsize=2,
-                                    label="shape", color="C1")
-                        ax.plot(data[:, 0][0:shear_bins], linear_function(data[:, 0][0:shear_bins], *popt), color="C1")
-
-
-
-                    columns.append([1, sim_size, galaxy_num, run,
-                                popt[0], error[0], popt[1], error[1],
-                                shear_bins * galaxy_num * (run + 1) * (2 + 2 * noise_plus_meas)
-                                + (run + 1) * shear_bins * 2 * scene_creation, magnitudes_list[m],
-                                np.std(errors_m[1][run][m]), np.std(errors_c[1][run][m])])
-                else:
-
-                    columns.append([1, sim_size, galaxy_num, run,
-                                1, 1, 1, 1,
-                                shear_bins * galaxy_num * (run + 1) * (2 + 2 * noise_plus_meas)
-                                + (run + 1) * shear_bins * 2 * scene_creation, magnitudes_list[m], 0.0, 0.0])
-
-                # BOTH NOISE FITS
-                if len(np.where((both_noise_err != -1) & (both_noise_err != 0))[0]) > 3:
-                    popt, pcov = curve_fit(linear_function,
-                                           data[:, 0][0:shear_bins][(both_noise_err != 0) & (both_noise_err != -1)],
-                                           both_noise[(both_noise_err != -1) & (both_noise_err != 0)],
-                                           sigma=both_noise_err[(both_noise_err != -1) & (both_noise_err != 0)],
-                                           absolute_sigma=True)
-
-                    error = np.sqrt(np.diag(pcov))
-                    errors_m[2][run][m].append(error[0])
-                    errors_c[2][run][m].append(error[1])
-                    popt_plus, pcov_plus = curve_fit(linear_function,
-                                                     data[:, 0][0:shear_bins][
-                                                         (both_noise_err != 0) & (both_noise_err != -1)],
-                                                     both_noise[(both_noise_err != -1) & (both_noise_err != 0)],
-                                                     sigma=both_noise_err[(both_noise_err != -1) & (
-                                                             both_noise_err != 0)] + both_noise_err_err[
-                                                               (both_noise_err != -1) & (both_noise_err != 0)],
-                                                     absolute_sigma=True)
-
-                    error_plus = np.sqrt(np.diag(pcov_plus))
-
-                    popt_minus, pcov_minus = curve_fit(linear_function,
-                                                       data[:, 0][0:shear_bins][
-                                                           (both_noise_err != 0) & (both_noise_err != -1)],
-                                                       both_noise[(both_noise_err != -1) & (both_noise_err != 0)],
-                                                       sigma=both_noise_err[(both_noise_err != -1) & (
-                                                               both_noise_err != 0)] - both_noise_err_err[
-                                                                 (both_noise_err != -1) & (both_noise_err != 0)],
-                                                       absolute_sigma=True)
-
-                    error_minus = np.sqrt(np.diag(pcov_minus))
-                    if reps == REPS - 1:
-                        ax.errorbar(data[:, 0][0:shear_bins][(both_noise_err != 0) & (both_noise_err != -1)] + 0.0008,
-                                    both_noise[(both_noise_err != -1) & (both_noise_err != 0)],
-                                    both_noise_err[(both_noise_err != -1) & (both_noise_err != 0)], fmt="+", capsize=2,
-                                    label="both", color="C2")
-                        ax.plot(data[:, 0][0:shear_bins], linear_function(data[:, 0][0:shear_bins], *popt), color="C2")
+                        if reps == REPS - 1:
+                            ax.errorbar(data[:, 0][0:shear_bins]
+                                        [(shape_noise_err != 0) & (shape_noise_err != -1)] + 0.0004,
+                                        shape_noise[(shape_noise_err != -1) & (shape_noise_err != 0)],
+                                        shape_noise_err[(shape_noise_err != -1) & (shape_noise_err != 0)], fmt="+",
+                                        capsize=2,
+                                        label="shape", color="C1")
+                            ax.plot(data[:, 0][0:shear_bins], linear_function(data[:, 0][0:shear_bins], *popt),
+                                    color="C1")
 
 
 
-                    columns.append([2, sim_size, galaxy_num, run,
-                                popt[0], error[0], popt[1], error[1],
-                                shear_bins * galaxy_num * (run + 1) * (2 + 4 * noise_plus_meas)
-                                + (run + 1) * shear_bins * scene_creation * 4, magnitudes_list[m],
-                                np.std(errors_m[2][run][m]), np.std(errors_c[2][run][m])])
-                else:
+                        columns.append([1, sim_size, galaxy_num, run,
+                                    popt[0], error[0], popt[1], error[1],
+                                    shear_bins * galaxy_num * (run + 1) * (2 + 2 * noise_plus_meas)
+                                    + (run + 1) * shear_bins * 2 * scene_creation, magnitudes_list[m],
+                                    np.std(errors_m[1][run][m]), np.std(errors_c[1][run][m])])
+                    else:
 
-                    columns.append([2, sim_size, galaxy_num, run,
-                                1, 1, 1, 1, shear_bins * galaxy_num * (run + 1) * (2 + 4 * noise_plus_meas)
-                                + (run + 1) * shear_bins * scene_creation * 4, magnitudes_list[m], 0.0, 0.0])
+                        columns.append([1, sim_size, galaxy_num, run,
+                                    1, 1, 1, 1,
+                                    shear_bins * galaxy_num * (run + 1) * (2 + 2 * noise_plus_meas)
+                                    + (run + 1) * shear_bins * 2 * scene_creation, magnitudes_list[m], 0.0, 0.0])
+
+                if cancels == 4:
+                    # BOTH NOISE FITS
+                    if len(np.where((both_noise_err != -1) & (both_noise_err != 0))[0]) > 3:
+                        popt, pcov = curve_fit(linear_function,
+                                               data[:, 0][0:shear_bins][(both_noise_err != 0) & (both_noise_err != -1)],
+                                               both_noise[(both_noise_err != -1) & (both_noise_err != 0)],
+                                               sigma=both_noise_err[(both_noise_err != -1) & (both_noise_err != 0)],
+                                               absolute_sigma=True)
+
+                        error = np.sqrt(np.diag(pcov))
+                        errors_m[2][run][m].append(error[0])
+                        errors_c[2][run][m].append(error[1])
+                        popt_plus, pcov_plus = curve_fit(linear_function,
+                                                         data[:, 0][0:shear_bins][
+                                                             (both_noise_err != 0) & (both_noise_err != -1)],
+                                                         both_noise[(both_noise_err != -1) & (both_noise_err != 0)],
+                                                         sigma=both_noise_err[(both_noise_err != -1) & (
+                                                                 both_noise_err != 0)] + both_noise_err_err[
+                                                                   (both_noise_err != -1) & (both_noise_err != 0)],
+                                                         absolute_sigma=True)
+
+                        error_plus = np.sqrt(np.diag(pcov_plus))
+
+                        popt_minus, pcov_minus = curve_fit(linear_function,
+                                                           data[:, 0][0:shear_bins][
+                                                               (both_noise_err != 0) & (both_noise_err != -1)],
+                                                           both_noise[(both_noise_err != -1) & (both_noise_err != 0)],
+                                                           sigma=both_noise_err[(both_noise_err != -1) & (
+                                                                   both_noise_err != 0)] - both_noise_err_err[
+                                                                     (both_noise_err != -1) & (both_noise_err != 0)],
+                                                           absolute_sigma=True)
+
+                        error_minus = np.sqrt(np.diag(pcov_minus))
+                        if reps == REPS - 1:
+                            ax.errorbar(data[:, 0][0:shear_bins]
+                                        [(both_noise_err != 0) & (both_noise_err != -1)] + 0.0008,
+                                        both_noise[(both_noise_err != -1) & (both_noise_err != 0)],
+                                        both_noise_err[(both_noise_err != -1) & (both_noise_err != 0)], fmt="+",
+                                        capsize=2,
+                                        label="both", color="C2")
+                            ax.plot(data[:, 0][0:shear_bins], linear_function(data[:, 0][0:shear_bins], *popt),
+                                    color="C2")
+
+
+
+                        columns.append([2, sim_size, galaxy_num, run,
+                                    popt[0], error[0], popt[1], error[1],
+                                    shear_bins * galaxy_num * (run + 1) * (2 + 4 * noise_plus_meas)
+                                    + (run + 1) * shear_bins * scene_creation * 4, magnitudes_list[m],
+                                    np.std(errors_m[2][run][m]), np.std(errors_c[2][run][m])])
+                    else:
+
+                        columns.append([2, sim_size, galaxy_num, run,
+                                    1, 1, 1, 1, shear_bins * galaxy_num * (run + 1) * (2 + 4 * noise_plus_meas)
+                                    + (run + 1) * shear_bins * scene_creation * 4, magnitudes_list[m], 0.0, 0.0])
 
                 if reps == REPS - 1:
                     ax.legend()
@@ -563,9 +588,10 @@ for reps in range(REPS):
 
 columns = np.array(columns, dtype=float)
 fit_results = Table([columns[:, i] for i in range(12)], names=('cancellation_index', 'sim_size', 'galaxy_num',
-                                                                 'scene_index', 'm_bias', 'm_bias_err', 'c_bias', 'c_bias_err',
-                                                                 'theo_runtime', 'magnitude_bin', 'm_bias_err_err',
-                                                                 'c_bias_err_err'))
+                                                               'scene_index', 'm_bias', 'm_bias_err', 'c_bias',
+                                                               'c_bias_err',
+                                                               'theo_runtime', 'magnitude_bin', 'm_bias_err_err',
+                                                               'c_bias_err_err'))
 
 ascii.write(fit_results, subfolder + 'fits_analysis.dat',
             overwrite=True)

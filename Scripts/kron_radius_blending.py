@@ -4,11 +4,14 @@ from astropy.table import Table, vstack, hstack, Column
 from shapely.geometry.polygon import LinearRing
 import scipy.spatial
 import sys
+import configparser
+
 
 def do_kdtree(combined_x_y_arrays, points, k=1):
     mytree = scipy.spatial.cKDTree(combined_x_y_arrays)
     # dist, indexes = mytree.query(points, k)
     return mytree.query(points, k=k)
+
 
 def ellipse_polyline(ellipses, n=100):
     t = np.linspace(0, 2*np.pi, n, endpoint=False)
@@ -25,6 +28,7 @@ def ellipse_polyline(ellipses, n=100):
         result.append(p)
     return result
 
+
 def intersections(a, b):
     ea = LinearRing(a)
     eb = LinearRing(b)
@@ -34,6 +38,7 @@ def intersections(a, b):
     y = [p.y for p in mp.geoms]
     return x, y
 
+
 path = sys.argv[1]
 scenes = int(sys.argv[2])
 shears = int(sys.argv[3])
@@ -41,16 +46,25 @@ method = sys.argv[4]
 
 catalog = ascii.read(path + "/shear_catalog.dat")
 
+config = configparser.ConfigParser()
+config.read('config_rp.ini')
+
+simulation = config['SIMULATION']
 if "kron_blend" not in catalog.colnames:
     for i in range(scenes):
         for j in range(shears):
             if method == "LF":
-                cancel = 4
+                cancel = 1
+                if simulation["cancellation"] == "SHAPE":
+                    cancel = 2
+                elif simulation["cancellation"] == "BOTH":
+                    cancel = 4
             else:
                 cancel = 1
             for k in range(cancel):
                 if method == "LF":
-                    catalog_cut = catalog[(catalog["scene_index"] == i) & (catalog["shear_index"] == j) & (catalog["cancel_index"] == k)]
+                    catalog_cut = catalog[(catalog["scene_index"] == i) & (catalog["shear_index"] == j) &
+                                          (catalog["cancel_index"] == k)]
                 else:
                     catalog_cut = catalog[
                         (catalog["scene_index"] == i) & (catalog["shear_index"] == j)]
@@ -61,7 +75,8 @@ if "kron_blend" not in catalog.colnames:
                 for l in range(len(catalog_cut)):
                     ellipses = [(catalog_cut["position_x"][l], catalog_cut["position_y"][l],
                                  catalog_cut["a_image"][l] * catalog_cut["kron_radius"][l],
-                                 catalog_cut["b_image"][l] * catalog_cut["kron_radius"][l], catalog_cut["elongation"][l]),
+                                 catalog_cut["b_image"][l] * catalog_cut["kron_radius"][l],
+                                 catalog_cut["elongation"][l]),
                                 (catalog_cut["position_x"][ind[l]], catalog_cut["position_y"][ind[l]],
                                  catalog_cut["a_image"][ind[l]] * catalog_cut["kron_radius"][ind[l]],
                                  catalog_cut["b_image"][ind[l]] * catalog_cut["kron_radius"][ind[l]],
@@ -74,7 +89,8 @@ if "kron_blend" not in catalog.colnames:
 
                     except AttributeError:
                         connection_vector = np.array([catalog_cut["position_x"][l] - catalog_cut["position_x"][ind[l]],
-                                                      catalog_cut["position_y"][l] - catalog_cut["position_y"][ind[l]]]).reshape(2)
+                                                      catalog_cut["position_y"][l] -
+                                                      catalog_cut["position_y"][ind[l]]]).reshape(2)
 
                         ellip1a = np.array([catalog_cut["a_image"][l] * catalog_cut["kron_radius"][l]
                                             * np.cos(catalog_cut["elongation"][l] * np.pi / 180),

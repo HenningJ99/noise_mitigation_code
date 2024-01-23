@@ -69,8 +69,8 @@ data_complete = ascii.read(subfolder + 'shear_catalog.dat', fast_reader={'chunk_
 # SN CUT
 data_complete = data_complete[data_complete["S/N"] > float(simulation["sn_cut"])]
 
-print(
-    f"Outlier with shears larger 5 in percent: {100 * len(data_complete['meas_g1'][(data_complete['meas_g1'] >= 5) | (data_complete['meas_g1'] <= -5)]) / len(data_complete['meas_g1']):.5f}")
+print(f"Outlier with shears larger 5 in percent: "
+      f"{100 * len(data_complete['meas_g1'][(data_complete['meas_g1'] >= 5) | (data_complete['meas_g1'] <= -5)]) / len(data_complete['meas_g1']):.5f}")
 # Outliers
 data_complete = data_complete[(data_complete["meas_g1"] < 5) & (data_complete["meas_g1"] > -5)]
 
@@ -100,7 +100,14 @@ columns = []
 for scene in range(total_scenes_per_shear):
     index = 0
     print(f"{scene + 1} / {total_scenes_per_shear}")
-    for j in range(4):
+
+    cancels = 1
+    if simulation["cancellation"] == "SHAPE":
+        cancels = 2
+    elif simulation["cancellation"] == "BOTH":
+        cancels = 4
+
+    for j in range(cancels):
         for i in range(shear_bins):
             for mag in range(mag_bins + 1):
                 if mag == mag_bins:
@@ -168,7 +175,7 @@ for scene in range(total_scenes_per_shear):
                                     weight, magnitudes_list[mag], blending_fraction, blending_fraction_kron])
 
                 else:
-                    ind = scene * shear_bins * 4 + j * shear_bins + i
+                    ind = scene * shear_bins * cancels + j * shear_bins + i
 
                     columns.append([g1, i, scene, j, meas_means_full[ind], meas_std_full[ind],
                                     lengths_full[ind], magnitudes_list[mag], blending_fraction, blending_fraction_kron])
@@ -177,7 +184,8 @@ for scene in range(total_scenes_per_shear):
 
 columns = np.array(columns, dtype=float)
 lf_results = Table([columns[:, i] for i in range(10)],
-                   names=('g1', 'shear_index', 'scene_index', 'cancel_index', 'mean_g1', 'std_g1', 'weight', bin_type, 'blending_fraction', 'blending_kron'))
+                   names=('g1', 'shear_index', 'scene_index', 'cancel_index', 'mean_g1', 'std_g1', 'weight', bin_type,
+                          'blending_fraction', 'blending_kron'))
 lf_results = lf_results.group_by('scene_index')
 
 ascii.write(lf_results, subfolder + 'analysis.dat',

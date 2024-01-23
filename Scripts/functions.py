@@ -2827,7 +2827,13 @@ def one_scene_lf_input(m, scene, argv, config, path, ra_min=None, dec_min=None, 
             redshifts.append(flagship_cut["observed_redshift_gal"][i])
             theo_sn = res[1]
 
-            for k in range(4):
+            cancels = 1
+            if simulation["cancellation"] == "SHAPE":
+                cancels = 2
+            elif simulation["cancellation"] == "BOTH":
+                cancels = 4
+
+            for k in range(cancels):
 
                 if k % 2 != 0:
                     columns.append([scene, m, k, positions_2[i, 0],

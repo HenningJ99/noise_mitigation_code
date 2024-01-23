@@ -342,24 +342,28 @@ if sys.argv[6] == "False":
                                         path, psf_ref, 0, index_fits, seed1, gal_list[scene * shear_bins + m],
                                         positions[scene * shear_bins + m], positions_2[scene * shear_bins + m],
                                         grid_x[grid_counter], grid_y[grid_counter]))
-            ids.append(
-                fct.one_scene_lf.remote(m, scene,
-                                        argv_ref, config_ref,
-                                        path, psf_ref, 1, index_fits, seed2, gal_list[scene * shear_bins + m],
-                                        positions[scene * shear_bins + m], positions_2[scene * shear_bins + m],
-                                        grid_x[grid_counter], grid_y[grid_counter]))
-            ids.append(
-                fct.one_scene_lf.remote(m, scene,
-                                        argv_ref, config_ref,
-                                        path, psf_ref, 2, index_fits, seed1, gal_list[scene * shear_bins + m],
-                                        positions[scene * shear_bins + m], positions_2[scene * shear_bins + m],
-                                        grid_x[grid_counter], grid_y[grid_counter]))
-            ids.append(
-                fct.one_scene_lf.remote(m, scene,
-                                        argv_ref, config_ref,
-                                        path, psf_ref, 3, index_fits, seed2, gal_list[scene * shear_bins + m],
-                                        positions[scene * shear_bins + m], positions_2[scene * shear_bins + m],
-                                        grid_x[grid_counter], grid_y[grid_counter]))
+
+            if simulation["cancellation"] == "SHAPE" or simulation["cancellation"] == "BOTH":
+                ids.append(
+                    fct.one_scene_lf.remote(m, scene,
+                                            argv_ref, config_ref,
+                                            path, psf_ref, 1, index_fits, seed2, gal_list[scene * shear_bins + m],
+                                            positions[scene * shear_bins + m], positions_2[scene * shear_bins + m],
+                                            grid_x[grid_counter], grid_y[grid_counter]))
+
+            if simulation["cancellation"] == "BOTH":
+                ids.append(
+                    fct.one_scene_lf.remote(m, scene,
+                                            argv_ref, config_ref,
+                                            path, psf_ref, 2, index_fits, seed1, gal_list[scene * shear_bins + m],
+                                            positions[scene * shear_bins + m], positions_2[scene * shear_bins + m],
+                                            grid_x[grid_counter], grid_y[grid_counter]))
+                ids.append(
+                    fct.one_scene_lf.remote(m, scene,
+                                            argv_ref, config_ref,
+                                            path, psf_ref, 3, index_fits, seed2, gal_list[scene * shear_bins + m],
+                                            positions[scene * shear_bins + m], positions_2[scene * shear_bins + m],
+                                            grid_x[grid_counter], grid_y[grid_counter]))
 
             grid_counter += 1
 
@@ -399,18 +403,22 @@ else:
                 fct.one_scene_lf.remote(m, scene,
                                         argv_ref, config_ref,
                                         path, psf_ref, 0, index_fits, seed1))
-            ids.append(
-                fct.one_scene_lf.remote(m, scene,
-                                        argv_ref, config_ref,
-                                        path, psf_ref, 1, index_fits, seed2))
-            ids.append(
-                fct.one_scene_lf.remote(m, scene,
-                                        argv_ref, config_ref,
-                                        path, psf_ref, 2, index_fits, seed1))
-            ids.append(
-                fct.one_scene_lf.remote(m, scene,
-                                        argv_ref, config_ref,
-                                        path, psf_ref, 3, index_fits, seed2))
+
+            if simulation["cancellation"] == "SHAPE" or simulation["cancellation"] == "BOTH":
+                ids.append(
+                    fct.one_scene_lf.remote(m, scene,
+                                            argv_ref, config_ref,
+                                            path, psf_ref, 1, index_fits, seed2))
+
+            if simulation["cancellation"] == "BOTH":
+                ids.append(
+                    fct.one_scene_lf.remote(m, scene,
+                                            argv_ref, config_ref,
+                                            path, psf_ref, 2, index_fits, seed1))
+                ids.append(
+                    fct.one_scene_lf.remote(m, scene,
+                                            argv_ref, config_ref,
+                                            path, psf_ref, 3, index_fits, seed2))
 
             grid_counter += 1
 
