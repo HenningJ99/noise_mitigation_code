@@ -17,11 +17,12 @@ from scipy import stats
 import pyvinecopulib as pv
 import matplotlib.pyplot as plt
 import seaborn as sns
+import pickle
 
 try:
     import ksb_distort as ksb_h
     ksb_henk_avai = True
-except:
+except ImportError:
     print("Request KSB code from Henk Hoekstra")
     ksb_henk_avai = False
 
@@ -32,7 +33,7 @@ try:
     from lensmc.psf import PSF
     from lensmc.utils import LensMCError
     lens_mc_avai = True
-except:
+except ImportError:
     print("LensMC not found")
     lens_mc_avai = False
 
@@ -191,12 +192,10 @@ def bootstrap_puyol_grid_galaxy(array_1, array_2, n, shear_diff):
     bootstrap_samples = np.take(array_1, indices, axis=0).reshape(n, -1)
     bootstrap_samples_2 = np.take(array_2, indices, axis=0).reshape(n, -1)
 
-    error = np.std((np.mean(bootstrap_samples, axis=1, where=bootstrap_samples != 0) - np.mean(bootstrap_samples_2,
-                                                                                               axis=1,
-                                                                                               where=bootstrap_samples_2 != 0)) / shear_diff - 1)
-    mean = np.mean((np.mean(bootstrap_samples, axis=1, where=bootstrap_samples != 0) - np.mean(bootstrap_samples_2,
-                                                                                               axis=1,
-                                                                                               where=bootstrap_samples_2 != 0)) / shear_diff - 1)
+    error = np.std((np.mean(bootstrap_samples, axis=1, where=bootstrap_samples != 0) -
+                    np.mean(bootstrap_samples_2, axis=1, where=bootstrap_samples_2 != 0)) / shear_diff - 1)
+    mean = np.mean((np.mean(bootstrap_samples, axis=1, where=bootstrap_samples != 0) -
+                    np.mean(bootstrap_samples_2, axis=1, where=bootstrap_samples_2 != 0)) / shear_diff - 1)
 
     return mean, error
 
@@ -211,7 +210,8 @@ def generate_bootstrap_samples(meas_g1, per_worker, shear_diff, num_shears):
     samples = []
     samples_c = []
     for _ in range(per_worker):
-        # Generate indices with a step size of 2 times the number of different shears, since always 2 galaxies are related.
+        # Generate indices with a step size of 2 times the number of different shears, since always 2 galaxies
+        # are related.
         indices = np.random.choice(np.arange(0, len(meas_g1), 2 * num_shears),
                                    size=(int(len(meas_g1) / (2 * num_shears))))
 
@@ -489,7 +489,6 @@ def worker(k, ellip_gal, psf, image_sampled_psf, config, argv, input_shear):
     average_num = int(argv[2])
 
     sky_level = pixel_scale ** 2 * exp_time / gain * 10 ** (-0.4 * (sky - zp))
-    row = 0
 
     timings = [[], [], []]
 
@@ -646,8 +645,8 @@ def worker(k, ellip_gal, psf, image_sampled_psf, config, argv, input_shear):
                 pixels = sub_gal_image.array.copy()
 
                 # Define the edge of the stamp to measure the sky background there
-                edge = list(pixels[0]) + list([i[-1] for i in pixels[1:-1]]) + list(reversed(pixels[-1])) + \
-                       list(reversed([i[0] for i in pixels[1:-1]]))
+                edge = (list(pixels[0]) + list([i[-1] for i in pixels[1:-1]]) +
+                        list(reversed(pixels[-1])) + list(reversed([i[0] for i in pixels[1:-1]])))
 
                 sigma_sky = 1.4826 * np.median(np.abs(edge - np.median(edge)))
 
@@ -656,8 +655,6 @@ def worker(k, ellip_gal, psf, image_sampled_psf, config, argv, input_shear):
                         try:
                             ksb_par = ksb_h.ksb_moments(subsampled_image.array, sigw=3)
 
-                            e1_raw = round(ksb_par['e1'], 4)
-                            e2_raw = round(ksb_par['e2'], 4)
                             e1_cor = round(ksb_par['e1'] - ksb_par['Psm11'] * (psf_par['e1'] / psf_par['Psm11']), 4)
                             e2_cor = round(ksb_par['e2'] - ksb_par['Psm22'] * (psf_par['e2'] / psf_par['Psm22']), 4)
                             pg1 = round(ksb_par['Psh11'] - ksb_par['Psm11'] * (psf_par['Psh11'] / psf_par['Psm11']), 4)
@@ -702,9 +699,6 @@ def worker(k, ellip_gal, psf, image_sampled_psf, config, argv, input_shear):
                 gal_mag_inp = -2.5 * np.log10(gain / exp_time * ellip_gal.original.flux) + zp  # Input magnitude
                 if adamflux > 0:
                     meas_mag[iy][ix] = -2.5 * np.log10(gain / exp_time * adamflux) + zp  # Measured magnitude
-
-                gal_hlr = ellip_gal.original.half_light_radius
-
 
             elif shear_meas == "LENSMC":
                 if not lens_mc_avai:
@@ -758,8 +752,6 @@ def worker(k, ellip_gal, psf, image_sampled_psf, config, argv, input_shear):
                 gal_mag_inp = -2.5 * np.log10(gain / exp_time * ellip_gal.original.flux) + zp  # Input magnitude
                 if results.flux > 0:
                     meas_mag[iy][ix] = -2.5 * np.log10(gain / exp_time * results.flux) + zp  # Measured magnitude
-
-                gal_hlr = ellip_gal.original.half_light_radius
 
     # Flatten the measurement array in the end to make the analysis.
     meas_g1 = np.concatenate(meas_g1)
@@ -817,8 +809,6 @@ def one_galaxy(k, input_g1, ellip_gal, image_sampled_psf, psf, config, argv):
 
     shift_radius = float(image['shift_radius'])
 
-    SN_cut = float(simulation['SN_cut'])
-
     noise_repetitions = int(argv[2])  # int(simulation['noise_repetition'])
 
     # Calculate sky level
@@ -852,7 +842,7 @@ def one_galaxy(k, input_g1, ellip_gal, image_sampled_psf, psf, config, argv):
 
     R_11 = []
     alpha = []
-    SNR = []
+
     # create the overall image
     gal_image = galsim.ImageF(stamp_xsize * num_shears - 1, stamp_ysize * noise_repetitions - 1,
                               scale=pixel_scale)
@@ -861,10 +851,6 @@ def one_galaxy(k, input_g1, ellip_gal, image_sampled_psf, psf, config, argv):
         psf_par = ksb_h.ksb_moments(image_sampled_psf.array, xc=None, yc=None, sigw=3*5)
         psf_par['Psm11'] = 25. * psf_par['Psm11']
         psf_par['Psm22'] = 25. * psf_par['Psm22']
-
-    count = 0
-
-    # meas = [[0 for _ in range(num_shears - 1)] for _ in range(2)]
 
     ''' This is the main loop building the images and measuring them. The outer loop handles the noise repetitions, 
     while the inner loop treats the 2 or 11 images of the same galaxy with different shear '''
@@ -995,8 +981,8 @@ def one_galaxy(k, input_g1, ellip_gal, image_sampled_psf, psf, config, argv):
 
                 pixels = sub_gal_image.array.copy()
 
-                edge = list(pixels[0]) + list([i[-1] for i in pixels[1:-1]]) + list(reversed(pixels[-1])) + \
-                       list(reversed([i[0] for i in pixels[1:-1]]))
+                edge = (list(pixels[0]) + list([i[-1] for i in pixels[1:-1]]) +
+                        list(reversed(pixels[-1])) + list(reversed([i[0] for i in pixels[1:-1]])))
 
                 sigma_sky = 1.4826 * np.median(np.abs(edge - np.median(edge)))
 
@@ -1060,7 +1046,6 @@ def one_galaxy(k, input_g1, ellip_gal, image_sampled_psf, psf, config, argv):
                     gal_mag_meas = -2.5 * np.log10(gain / exp_time * adamflux) + zp  # Measured magnitude
                 else:
                     gal_mag_meas = -1
-
 
             elif shear_meas == "LENSMC":
                 if not lens_mc_avai:
@@ -1210,8 +1195,6 @@ def one_galaxy_whole_matrix(k, input_g1, ellip_gal, image_sampled_psf, psf, conf
     else:
         shears_g1 = [-0.1 + 0.2 / (num_shears - 1) * k for k in range(num_shears)]
 
-    R_11 = []
-    alpha = []
     SNR = []
     # create the overall image
     gal_image = galsim.ImageF(stamp_xsize * num_shears - 1, stamp_ysize * noise_repetitions - 1,
@@ -1352,8 +1335,8 @@ def one_galaxy_whole_matrix(k, input_g1, ellip_gal, image_sampled_psf, psf, conf
 
                 pixels = sub_gal_image.array.copy()
 
-                edge = list(pixels[0]) + list([i[-1] for i in pixels[1:-1]]) + list(reversed(pixels[-1])) + \
-                       list(reversed([i[0] for i in pixels[1:-1]]))
+                edge = (list(pixels[0]) + list([i[-1] for i in pixels[1:-1]]) +
+                        list(reversed(pixels[-1])) + list(reversed([i[0] for i in pixels[1:-1]])))
 
                 sigma_sky = 1.4826 * np.median(np.abs(edge - np.median(edge)))
 
@@ -1368,7 +1351,7 @@ def one_galaxy_whole_matrix(k, input_g1, ellip_gal, image_sampled_psf, psf, conf
                     signal_to_noise = adamflux / np.sqrt(
                         np.pi * (3 * adamsigma * np.sqrt(2 * np.log(2))) ** 2 * sigma_sky ** 2)
 
-                if signal_to_noise >= SN_cut and results.corrected_g1 > -20 and results.corrected_g1 < 20:
+                if signal_to_noise >= SN_cut and -20 < results.corrected_g1 < 20:
                     meas_g1[i] = results.corrected_g1
                     meas_g2[i] = results.corrected_g2
 
@@ -1414,7 +1397,7 @@ def one_scene_pujol(m, total_scene_count, argv, config, path, psf, num_shears, i
     dec_min_org = float(image["dec_min"])
 
     if argv[5] == "False":
-        # ------------------------ Create the stamps ---------------------------------------------------------------------
+        # ------------------------ Create the stamps -------------------------------------------------------------------
         stamps = []
         for i in range(len(positions)):
             x = positions[i][0]
@@ -1469,7 +1452,7 @@ def one_scene_pujol(m, total_scene_count, argv, config, path, psf, num_shears, i
 
             stamps.append(stamp)
 
-        # -------------------------------- Create the scene --------------------------------------------------------------
+        # -------------------------------- Create the scene ------------------------------------------------------------
         # Calculate sky level
         sky_level = pixel_scale ** 2 * exp_time / gain * 10 ** (-0.4 * (sky - zp))
 
@@ -1488,30 +1471,6 @@ def one_scene_pujol(m, total_scene_count, argv, config, path, psf, num_shears, i
 
             # Add this to the corresponding location in the large image.
             image_none[bounds] += stamps[i][bounds]
-
-        # if simulation.getboolean("source_extractor_morph"):
-        #     # Add stars
-        #     n_stars = 15 #int(2 / 3 * complete_image_size ** 2 * pixel_scale ** 2 / 3600)
-        #     positions = complete_image_size * np.random.random_sample((n_stars, 2))
-        #
-        #     with open(path + f"output/source_extractor/star_positions_{total_scene_count}_{m}.txt",
-        #               "w") as file:
-        #         for i in range(n_stars):
-        #             file.write("%.4f %.4f\n" % (positions[i][0], positions[i][1]))
-        #
-        #     for i in range(n_stars):
-        #         try:
-        #             psf_stamp = psf.withFlux(exp_time / gain * 10 ** (-0.4 * (np.random.random() * 3 + 24 - zp))).drawImage(
-        #                 center=positions[i], nx=stamp_xsize, ny=stamp_ysize, scale=pixel_scale)
-        #         except GalSimFFTSizeError:
-        #             continue
-        #
-        #         psf_stamp = galsim.Image(np.abs(psf_stamp.array.copy()),
-        #                                  bounds=psf_stamp.bounds)  # Avoid slightly negative values after FFT
-        #
-        #         bounds = psf_stamp.bounds & image_none.bounds
-        #
-        #         image_none[bounds] += psf_stamp[bounds]
 
         # Ensure the same seed for the versions belonging to one run
         rng = galsim.UniformDeviate(random_seed + 1 + 2 * total_scene_count)
@@ -1535,7 +1494,8 @@ def one_scene_pujol(m, total_scene_count, argv, config, path, psf, num_shears, i
 
         if simulation.getboolean("source_extractor_morph"):
             com = "source-extractor -c default.sex " + image + " -CATALOG_NAME " + output + \
-                  " -PARAMETERS_NAME sersic.param -PSF_NAME " + SOURCE_EXTRACTOR_DIR + "/euclid.psf -CATALOG_TYPE ASCII" + \
+                  " -PARAMETERS_NAME sersic.param -PSF_NAME " + SOURCE_EXTRACTOR_DIR + \
+                  "/euclid.psf -CATALOG_TYPE ASCII" + \
                   " -CHECKIMAGE_TYPE SEGMENTATION -CHECKIMAGE_NAME " + f"seg_{total_scene_count}_{m}.fits"
 
             os.system(com)
@@ -1544,8 +1504,8 @@ def one_scene_pujol(m, total_scene_count, argv, config, path, psf, num_shears, i
 
         else:
             com = "source-extractor " + image + " -c " + SOURCE_EXTRACTOR_DIR + "/default.sex" + \
-                  " -CATALOG_NAME " + output + " -CHECKIMAGE_TYPE SEGMENTATION -CHECKIMAGE_NAME " + f"seg_{total_scene_count}_{m}.fits"
-
+                  " -CATALOG_NAME " + output + " -CHECKIMAGE_TYPE SEGMENTATION -CHECKIMAGE_NAME " + \
+                  f"seg_{total_scene_count}_{m}.fits"
 
         res = os.system(com)
 
@@ -1627,9 +1587,8 @@ def one_scene_pujol(m, total_scene_count, argv, config, path, psf, num_shears, i
     signal_to_noises = []
     magnitudes = []
 
-    edge = list(gal_image.array[0]) + list([i[-1] for i in gal_image.array[1:-1]]) + list(
-        reversed(gal_image.array[-1])) + \
-           list(reversed([i[0] for i in gal_image.array[1:-1]]))
+    edge = (list(gal_image.array[0]) + list([i[-1] for i in gal_image.array[1:-1]]) +
+            list(reversed(gal_image.array[-1])) + list(reversed([i[0] for i in gal_image.array[1:-1]])))
 
     sigma_sky = 1.4826 * np.median(np.abs(edge - np.median(edge)))
 
@@ -1710,7 +1669,6 @@ def one_scene_pujol(m, total_scene_count, argv, config, path, psf, num_shears, i
         ra_cen = data[:, 9][filter]
         dec_cen = data[:, 10][filter]
 
-
         lens_mc_image = Image(gal_image.array, wcs=wcs, seg=seg_map.array)
         lens_mc_psf = PSF(image_sampled_psf.array)
 
@@ -1721,7 +1679,7 @@ def one_scene_pujol(m, total_scene_count, argv, config, path, psf, num_shears, i
         for i, id in enumerate(ids):
             try:
                 results = measure_shear(image=lens_mc_image, id_=int(id), ra=ra_cen[i], dec=dec_cen[i], psf=lens_mc_psf,
-                                    working_arrays=working_arrays, return_model=False, postage_stamp=384)
+                                        working_arrays=working_arrays, return_model=False, postage_stamp=384)
                 snr = results.snr
                 flux = results.flux
                 e1 = results.e1
@@ -1736,7 +1694,6 @@ def one_scene_pujol(m, total_scene_count, argv, config, path, psf, num_shears, i
             signal_to_noises.append(signal_to_noise)
             measures.append(e1)
 
-
             if bin_type == "MAG_ADAMOM":
                 magnitudes.append(mag_adamom)
             else:
@@ -1749,11 +1706,11 @@ def one_scene_pujol(m, total_scene_count, argv, config, path, psf, num_shears, i
 
     if simulation.getboolean("source_extractor_morph"):
         return (meas, np.dstack((x_cen, y_cen))[0], m, total_scene_count, magnitudes, signal_to_noises, sersic_index,
-                effective_radius, ellipticity_sextractor, class_star, aspect_ratio, flag, kron_radius, a_image, b_image, elongation)
+                effective_radius, ellipticity_sextractor, class_star, aspect_ratio, flag, kron_radius,
+                a_image, b_image, elongation)
     else:
         return meas, np.dstack((x_cen, y_cen))[
             0], m, total_scene_count, magnitudes, signal_to_noises, flag, kron_radius, a_image, b_image, elongation
-
 
 
 def SimpleCanvas(RA_min, RA_max, DEC_min, DEC_max, pixel_scale, edge_sep=1.5, rotate=False, image_size=4000):
@@ -1761,13 +1718,13 @@ def SimpleCanvas(RA_min, RA_max, DEC_min, DEC_max, pixel_scale, edge_sep=1.5, ro
     Build a simple canvas
     """
 
-    ## center used as reference point
+    # center used as reference point
     RA0 = (RA_min + RA_max) / 2.
     DEC0 = (DEC_min + DEC_max) / 2.
 
     # decide bounds
-    xmax = image_size #(RA_max - RA_min) * 3600. / pixel_scale + 2. * edge_sep / pixel_scale  # edge_sep in both sides to avoid edge effects
-    ymax = image_size #(DEC_max - DEC_min) * 3600. / pixel_scale + 2. * edge_sep / pixel_scale
+    xmax = image_size
+    ymax = image_size
 
     if math.ceil(xmax) % 2 == 0:
         xmax += 1
@@ -1813,10 +1770,7 @@ def one_scene_lf(m, scene, argv, config, path, psf, index, index_fits, seed, gal
     image = config['IMAGE']
     simulation = config['SIMULATION']
 
-    timings = []
-
     complete_image_size = int(argv[1])
-    total_scenes = int(argv[2])
 
     gain = float(image['gain'])
     read_noise = float(image['read_noise'])
@@ -1837,11 +1791,8 @@ def one_scene_lf(m, scene, argv, config, path, psf, index, index_fits, seed, gal
 
     dec_min_org = float(image["dec_min"])
 
-    rng = galsim.UniformDeviate()
-    rng1 = rng.duplicate()
-
     if argv[6] == "False":
-        # ------------------------------- Create the stamps ---------------------------------------------------------------
+        # ------------------------------- Create the stamps ------------------------------------------------------------
         stamp = []
 
         for i in range(len(positions)):
@@ -1901,16 +1852,16 @@ def one_scene_lf(m, scene, argv, config, path, psf, index, index_fits, seed, gal
                     stamp_rotated = rotated_final.drawImage(center=image_pos_2, nx=stamp_xsize, ny=stamp_ysize,
                                                             scale=pixel_scale)
                 except GalSimFFTSizeError:
-                    with open(path + f"output/failed_ffts.txt",
-                              "w") as file:
-                        file.write(f"{gal[i].original.half_light_radius}\t{gal[i].original.flux}\t{gal[i].original.n}\n")
+                    with open(path + f"output/failed_ffts.txt", "w") as file:
+                        file.write(f"{gal[i].original.half_light_radius}\t{gal[i].original.flux}\t"
+                                   f"{gal[i].original.n}\n")
                     continue
 
                 stamp_rotated = galsim.Image(np.abs(stamp_rotated.array.copy()), bounds=stamp_rotated.bounds)
 
                 stamp.append(stamp_rotated)
 
-        # -------------------------------- Create the scenes -------------------------------------------------------------
+        # -------------------------------- Create the scenes ----------------------------------------------------------
         print(index, m, scene, index_fits)
 
         rng = galsim.UniformDeviate(seed)
@@ -1926,32 +1877,10 @@ def one_scene_lf(m, scene, argv, config, path, psf, index, index_fits, seed, gal
         dec_max = dec_min + angular_size
 
         image, wcs = SimpleCanvas(ra_min, ra_max, dec_min, dec_max, pixel_scale,
-                                  rotate=True if index % 2 != 0 and argv[5] == "True" else False, image_size=complete_image_size)
-        # if simulation.getboolean("source_extractor_morph"):
-        #     # Add stars
-        #     n_stars = 15 #int(2 / 3 * complete_image_size ** 2 * pixel_scale ** 2 / 3600)
-        #     positions = complete_image_size * np.random.random_sample((n_stars, 2))
-        #
-        #     with open(path + f"output/source_extractor/star_positions_{scene}_{m}_{index}.txt",
-        #               "w") as file:
-        #         for i in range(n_stars):
-        #             file.write("%.4f %.4f\n" % (positions[i][0], positions[i][1]))
-        #
-        #     for i in range(n_stars):
-        #         try:
-        #             psf_stamp = psf.withFlux(exp_time / gain * 10 ** (-0.4 * (np.random.random() * 3 + 24 - zp))).drawImage(
-        #                 center=positions[i], nx=stamp_xsize, ny=stamp_ysize, scale=pixel_scale)
-        #         except GalSimFFTSizeError:
-        #             continue
-        #
-        #         psf_stamp = galsim.Image(np.abs(psf_stamp.array.copy()),
-        #                                  bounds=psf_stamp.bounds)  # Avoid slightly negative values after FFT
-        #
-        #         bounds = psf_stamp.bounds & image.bounds
-        #
-        #         image[bounds] += psf_stamp[bounds]
+                                  rotate=True if index % 2 != 0 and argv[5] == "True" else False,
+                                  image_size=complete_image_size)
 
-        # ----------------------------- ANALYSE THE CATALOGS --------------------------------------------------------------
+        # ----------------------------- ANALYSE THE CATALOGS -----------------------------------------------------------
 
         for i in range(len(stamp)):
             # Find the overlapping bounds between the large image and the individual stamp.
@@ -1973,7 +1902,8 @@ def one_scene_lf(m, scene, argv, config, path, psf, index, index_fits, seed, gal
 
         if simulation.getboolean("source_extractor_morph"):
             com = "source-extractor -c default.sex " + image + " -CATALOG_NAME " + output + \
-                  " -PARAMETERS_NAME sersic.param -PSF_NAME " + SOURCE_EXTRACTOR_DIR + "/euclid.psf -CATALOG_TYPE ASCII" + \
+                  " -PARAMETERS_NAME sersic.param -PSF_NAME " + SOURCE_EXTRACTOR_DIR + \
+                  "/euclid.psf -CATALOG_TYPE ASCII" + \
                   " -CHECKIMAGE_TYPE SEGMENTATION -CHECKIMAGE_NAME " + f"seg_{scene}_{m}_{index}.fits"
 
             os.system(com)
@@ -1981,7 +1911,8 @@ def one_scene_lf(m, scene, argv, config, path, psf, index, index_fits, seed, gal
             os.system(f"rm star_positions_{scene}_{m}_{index}.txt")
         else:
             com = "source-extractor " + image + " -c " + SOURCE_EXTRACTOR_DIR + "/default.sex" + \
-                  " -CATALOG_NAME " + output + " -CHECKIMAGE_TYPE SEGMENTATION -CHECKIMAGE_NAME " + f"seg_{scene}_{m}_{index}.fits"
+                  " -CATALOG_NAME " + output + " -CHECKIMAGE_TYPE SEGMENTATION -CHECKIMAGE_NAME " + \
+                  f"seg_{scene}_{m}_{index}.fits"
 
         res = os.system(com)
 
@@ -1991,7 +1922,6 @@ def one_scene_lf(m, scene, argv, config, path, psf, index, index_fits, seed, gal
         IMAGE_DIRECTORY = path + f"output/FITS{index_fits}/catalog_" + f"{scene}_{m}_{index}.fits"
     else:
         IMAGE_DIRECTORY = argv[7] + f"/FITS_org/catalog_{scene}_{m}_{index}.fits"
-
 
     sex(IMAGE_DIRECTORY, SOURCE_EXTRACTOR_DIR + f"/{index_fits}/" + f"{scene}_{m}_{index}.cat")
 
@@ -2025,13 +1955,12 @@ def one_scene_lf(m, scene, argv, config, path, psf, index, index_fits, seed, gal
 
     data = np.genfromtxt(path + f"output/source_extractor/{index_fits}/" + f"{scene}_{m}_{index}.cat")
 
+    # elements_to_remove = seg_map.array[~filter]  # [3, 4, 7]
 
-    #elements_to_remove = seg_map.array[~filter]  # [3, 4, 7]
-
-    #mask = np.isin(seg_map, elements_to_remove)
+    # mask = np.isin(seg_map, elements_to_remove)
 
     # Set the pixels with specified IDs to 0
-    #seg_map.array[mask] = 0
+    # seg_map.array[mask] = 0
 
     if simulation.getboolean("source_extractor_morph"):
         class_star = data[:, 25]
@@ -2079,9 +2008,8 @@ def one_scene_lf(m, scene, argv, config, path, psf, index, index_fits, seed, gal
     magnitudes = []
     signal_to_noises = []
 
-    edge = list(gal_image.array[0]) + list([i[-1] for i in gal_image.array[1:-1]]) + list(
-        reversed(gal_image.array[-1])) + \
-           list(reversed([i[0] for i in gal_image.array[1:-1]]))
+    edge = (list(gal_image.array[0]) + list([i[-1] for i in gal_image.array[1:-1]]) +
+            list(reversed(gal_image.array[-1])) + list(reversed([i[0] for i in gal_image.array[1:-1]])))
 
     sigma_sky = 1.4826 * np.median(np.abs(edge - np.median(edge)))
     if simulation["shear_meas"] == "KSB" or simulation["shear_meas"] == "KSB_HENK":
@@ -2112,8 +2040,6 @@ def one_scene_lf(m, scene, argv, config, path, psf, index, index_fits, seed, gal
                     try:
                         ksb_par = ksb_h.ksb_moments(subsampled_image.array, sigw=3)
 
-                        e1_raw = round(ksb_par['e1'], 4)
-                        e2_raw = round(ksb_par['e2'], 4)
                         e1_cor = round(ksb_par['e1'] - ksb_par['Psm11'] * (psf_par['e1'] / psf_par['Psm11']), 4)
                         e2_cor = round(ksb_par['e2'] - ksb_par['Psm22'] * (psf_par['e2'] / psf_par['Psm22']), 4)
                         pg1 = round(ksb_par['Psh11'] - ksb_par['Psm11'] * (psf_par['Psh11'] / psf_par['Psm11']), 4)
@@ -2146,7 +2072,6 @@ def one_scene_lf(m, scene, argv, config, path, psf, index, index_fits, seed, gal
             else:
                 magnitudes.append(mag_auto[i])
 
-
     elif simulation["shear_meas"] == "LENSMC":
         if not lens_mc_avai:
             raise Exception("LensMC is not available on this machine")
@@ -2155,7 +2080,6 @@ def one_scene_lf(m, scene, argv, config, path, psf, index, index_fits, seed, gal
                                      (data[:, 8] > cut_size) & (data[:, 8] < complete_image_size - cut_size))]
         dec_cen = data[:, 10][np.where((data[:, 7] > cut_size) & (data[:, 7] < complete_image_size - cut_size) &
                                        (data[:, 8] > cut_size) & (data[:, 8] < complete_image_size - cut_size))]
-
 
         lens_mc_image = Image(gal_image.array, wcs=wcs, seg=seg_map.array)
         lens_mc_psf = PSF(image_sampled_psf.array)
@@ -2167,7 +2091,7 @@ def one_scene_lf(m, scene, argv, config, path, psf, index, index_fits, seed, gal
         for i, id in enumerate(ids):
             try:
                 results = measure_shear(image=lens_mc_image, id_=int(id), ra=ra_cen[i], dec=dec_cen[i], psf=lens_mc_psf,
-                                    working_arrays=working_arrays, return_model=False, postage_stamp=384)
+                                        working_arrays=working_arrays, return_model=False, postage_stamp=384)
                 snr = results.snr
                 flux = results.flux
                 e1 = results.e1
@@ -2197,13 +2121,14 @@ def one_scene_lf(m, scene, argv, config, path, psf, index, index_fits, seed, gal
     if simulation.getboolean("source_extractor_morph"):
         measurements.append(
             [g1, np.average(measures), error_specific, len(measures), m, scene, np.dstack((x_cen, y_cen))[0],
-             measures, magnitudes, signal_to_noises, index, sersic_index, effective_radius, ellipticity_sextractor, class_star, aspect_image,
-             np.dstack((ra_cen, dec_cen))[0], flag, kron_radius, a_image, b_image, elongation])
+             measures, magnitudes, signal_to_noises, index, sersic_index, effective_radius, ellipticity_sextractor,
+             class_star, aspect_image, np.dstack((ra_cen, dec_cen))[0], flag, kron_radius, a_image,
+             b_image, elongation])
     else:
         measurements.append(
             [g1, np.average(measures), error_specific, len(measures), m, scene, np.dstack((x_cen, y_cen))[0],
-             measures, magnitudes, signal_to_noises, index, np.dstack((ra_cen, dec_cen))[0], flag, kron_radius, a_image, b_image,
-             elongation])
+             measures, magnitudes, signal_to_noises, index, np.dstack((ra_cen, dec_cen))[0], flag, kron_radius,
+             a_image, b_image, elongation])
 
     os.system(f"rm {SOURCE_EXTRACTOR_DIR}/seg_{scene}_{m}_{index}.fits")
     return measurements
@@ -2377,18 +2302,12 @@ def one_shear_analysis(m, config, argv, meas_comp, meas_weights, meas_comp_bs, m
     simulation = config["SIMULATION"]
     mag_bins = int(simulation["bins_mag"])
     BOOTSTRAP_REPETITIONS = int(simulation["bootstrap_repetitions"])
-    columns = []
 
     shear_min = -float(argv[5])
     shear_max = float(argv[5])
 
     object_number = int(argv[1])
     average_num = int(argv[2])
-
-    if simulation["bin_type"] == "GEMS":
-        bin_type = "mag_input"
-    elif simulation["bin_type"] == "MEAS":
-        bin_type = "mag_meas"
 
     if index == "shear_index_g1":
         shear = "g1"
@@ -2433,15 +2352,14 @@ def one_shear_analysis(m, config, argv, meas_comp, meas_weights, meas_comp_bs, m
                                     (meas_comp[index] == m) & (meas_comp["binned_time"] <= i) & (
                                             meas_comp["binned_mag"] > lower_lim) & (
                                             meas_comp["binned_mag"] < upper_lim)].data)
-                bootstrap_res = bootstrap_new(meas_comp_bs["meas_" + shear][(meas_comp_bs[index] == m) & (
-                        meas_comp_bs["binned_time"] <= i) & (meas_comp_bs["binned_mag"] > lower_lim) & (
-                                                                                    meas_comp_bs[
-                                                                                        "binned_mag"] < upper_lim)].data,
-                                              meas_weights_bs["meas_" + shear][(meas_comp_bs[index] == m) & (
-                                                      meas_comp_bs["binned_time"] <= i) & (meas_comp_bs[
-                                                                                               "binned_mag"] > lower_lim) & (
-                                                                                       meas_comp_bs[
-                                                                                           "binned_mag"] < upper_lim)].data,
+                bootstrap_res = bootstrap_new(meas_comp_bs["meas_" + shear]
+                                              [(meas_comp_bs[index] == m) & (meas_comp_bs["binned_time"] <= i) &
+                                               (meas_comp_bs["binned_mag"] > lower_lim) &
+                                               (meas_comp_bs["binned_mag"] < upper_lim)].data,
+                                              meas_weights_bs["meas_" + shear]
+                                              [(meas_comp_bs[index] == m) & (meas_comp_bs["binned_time"] <= i) &
+                                               (meas_comp_bs["binned_mag"] > lower_lim) &
+                                               (meas_comp_bs["binned_mag"] < upper_lim)].data,
                                               BOOTSTRAP_REPETITIONS)
 
                 err_mod = bootstrap_res[0]
@@ -2456,16 +2374,14 @@ def one_shear_analysis(m, config, argv, meas_comp, meas_weights, meas_comp_bs, m
                             meas_comp["binned_mag"] > lower_lim) & (
                             meas_comp["binned_mag"] < upper_lim)].data)  # np.average(array_g1["meas_g1"])
 
-                bootstrap_res = bootstrap_new(meas_comp_bs["meas_" + shear + "_sel"][(meas_comp_bs[index] == m) & (
-                        meas_comp_bs["binned_time"] <= i) & (meas_comp_bs["binned_mag"] > lower_lim) & (
-                                                                                             meas_comp_bs[
-                                                                                                 "binned_mag"] < upper_lim)].data,
-                                              meas_weights_bs["meas_" + shear + "_sel"][(meas_comp_bs[index] == m) & (
-                                                      meas_comp_bs["binned_time"] <= i) & (meas_comp_bs[
-                                                                                               "binned_mag"] > lower_lim) & (
-                                                                                                meas_comp_bs[
-                                                                                                    "binned_mag"] < upper_lim)].data,
-                                              BOOTSTRAP_REPETITIONS)
+                bootstrap_res = bootstrap_new(meas_comp_bs["meas_" + shear + "_sel"]
+                                              [(meas_comp_bs[index] == m) & (meas_comp_bs["binned_time"] <= i) &
+                                               (meas_comp_bs["binned_mag"] > lower_lim) &
+                                               (meas_comp_bs["binned_mag"] < upper_lim)].data,
+                                              meas_weights_bs["meas_" + shear + "_sel"]
+                                              [(meas_comp_bs[index] == m) & (meas_comp_bs["binned_time"] <= i) &
+                                               (meas_comp_bs["binned_mag"] > lower_lim) &
+                                               (meas_comp_bs["binned_mag"] < upper_lim)].data, BOOTSTRAP_REPETITIONS)
 
                 err_sel = bootstrap_res[0]
                 err_sel_err = bootstrap_res[1]
@@ -2484,7 +2400,7 @@ def generate_gal_from_flagship(flagship_cut, betas, exp_time, gain, zp, pixel_sc
     if flagship_cut['dominant_shape'][index] == 0:
         n_gal = flagship_cut['bulge_nsersic'][index]
         re_gal = flagship_cut['bulge_r50'][index]
-        ### sersic profile
+        # sersic profile
         # allowed sersic index range
         if (n_gal < 0.3) or (n_gal > 6.2):
             # print(f'Warning...........n_gal {n_gal} outrange of ({SERSIC_N_MIN}, {SERSIC_N_MAX})!')
@@ -2496,19 +2412,19 @@ def generate_gal_from_flagship(flagship_cut, betas, exp_time, gain, zp, pixel_sc
             q_gal = float(np.where(q_gal < 0.05, 0.05, 1.0))
             # print(f'...........assign {q_gal} for now!')
 
-        galaxy = galsim.Sersic(n=n_gal, half_light_radius=re_gal * np.sqrt(q_gal), flux=gal_flux, trunc=5 * re_gal * np.sqrt(q_gal),
-                               flux_untruncated=True)
+        galaxy = galsim.Sersic(n=n_gal, half_light_radius=re_gal * np.sqrt(q_gal), flux=gal_flux,
+                               trunc=5 * re_gal * np.sqrt(q_gal), flux_untruncated=True)
         # intrinsic ellipticity
         galaxy = galaxy.shear(q=q_gal, beta=betas)
 
-        theo_sn = exp_time * 10 ** (-0.4 * (-2.5 * np.log10(flagship_cut["euclid_vis"][index]) - 48.6 - zp)) / \
-                  np.sqrt((exp_time * 10 ** (-0.4 * (-2.5 * np.log10(flagship_cut["euclid_vis"][index]) - 48.6 - zp)) +
-                           sky_level * gain * math.pi * (
-                                       3 * flagship_cut["bulge_r50"][index] * np.sqrt(q_gal) / pixel_scale) ** 2 +
-                           (read_noise ** 2 + (gain / 2) ** 2) * math.pi * (
-                                   3 * flagship_cut["bulge_r50"][index] * np.sqrt(q_gal) / pixel_scale) ** 2))
+        theo_sn = (exp_time * 10 ** (-0.4 * (-2.5 * np.log10(flagship_cut["euclid_vis"][index]) - 48.6 - zp)) /
+                   np.sqrt((exp_time * 10 ** (-0.4 * (-2.5 * np.log10(flagship_cut["euclid_vis"][index]) - 48.6 - zp)) +
+                           sky_level * gain * math.pi * (3 * flagship_cut["bulge_r50"][index] *
+                                                         np.sqrt(q_gal) / pixel_scale) ** 2 +
+                            (read_noise ** 2 + (gain / 2) ** 2) * math.pi *
+                            (3 * flagship_cut["bulge_r50"][index] * np.sqrt(q_gal) / pixel_scale) ** 2)))
     else:
-        ### bulge + disk
+        # bulge + disk
         # bulge
         bulge_fraction = flagship_cut['bulge_fraction'][index]
         bulge_n = flagship_cut['bulge_nsersic'][index]
@@ -2516,7 +2432,7 @@ def generate_gal_from_flagship(flagship_cut, betas, exp_time, gain, zp, pixel_sc
         if (bulge_q < 0.05) or (bulge_q > 1.0):
             bulge_q = float(np.where(bulge_q < 0.05, 0.05, 1.0))
         bulge_Re = flagship_cut['bulge_r50'][index]
-        if (abs(bulge_n - 4.) < 1e-2):
+        if abs(bulge_n - 4.) < 1e-2:
             bulge_gal = galsim.DeVaucouleurs(half_light_radius=bulge_Re * np.sqrt(bulge_q), flux=1.0,
                                              trunc=5 * bulge_Re * np.sqrt(bulge_q), flux_untruncated=True)
         else:
@@ -2540,11 +2456,12 @@ def generate_gal_from_flagship(flagship_cut, betas, exp_time, gain, zp, pixel_sc
         else:
             galaxy = gal_flux * bulge_gal
 
-        theo_sn = exp_time * 10 ** (-0.4 * (-2.5 * np.log10(flagship_cut["euclid_vis"][index]) - 48.6 - zp)) / \
-                  np.sqrt((exp_time * 10 ** (-0.4 * (-2.5 * np.log10(flagship_cut["euclid_vis"][index]) - 48.6 - zp)) +
-                           sky_level * gain * math.pi * (3 * flagship_cut["bulge_r50"][index] * np.sqrt(bulge_q) / pixel_scale) ** 2 +
-                           (read_noise ** 2 + (gain / 2) ** 2) * math.pi * (
-                                   3 * flagship_cut["bulge_r50"][index] * np.sqrt(bulge_q) / pixel_scale) ** 2))
+        theo_sn = (exp_time * 10 ** (-0.4 * (-2.5 * np.log10(flagship_cut["euclid_vis"][index]) - 48.6 - zp)) /
+                   np.sqrt((exp_time * 10 ** (-0.4 * (-2.5 * np.log10(flagship_cut["euclid_vis"][index]) - 48.6 - zp)) +
+                           sky_level * gain * math.pi * (3 * flagship_cut["bulge_r50"][index] * np.sqrt(bulge_q) /
+                                                         pixel_scale) ** 2 +
+                            (read_noise ** 2 + (gain / 2) ** 2) * math.pi *
+                            (3 * flagship_cut["bulge_r50"][index] * np.sqrt(bulge_q) / pixel_scale) ** 2)))
 
     return galaxy, theo_sn, magnitude
 
@@ -2564,20 +2481,20 @@ def generate_gal_from_goods(flagship_cut, betas, exp_time, gain, zp, pixel_scale
     randoms = np.random.random(3)
 
     for i in range(1, 4):
-        inv_trans = np.quantile(X[:, i], cop.inverse_rosenblatt([[mag_trans, randoms[0], randoms[1], randoms[2], red_trans]])[:, i])[0]
+        inv_trans = np.quantile(X[:, i], cop.inverse_rosenblatt([[mag_trans, randoms[0], randoms[1],
+                                                                  randoms[2], red_trans]])[:, i])[0]
         morphology.append(inv_trans)
-
 
     n_gal = morphology[0]
     re_gal = morphology[1] * 0.03
     gal_flux = exp_time / gain * 10 ** (-0.4 * (magnitude - zp))
-    ### sersic profile
+    # sersic profile
     # allowed sersic index range
     if (n_gal < 0.3) or (n_gal > 6.2):
         # print(f'Warning...........n_gal {n_gal} outrange of ({SERSIC_N_MIN}, {SERSIC_N_MAX})!')
         n_gal = float(np.where(n_gal < 0.3, 0.3, 6.2))
         # print(f'...........assign {n_gal} for now!')
-    q_gal = morphology[2] #flagship_cut['bulge_axis_ratio'][index]
+    q_gal = morphology[2]  # flagship_cut['bulge_axis_ratio'][index]
 
     if (q_gal < 0.05) or (q_gal > 1.0):
         # print(f"Warning...........q_gal {q_gal} outrange of ({Q_MIN}, {Q_MAX})!")
@@ -2590,11 +2507,11 @@ def generate_gal_from_goods(flagship_cut, betas, exp_time, gain, zp, pixel_scale
     # intrinsic ellipticity
     galaxy = galaxy.shear(q=q_gal, beta=betas)
 
-    theo_sn = exp_time * 10 ** (-0.4 * (magnitude - zp)) / \
-              np.sqrt((exp_time * 10 ** (-0.4 * (magnitude - zp)) +
-                       sky_level * gain * math.pi * (3 * re_gal * np.sqrt(q_gal) / pixel_scale) ** 2 +
-                       (read_noise ** 2 + (gain / 2) ** 2) * math.pi * (
-                               3 * re_gal * np.sqrt(q_gal) / pixel_scale) ** 2))
+    theo_sn = exp_time * 10 ** (-0.4 * (magnitude - zp)) / np.sqrt((exp_time * 10 ** (-0.4 * (magnitude - zp)) +
+                                                                    sky_level * gain * math.pi *
+                                                                    (3 * re_gal * np.sqrt(q_gal) / pixel_scale) ** 2 +
+                                                                    (read_noise ** 2 + (gain / 2) ** 2) * math.pi *
+                                                                    (3 * re_gal * np.sqrt(q_gal) / pixel_scale) ** 2))
 
     return galaxy, theo_sn, magnitude
 
@@ -2602,8 +2519,7 @@ def generate_gal_from_goods(flagship_cut, betas, exp_time, gain, zp, pixel_scale
 def generate_cops(path):
 
     # GOODS-N
-    goodsn = Table.read(path + "/input/GOODSN_F775W.fits",
-        hdu=1)
+    goodsn = Table.read(path + "/input/GOODSN_F775W.fits", hdu=1)
     goodsn = goodsn[(goodsn["SPHEROID_ASPECT_IMAGE"] > 0) & (goodsn["SPHEROID_ASPECT_IMAGE"] < 1)
                     & (goodsn["SNR_WIN"] > 20) & (goodsn["FLAGS"] <= 3)]
 
@@ -2617,7 +2533,8 @@ def generate_cops(path):
                   goodsn["CLASS_STAR"],
                   goodsn["z"]]).T
 
-    goodsn_pd = pd.DataFrame(X, columns=["MAG_AUTO", "SPHEROID_SERSICN", "SPHEROID_REFF_IMAGE", "B/A", "CLASS_STAR", "Z_BEST"])
+    goodsn_pd = pd.DataFrame(X, columns=["MAG_AUTO", "SPHEROID_SERSICN", "SPHEROID_REFF_IMAGE", "B/A",
+                                         "CLASS_STAR", "Z_BEST"])
 
     # GOODS-S
     goodss = Table.read(path + "/input/GOODSS_F775W.fits",
@@ -2645,8 +2562,8 @@ def generate_cops(path):
     udf = np.array(
         [udf["MAG_AUTO"], udf["SPHEROID_SERSICN"], udf["SPHEROID_REFF_IMAGE"], udf["SPHEROID_ASPECT_IMAGE"],
          udf["CLASS_STAR"], udf["z"]]).T
-    udf_pd = pd.DataFrame(udf, columns=["MAG_AUTO", "SPHEROID_SERSICN", "SPHEROID_REFF_IMAGE", "B/A", "CLASS_STAR", "Z_BEST"])
-
+    udf_pd = pd.DataFrame(udf, columns=["MAG_AUTO", "SPHEROID_SERSICN", "SPHEROID_REFF_IMAGE",
+                                        "B/A", "CLASS_STAR", "Z_BEST"])
 
     frames = [goodsn_pd, goodss_pd, udf_pd]
 
@@ -2745,7 +2662,6 @@ def create_psf_with_psfex(config, argv, output, psf):
     min_mag = float(simulation["min_mag"])
     max_mag = float(simulation["max_mag"])
 
-
     sky_level = exp_time / gain * 10 ** (-0.4 * (sky - zp))
 
     random_seed = 1534225
@@ -2781,7 +2697,8 @@ def create_psf_with_psfex(config, argv, output, psf):
 
     current = os.getcwd()
     os.chdir(output)
-    com = "source-extractor -c default.sex  psf_demo.fits -ASSOC_NAME star_positions.txt -CATALOG_NAME euclid.fits -CATALOG_TYPE FITS_LDAC -PARAMETERS_NAME mysims_psf_final.param"
+    com = ("source-extractor -c default.sex  psf_demo.fits -ASSOC_NAME star_positions.txt -CATALOG_NAME euclid.fits "
+           "-CATALOG_TYPE FITS_LDAC -PARAMETERS_NAME mysims_psf_final.param")
     os.system(com)
 
     com = "psfex euclid.fits -c default.psfex"
@@ -2791,3 +2708,239 @@ def create_psf_with_psfex(config, argv, output, psf):
     os.system("rm star_positions.txt")
     os.system("rm psfex.xml")
     os.chdir(current)
+
+
+@ray.remote
+def one_scene_lf_input(m, scene, argv, config, path, ra_min=None, dec_min=None, flagship_cut=None):
+    image = config['IMAGE']
+    simulation = config['SIMULATION']
+
+    complete_image_size = int(argv[1])
+
+    gain = float(image['gain'])
+    read_noise = float(image['read_noise'])
+    sky = float(image['sky'])
+
+    pixel_scale = float(image['pixel_scale'])
+    image = config["IMAGE"]
+
+    stamp_xsize = int(image['stamp_xsize'])
+
+    cut_size = int(image['cut_size'])
+
+    zp = float(image['zp'])
+    exp_time = float(image['exp_time'])
+
+    dec_min_org = float(image["dec_min"])
+
+    if argv[6] == "False":
+        angular_size = (complete_image_size - 2. * cut_size) * pixel_scale / 3600
+
+        ra_max = ra_min + angular_size / np.cos(dec_min_org * np.pi / 180)
+
+        dec_max = dec_min + angular_size
+        # ----------- Learn the copula from GOODS ----------------------------------------------------------------------
+        if not os.path.isfile(path + "/input/copula.json"):
+            cop, X = generate_cops(path)
+            cop.to_json(filename=path + "/input/copula.json")
+            pickle.dump(X, open(path + "input/reference_array.p", "wb"))
+        else:
+            cop = pv.Vinecop(filename=path + "/input/copula.json")
+            X = pickle.load(open(path + "input/reference_array.p", "rb"))
+
+        # --------------------------------- CREATE GALAXY LIST FOR EACH RUN ----------------------------------------
+
+        # Calculate sky level
+        sky_level = pixel_scale ** 2 * exp_time / gain * 10 ** (-0.4 * (sky - zp))
+
+        if simulation["positions"] == "GRID":
+            normal_pos, rot_pos = generate_2d_grid(complete_image_size // stamp_xsize, complete_image_size //
+                                                   stamp_xsize, stamp_xsize)
+            positions = normal_pos
+
+            if argv[5] == "True":
+                positions_2 = rot_pos
+            else:
+                positions_2 = normal_pos
+
+        elif simulation["positions"] == "FLAGSHIP":
+            positions = np.vstack([flagship_cut["ra_gal"], flagship_cut["dec_gal"]])
+
+            positions_2 = positions
+
+            # Convert positions from WCS to image
+            canvas, wcs_astropy = SimpleCanvas(ra_min, ra_max, dec_min, dec_max, pixel_scale,
+                                               image_size=complete_image_size)
+            full_image = canvas.copy()
+            wcs = full_image.wcs
+
+            x_gals, y_gals = wcs.toImage(positions[0], positions[1],
+                                         units=galsim.degrees)
+            positions = np.vstack([x_gals, y_gals]).T
+
+            if argv[5] == "True":
+                canvas, wcs_astropy = SimpleCanvas(ra_min, ra_max, dec_min, dec_max, pixel_scale, rotate=True,
+                                                   image_size=complete_image_size)
+                full_image = canvas.copy()
+                wcs = full_image.wcs
+
+            x_gals, y_gals = wcs.toImage(positions_2[0],
+                                         positions_2[1], units=galsim.degrees)
+            positions_2 = np.vstack([x_gals, y_gals]).T
+
+            del full_image, canvas, wcs
+
+        elif simulation["positions"] == "RANDOM":
+            positions = ((complete_image_size - stamp_xsize) *
+                         np.random.random_sample((len(flagship_cut), 2)) + cut_size)
+
+            if argv[5] == "True":
+                positions_2 = positions.copy()
+                tmp = positions_2[:, 0].copy()
+                positions_2[:, 0] = (complete_image_size - positions_2[:, 1])
+                positions_2[:, 1] = tmp
+                del tmp
+
+            else:
+                positions_2 = positions
+
+        gal_list = []
+        columns = []
+        magnitudes = []
+        redshifts = []
+        for i in range(positions.shape[0]):
+
+            ellips = flagship_cut["bulge_axis_ratio"][i]
+            betas = flagship_cut["disk_angle"][i] * galsim.degrees
+
+            if simulation["morphology"] == "GOODS":
+                res = generate_gal_from_goods(flagship_cut, betas, exp_time, gain, zp, pixel_scale,
+                                              sky_level, read_noise, i, X, cop)
+            elif simulation["morphology"] == "FLAGSHIP":
+                res = generate_gal_from_flagship(flagship_cut, betas, exp_time, gain, zp, pixel_scale,
+                                                 sky_level, read_noise, i)
+            else:
+                raise ValueError("Morphology can only be GOODS or FLAGSHIP")
+
+            gal_list.append(res[0])
+            magnitudes.append(res[2])
+            redshifts.append(flagship_cut["observed_redshift_gal"][i])
+            theo_sn = res[1]
+
+            for k in range(4):
+
+                if k % 2 != 0:
+                    columns.append([scene, m, k, positions_2[i, 0],
+                                    positions_2[i, 1],
+                                    -2.5 * np.log10(flagship_cut["euclid_vis"][i]) - 48.6, ellips,
+                                    (betas + math.pi / 2 * galsim.radians) / galsim.radians,
+                                    flagship_cut["bulge_nsersic"][i],
+                                    flagship_cut["bulge_r50"][i], flagship_cut["disk_nsersic"][i],
+                                    flagship_cut["disk_r50"][i], flagship_cut["bulge_fraction"][i],
+                                    flagship_cut["observed_redshift_gal"][i], theo_sn])
+                else:
+                    columns.append(
+                        [scene, m, k, positions[i, 0],
+                         positions[i, 1],
+                         -2.5 * np.log10(flagship_cut["euclid_vis"][i]) - 48.6, ellips,
+                         betas / galsim.radians,
+                         flagship_cut["bulge_nsersic"][i],
+                         flagship_cut["bulge_r50"][i], flagship_cut["disk_nsersic"][i], flagship_cut["disk_r50"][i],
+                         flagship_cut["bulge_fraction"][i], flagship_cut["observed_redshift_gal"][i], theo_sn])
+
+    return m, scene, gal_list, positions, positions_2, magnitudes, redshifts, columns
+
+
+@ray.remote
+def one_scene_pujol_input(total_scene_count, argv, config, path, ra_min=None, dec_min=None, flagship_cut=None):
+    image = config['IMAGE']
+    simulation = config['SIMULATION']
+
+    complete_image_size = int(argv[1])
+    exp_time = float(image['exp_time'])
+    gain = float(image['gain'])
+    read_noise = float(image['read_noise'])
+    sky = float(image['sky'])
+    zp = float(image['zp'])
+    pixel_scale = float(image['pixel_scale'])
+    stamp_xsize = int(image['stamp_xsize'])
+    cut_size = int(image['cut_size'])
+    dec_min_org = float(image["dec_min"])
+
+    # ----------- Learn the copula from GOODS ----------------------------------------------------------------------
+    if not os.path.isfile(path + "/input/copula.json"):
+        cop, X = generate_cops(path)
+        cop.to_json(filename=path + "/input/copula.json")
+        pickle.dump(X, open(path + "input/reference_array.p", "wb"))
+    else:
+        cop = pv.Vinecop(filename=path + "/input/copula.json")
+        X = pickle.load(open(path + "input/reference_array.p", "rb"))
+
+    # --------------------------------- CREATE GALAXY LIST FOR EACH RUN ----------------------------------------
+
+    # Calculate sky level
+    sky_level = pixel_scale ** 2 * exp_time / gain * 10 ** (-0.4 * (sky - zp))
+
+    # ------------------------------------ CREATE THE GALAXY LIST RANDOMLY PER SCENE -------------------------------
+
+    angular_size = (complete_image_size - 2. * cut_size) * pixel_scale / 3600
+
+    ra_max = ra_min + angular_size / np.cos(dec_min_org * np.pi / 180)
+
+    dec_max = dec_min + angular_size
+
+    if simulation["positions"] == "GRID":
+        normal_pos, rot_pos = generate_2d_grid(complete_image_size // stamp_xsize, complete_image_size //
+                                               stamp_xsize, stamp_xsize)
+        positions = normal_pos
+
+    elif simulation["positions"] == "FLAGSHIP":
+        positions = np.vstack([flagship_cut["ra_gal"], flagship_cut["dec_gal"]])
+
+        # Convert positions from WCS to image
+        canvas, wcs_astropy = SimpleCanvas(ra_min, ra_max, dec_min, dec_max, pixel_scale,
+                                           image_size=complete_image_size)
+        full_image = canvas.copy()
+        wcs = full_image.wcs
+
+        x_gals, y_gals = wcs.toImage(positions[0], positions[1],
+                                     units=galsim.degrees)
+        positions = np.vstack([x_gals, y_gals]).T
+
+    elif simulation["positions"] == "RANDOM":
+        positions = ((complete_image_size - stamp_xsize) * np.random.random_sample((len(flagship_cut), 2)) + cut_size)
+    else:
+        raise ValueError("Positions must be GRID, FLAGSHIP, or RANDOM")
+
+    magnitudes = []
+    redshifts = []
+    gal_list = []
+    columns = []
+    for i in range(len(positions)):
+
+        ellips = flagship_cut["bulge_axis_ratio"][i]
+        betas = flagship_cut["disk_angle"][i] * galsim.degrees
+
+        if simulation["morphology"] == "GOODS":
+            res = generate_gal_from_goods(flagship_cut, betas, exp_time, gain, zp, pixel_scale,
+                                          sky_level, read_noise, i, X, cop)
+        elif simulation["morphology"] == "FLAGSHIP":
+            res = generate_gal_from_flagship(flagship_cut, betas, exp_time, gain, zp, pixel_scale,
+                                             sky_level, read_noise, i)
+        else:
+            raise ValueError("Morphology can only be GOODS or FLAGSHIP")
+
+        gal_list.append(res[0])
+        magnitudes.append(res[2])
+        redshifts.append(flagship_cut["observed_redshift_gal"][i])
+        theo_sn = res[1]
+
+        columns.append(
+            [total_scene_count, positions[i][0], positions[i][1],
+             -2.5 * np.log10(flagship_cut["euclid_vis"][i]) - 48.6, ellips,
+             betas / galsim.radians,
+             flagship_cut["bulge_nsersic"][i],
+             flagship_cut["bulge_r50"][i], flagship_cut["disk_nsersic"][i], flagship_cut["disk_r50"][i],
+             flagship_cut["bulge_fraction"][i], flagship_cut["observed_redshift_gal"][i], theo_sn])
+
+    return total_scene_count, gal_list, positions, magnitudes, redshifts, columns
