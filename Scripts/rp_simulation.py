@@ -192,11 +192,11 @@ argv_ref = ray.put(sys.argv)
 
 # ----------- Create the PSF model if not already existent -------------------------------------------------------------
 if not os.path.isfile(path + "/output/source_extractor/euclid.psf"):
-    fct.create_psf_with_psfex(config, sys.argv, path + "/output/source_extractor", psf)
+    fct.create_psf_with_psfex(config, sys.argv, path + "/output/source_extractor", psf, grid=False)
 elif galsim.fits.read(path + "/output/source_extractor/psf_demo.fits").nrow < complete_image_size:
     os.system(f"rm {path}/output/source_extractor/euclid.psf")
     os.system(f"rm {path}/output/source_extractor/psf_demo.fits")
-    fct.create_psf_with_psfex(config, sys.argv, path + "/output/source_extractor", psf)
+    fct.create_psf_with_psfex(config, sys.argv, path + "/output/source_extractor", psf, grid=False)
 
 if sys.argv[6] == "False":
     # ----------- Load the flagship catalog ----------------------------------------------------------------------------

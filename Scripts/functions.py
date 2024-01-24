@@ -2651,7 +2651,7 @@ def generate_cops(path):
     return cop, X
 
 
-def create_psf_with_psfex(config, argv, output, psf):
+def create_psf_with_psfex(config, argv, output, psf, grid=True):
     """
     A little bit more sophisticated, but still pretty basic:
       - Use a sheared, exponential profile for the galaxy.
@@ -2667,7 +2667,7 @@ def create_psf_with_psfex(config, argv, output, psf):
     pixel_scale = float(image['pixel_scale'])
     image = config["IMAGE"]
 
-    stamp_size = 200
+    stamp_size = int(image["cut_size"])
 
     zp = float(image['zp'])
     exp_time = float(image['exp_time'])
@@ -2685,24 +2685,51 @@ def create_psf_with_psfex(config, argv, output, psf):
     times = math.ceil(complete_image_size / stamp_size)
     magnitudes = np.linspace(min_mag, max_mag, 10)
     gal_image = galsim.ImageF(times * stamp_size, stamp_size * times, scale=pixel_scale)
-    for i in range(times):
-        for j in range(times):
-            b = galsim.BoundsI(i * stamp_size + 1, (i + 1) * stamp_size - 1,
-                               j * stamp_size + 1, (j + 1) * stamp_size - 1)
 
-            sub_gal_image = gal_image[b]
+    if grid:
+        for i in range(times):
+            for j in range(times):
+                b = galsim.BoundsI(i * stamp_size + 1, (i + 1) * stamp_size - 1,
+                                   j * stamp_size + 1, (j + 1) * stamp_size - 1)
 
-            with open(output + "/star_positions.txt", "a") as file:
-                file.write("%.4f %.4f\n" % (sub_gal_image.bounds.center.x, sub_gal_image.bounds.center.y))
+                sub_gal_image = gal_image[b]
 
-            magnitude = np.random.choice(magnitudes)
-            gal_flux = exp_time / gain * 10 ** (-0.4 * (magnitude - zp))  # counts
+                with open(output + "/star_positions.txt", "a") as file:
+                    file.write("%.4f %.4f\n" % (sub_gal_image.bounds.center.x, sub_gal_image.bounds.center.y))
 
-            psf.withFlux(gal_flux).drawImage(sub_gal_image)
+                magnitude = np.random.choice(magnitudes)
+                gal_flux = exp_time / gain * 10 ** (-0.4 * (magnitude - zp))  # counts
 
-            sky_level_pixel = sky_level * pixel_scale ** 2
-            noise = galsim.CCDNoise(rng, gain=gain, read_noise=4.2, sky_level=sky_level_pixel)
-            sub_gal_image.addNoise(noise)
+                psf.withFlux(gal_flux).drawImage(sub_gal_image)
+    else:
+        # Random positions
+        n_stars = times ** 2
+        positions = complete_image_size * np.random.random_sample((n_stars, 2))
+
+        with open(output + "/star_positions.txt", "a") as file:
+            for i in range(n_stars):
+                file.write("%.4f %.4f\n" % (positions[i][0], positions[i][1]))
+
+        for i in range(n_stars):
+            try:
+                magnitude = np.random.choice(magnitudes)
+                gal_flux = exp_time / gain * 10 ** (-0.4 * (magnitude - zp))  # counts
+
+                psf_stamp = psf.withFlux(gal_flux).drawImage(
+                    center=positions[i], nx=stamp_size, ny=stamp_size, scale=pixel_scale)
+            except GalSimFFTSizeError:
+                continue
+
+            psf_stamp = galsim.Image(np.abs(psf_stamp.array.copy()),
+                                     bounds=psf_stamp.bounds)  # Avoid slightly negative values after FFT
+
+            bounds = psf_stamp.bounds & gal_image.bounds
+
+            gal_image[bounds] += psf_stamp[bounds]
+
+    sky_level_pixel = sky_level * pixel_scale ** 2
+    noise = galsim.CCDNoise(rng, gain=gain, read_noise=4.2, sky_level=sky_level_pixel)
+    gal_image.addNoise(noise)
 
     file_name = os.path.join(output, 'psf_demo.fits')
     gal_image.write(file_name)
