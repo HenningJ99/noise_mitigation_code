@@ -1932,7 +1932,12 @@ def one_scene_lf(m, scene, argv, config, path, psf, index, index_fits, seed, gal
 
     sex(IMAGE_DIRECTORY, SOURCE_EXTRACTOR_DIR + f"/{index_fits}/" + f"{scene}_{m}_{index}.cat")
 
-    g1 = shear_min + m * (shear_max - shear_min) / (shear_bins - 1)
+    if simulation["g1"] == "ZERO":
+        g1 = 0
+    elif simulation["g1"] == "UNIFORM":
+        g1 = shear_min + m * (shear_max - shear_min) / (shear_bins - 1)
+    else:
+        raise ValueError("g1 has to be either ZERO or UNIFORM")
 
     if simulation["shear_meas"] == "KSB" or simulation["shear_meas"] == "KSB_HENK":
 
