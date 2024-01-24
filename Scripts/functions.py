@@ -1796,7 +1796,12 @@ def one_scene_lf(m, scene, argv, config, path, psf, index, index_fits, seed, gal
         stamp = []
 
         for i in range(len(positions)):
-            g1 = shear_min + m * (shear_max - shear_min) / (shear_bins - 1)
+            if simulation["g1"] == "ZERO":
+                g1 = 0
+            elif simulation["g1"] == "UNIFORM":
+                g1 = shear_min + m * (shear_max - shear_min) / (shear_bins - 1)
+            else:
+                raise ValueError("g1 needs to be either ZERO or UNIFORM")
 
             if simulation["g2"] == "ZERO":
                 draw = 0
@@ -1809,6 +1814,8 @@ def one_scene_lf(m, scene, argv, config, path, psf, index, index_fits, seed, gal
                 draw = -1
                 while (draw > 0.1) or (draw < -0.1):
                     draw = np.random.random() * 0.2 - 0.1
+            else:
+                raise ValueError("g2 needs to be either ZERO, GAUSS or UNIFORM")
 
             g2 = draw
 
